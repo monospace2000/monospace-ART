@@ -1,0 +1,13 @@
+{
+  "name": "digitalsexlife",
+  "version": "1.0.0",
+  "type": "module",
+  "devDependencies": {
+    "rollup": "^3.0.0",
+    "terser": "^5.20.0"
+  },
+  "scripts": {
+    "build": "rollup -c && terser dist/dsl.bundle.js -o dist/dsl.min.js --source-map \"url='dsl.min.js.map'\"",
+    "dev": "rollup -c -w"
+  }
+}

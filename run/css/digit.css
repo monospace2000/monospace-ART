@@ -1,0 +1,12 @@
+.digit {
+  position: absolute;
+  width: var(--digit-size);
+  height: var(--digit-size);
+  font-size: calc(var(--digit-size) * 0.89);
+  font-weight: bold;
+  text-align: center;
+  line-height: var(--digit-size);
+  user-select: none;
+  will-change: transform, opacity;
+  transition: transform 0.15s ease-out, opacity 0.3s ease-out;
+}

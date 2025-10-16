@@ -1,0 +1,45 @@
+body.mobile {
+    overflow: hidden;
+}
+
+#mobileOverlay {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    text-align: center;
+    padding: 0.5em;
+    color: white;
+    font-family: monospace;
+    font-size: 14px;
+    z-index: 10000;
+    pointer-events: none;
+}
+
+#mobileLogo {
+    font-weight: bold;
+    letter-spacing: 1px;
+    pointer-events: auto;
+}
+
+#mobileLogo .red { color: #ff5050; }
+
+#mobileAboutBtn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid #666;
+    color: #eee;
+    font-size: 12px;
+    margin-top: 0.5em;
+    pointer-events: auto;
+}
+
+#mobileAboutBox {
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    background: rgba(0,0,0,0.85);
+    color: #eee;
+    padding: 1em;
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: left;
+    pointer-events: auto;
+}

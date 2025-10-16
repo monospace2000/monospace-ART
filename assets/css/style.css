@@ -1,0 +1,154 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden; /* prevent scrollbars */
+    color: white;
+    font-family: Arial, Helvetica, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+
+
+#intro {
+  position: fixed;
+  inset: 0;
+background: radial-gradient(ellipse at center, rgba(0,48,0,0), rgba(0,0,0,0)), black;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+#intro button {
+  background: none;
+  color: #fff;
+  border: 1px solid #fff;
+  border-radius: 8px;
+  font-size: 1.2em;
+  padding: 10px 20px;
+  margin-top: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+#intro button:hover {
+  background: #fff;
+  color: #000;
+}
+
+
+
+
+
+
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden; /* prevent scrollbars */
+    color: white;
+    font-family: Arial, Helvetica, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+
+
+#intro {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(0,48,0,0), rgba(0,0,0,0)), black;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+
+
+
+
+#logo {
+    font-weight: bold;
+    text-align: center;
+    font-size: 5vw; /* scales relative to viewport width */
+    margin: 0 auto;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+#logored {
+    color: white;
+    text-shadow: 0 0 20px red;
+    transition: text-shadow 0.1s linear;
+}
+
+
+#intro button {
+  background: none;
+font-size: 24px;
+  color: #fff;
+  border: 1px solid #fff;
+  border-radius: 8px;
+  font-size: 1.2em;
+  padding: 10px 20px;
+  margin-top: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+#intro button:hover {
+  background: #fff;
+  color: #000;
+}
+
+
+
+#logo-and-button{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+
+
+/* --- Top-right tagline image --- */
+#tagline {
+    background-image: url(../images/tagline_white.png);
+    width: 343px;
+    height: 29px;
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    transform: scale(0.75);
+    z-index: 10;
+    transition: all 0.3s ease;
+}
+
+/* --- Mobile adjustments --- */
+@media (max-width: 700px) {
+    #logo {
+        font-size: 12vw; /* fills more of the mobile screen */
+        margin: 0 auto;
+    }
+
+    #tagline {
+        position: fixed;
+        margin: 10px auto;
+        transform: scale(0.75);
+    }
+}
+
+
+
+
+
+
+
