@@ -8,84 +8,70 @@ import { CONFIG } from '../config/config.js';
 import { log, moduleTag } from '../utils/utilities.js';
 
 // ============================================================
-// ðŸ”§ CONFIGURABLE APPEARANCE SETTINGS
+// VISUALIZATION TOGGLES
+// ============================================================
+
+export const VISUALS = {
+    //shadows: { enabled: false, label: 'Shadows' },
+    outlines: { enabled: false, label: 'Outlines' },
+    glow: { enabled: false, label: 'Glow' },
+    searchRadius: { enabled: false, label: 'Search Radius' },
+    bonds: { enabled: false, label: 'Bonds' },
+    childBonds: { enabled: false, label: 'Child Bonds' },
+    attractionLines: { enabled: false, label: 'Attraction Lines' },
+    ageIndicator: { enabled: false, label: 'Age Indicator' },
+};
+
+// ============================================================
+// APPEARANCE SETTINGS
 // ============================================================
 
 const GLOBE_SETTINGS = {
-    enabled: true,
     lightAngle: Math.PI / 4,
     lightDistance: 0.3,
     highlight: 0.4,
     shadow: 0.4,
 };
 const OUTLINE_SETTINGS = {
-    enabled: true,
     maxAlpha: 0.8,
     baseWidth: 0.5,
     color: 'rgba(0,0,0,1)',
 };
 const SHADOW_SETTINGS = {
-    enabled: false,
     offsetX: 0,
     offsetY: 0,
     blur: 20,
     color: 'rgba(0,0,0,0.3)',
 };
-const GLOW_SETTINGS = { enabled: true, strength: 20, opacity: 0.9 };
-const BLUR_SETTINGS = { enabled: true, maxBlur: 4 };
+const GLOW_SETTINGS = { strength: 20, opacity: 0.9 };
+const BLUR_SETTINGS = { maxBlur: 4 };
 
 // ============================================================
-// ðŸ”§ SIMULATION OVERLAY SETTINGS
+// SIMULATION OVERLAY SETTINGS
 // ============================================================
 
 const SEARCH_RADIUS_SETTINGS = {
-    enabled: true,
     color: 'rgba(0,0,255,0.15)',
     lineWidth: 1,
     fillOpacity: 0.05,
 };
-const BOND_LINE_SETTINGS = {
-    enabled: true,
-    color: 'rgba(0,200,0,0.5)',
-    lineWidth: 2,
-};
-const CHILD_BOND_LINE_SETTINGS = {
-    enabled: true,
-    baseColor: [255, 165, 0],
-    lineWidth: 1.5,
-};
+const BOND_LINE_SETTINGS = { color: 'rgba(0,200,0,0.5)', lineWidth: 2 };
+const CHILD_BOND_LINE_SETTINGS = { baseColor: [255, 165, 0], lineWidth: 1.5 };
 const ATTRACTION_LINE_SETTINGS = {
-    enabled: true,
     maleToFemale: { color: 'rgba(255,255,255,0.7)', width: 1 },
 };
 
 // ============================================================
-// 🔧 AGE INDICATOR SETTINGS
+// AGE INDICATOR SETTINGS
 // ============================================================
 
 const AGE_INDICATOR_SETTINGS = {
-    enabled: true, // toggle visibility
-    width: 2, // arc line width
+    width: 2,
     colors: {
-        young: 'rgba(255,255,255,1)', // newborn
-        mature: 'rgba(0,255,0,1)', // reproductive age
-        old: 'rgba(255,0,0,1)', // old age
+        young: 'rgba(255,255,255,1)',
+        mature: 'rgba(0,255,0,1)',
+        old: 'rgba(255,0,0,1)',
     },
-};
-
-// ============================================================
-// ðŸ”§ VISUALIZATION TOGGLES
-// ============================================================
-
-export const VISUALS = {
-    shadows: true,
-    outlines: false,
-    glow: true,
-    searchRadius: true,
-    bonds: true,
-    childBonds: true,
-    attractionLines: true,
-    ageIndicator: true, //  new
 };
 
 // ============================================================
@@ -130,9 +116,7 @@ export function updateDigitAppearance(d) {
     const outlineWidth = OUTLINE_SETTINGS.baseWidth + scale * 0.5;
 
     const speed = Math.hypot(d.dx || 0, d.dy || 0);
-    const blur = BLUR_SETTINGS.enabled
-        ? Math.min(speed / CONFIG.speed, 1) * BLUR_SETTINGS.maxBlur
-        : 0;
+    const blur = Math.min(speed / CONFIG.speed, 1) * BLUR_SETTINGS.maxBlur;
 
     const lx =
         d.x -
@@ -183,21 +167,16 @@ export function renderDigit(d, activeSet) {
     ctx.save();
     ctx.globalAlpha = props.opacity;
 
-    // --- Reset shadow ---
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-
-    // --- Apply shadow if enabled ---
-    if (VISUALS.shadows && SHADOW_SETTINGS.enabled) {
+    // --- Shadow ---
+    /*     if (VISUALS.shadows.enabled) {
         ctx.shadowColor = SHADOW_SETTINGS.color;
         ctx.shadowOffsetX = SHADOW_SETTINGS.offsetX;
         ctx.shadowOffsetY = SHADOW_SETTINGS.offsetY;
         ctx.shadowBlur = SHADOW_SETTINGS.blur;
-    }
+    } */
 
-    // --- Apply glow if enabled ---
-    if (VISUALS.glow && GLOW_SETTINGS.enabled) {
+    // --- Glow ---
+    if (VISUALS.glow.enabled) {
         ctx.shadowColor = `rgba(${props.color.match(/\d+/g).join(',')},${
             GLOW_SETTINGS.opacity
         })`;
@@ -206,96 +185,68 @@ export function renderDigit(d, activeSet) {
 
     // --- Main circle ---
     ctx.beginPath();
-    if (GLOBE_SETTINGS.enabled) {
-        const g = ctx.createRadialGradient(
-            props.lx,
-            props.ly,
-            size * 0.1,
-            d.x,
-            d.y,
-            size / 2
-        );
-        g.addColorStop(0, props.highlight);
-        g.addColorStop(0.3, props.color);
-        g.addColorStop(1, props.shadow);
-        ctx.fillStyle = g;
-    } else {
-        ctx.fillStyle = props.color;
-    }
+    const g = ctx.createRadialGradient(
+        props.lx,
+        props.ly,
+        size * 0.1,
+        d.x,
+        d.y,
+        size / 2
+    );
+    g.addColorStop(0, props.highlight);
+    g.addColorStop(0.3, props.color);
+    g.addColorStop(1, props.shadow);
+    ctx.fillStyle = g;
     ctx.arc(d.x, d.y, size / 2, 0, Math.PI * 2);
     ctx.fill();
     ctx.closePath();
 
-    // --- Reset shadow before outline ---
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
     // --- Outline ---
-    if (VISUALS.outlines && OUTLINE_SETTINGS.enabled) {
+    if (VISUALS.outlines.enabled) {
         ctx.lineWidth = props.outlineWidth;
         ctx.strokeStyle = props.outlineColor;
         ctx.stroke();
     }
-    if (VISUALS.ageIndicator && AGE_INDICATOR_SETTINGS.enabled) {
-        const r = size / 2 + props.outlineWidth * 1.2;
-        const ageRatio = Math.min(d.age / CONFIG.maxAge, 1); // 0 → 1
-        const remaining = 1 - ageRatio; // reverse countdown
-        const fade = remaining < 0.2 ? remaining / 0.2 : 1; // fade out near end of life
 
-        // --- parse rgba string ---
+    // --- Age Indicator ---
+    if (VISUALS.ageIndicator.enabled) {
+        const r = size / 2 + props.outlineWidth * 1.2;
+        const ageRatio = Math.min(d.age / CONFIG.maxAge, 1);
+        const remaining = 1 - ageRatio;
+
         const parseRGBA = (str) => {
             const m = str.match(
                 /rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]*)\)/i
             );
-            if (m) {
-                const r = parseInt(m[1], 10);
-                const g = parseInt(m[2], 10);
-                const b = parseInt(m[3], 10);
-                const a = m[4] === '' ? 1 : parseFloat(m[4]);
-                return [r, g, b, a];
-            }
-            return [255, 255, 255, 1]; // fallback
+            return m
+                ? [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])]
+                : [255, 255, 255];
         };
 
-        const [rY, gY, bY, aY] = parseRGBA(AGE_INDICATOR_SETTINGS.colors.young);
-        const [rM, gM, bM, aM] = parseRGBA(
-            AGE_INDICATOR_SETTINGS.colors.mature
-        );
-        const [rO, gO, bO, aO] = parseRGBA(AGE_INDICATOR_SETTINGS.colors.old);
+        const [rY, gY, bY] = parseRGBA(AGE_INDICATOR_SETTINGS.colors.young);
+        const [rM, gM, bM] = parseRGBA(AGE_INDICATOR_SETTINGS.colors.mature);
+        const [rO, gO, bO] = parseRGBA(AGE_INDICATOR_SETTINGS.colors.old);
 
-        // --- smooth color interpolation ---
-        let t; // interpolation factor 0 → 1
-        let rC, gC, bC, aC;
+        let rC, gC, bC;
+        if (d.age < CONFIG.matureAge) [rC, gC, bC] = [rY, gY, bY];
+        else if (d.age < CONFIG.oldAge) [rC, gC, bC] = [rM, gM, bM];
+        else [rC, gC, bC] = [rO, gO, bO];
 
-        if (ageRatio < CONFIG.matureAge / CONFIG.maxAge) {
-            t = ageRatio / (CONFIG.matureAge / CONFIG.maxAge);
-            rC = rY + (rM - rY) * t;
-            gC = gY + (gM - gY) * t;
-            bC = bY + (bM - bY) * t;
-            aC = aY + (aM - aY) * t;
-        } else {
-            t =
-                (ageRatio - CONFIG.matureAge / CONFIG.maxAge) /
-                ((CONFIG.oldAge - CONFIG.matureAge) / CONFIG.maxAge);
-            rC = rM + (rO - rM) * t;
-            gC = gM + (gO - gM) * t;
-            bC = bM + (bO - bM) * t;
-            aC = aM + (aO - aM) * t;
-        }
-
-        // --- draw reversed arc ---
         ctx.save();
         ctx.beginPath();
         ctx.lineWidth = AGE_INDICATOR_SETTINGS.width;
-        ctx.strokeStyle = `rgba(${rC | 0},${gC | 0},${bC | 0},${aC * fade})`;
+        ctx.strokeStyle = `rgb(${rC},${gC},${bC})`;
         ctx.arc(
             d.x,
             d.y,
             r,
-            -Math.PI / 2, // start at top
-            -Math.PI / 2 - Math.PI * 2 * remaining, // negative = reversed clockwise
-            true // anticlockwise flag for clarity
+            -Math.PI / 2,
+            -Math.PI / 2 - Math.PI * 2 * remaining,
+            true
         );
         ctx.stroke();
         ctx.closePath();
@@ -312,8 +263,7 @@ export function renderDigit(d, activeSet) {
 
     // --- Overlays ---
     if (
-        VISUALS.searchRadius &&
-        SEARCH_RADIUS_SETTINGS.enabled &&
+        VISUALS.searchRadius.enabled &&
         d.sex === 'M' &&
         d.age >= CONFIG.matureAge
     ) {
@@ -330,8 +280,7 @@ export function renderDigit(d, activeSet) {
     }
 
     if (
-        VISUALS.attractionLines &&
-        ATTRACTION_LINE_SETTINGS.enabled &&
+        VISUALS.attractionLines.enabled &&
         d.sex === 'M' &&
         d.age >= CONFIG.matureAge &&
         d.age < CONFIG.oldAge &&
@@ -346,7 +295,6 @@ export function renderDigit(d, activeSet) {
             target.age < CONFIG.oldAge &&
             target.gestationTimer === 0 &&
             !target.bondedTo;
-
         if (validTarget) {
             ctx.save();
             ctx.strokeStyle = ATTRACTION_LINE_SETTINGS.maleToFemale.color;
@@ -361,29 +309,19 @@ export function renderDigit(d, activeSet) {
 }
 
 // ============================================================
-// Render bonding lines safely
+// BONDS
 // ============================================================
 
 export function renderBonds(digits) {
     if (!ctx) return;
     ctx.save();
     ctx.lineCap = 'round';
-
     const activeDigits = digits.filter((d) => d);
     const activeSet = new Set(activeDigits);
 
     for (const d of activeDigits) {
-        // Adult bonds
-        // Adult bonds
-        if (
-            VISUALS.bonds &&
-            BOND_LINE_SETTINGS.enabled &&
-            d.bondedTo &&
-            activeSet.has(d.bondedTo)
-        ) {
+        if (VISUALS.bonds.enabled && d.bondedTo && activeSet.has(d.bondedTo)) {
             const other = d.bondedTo;
-
-            // Compute fade for each digit
             const fade1 =
                 d.age < CONFIG.oldAge
                     ? 1
@@ -395,8 +333,7 @@ export function renderBonds(digits) {
                     : 1 -
                       (other.age - CONFIG.oldAge) /
                           (CONFIG.maxAge - CONFIG.oldAge);
-
-            const alpha = Math.min(fade1, fade2); // line fades if either partner is old
+            const alpha = Math.min(fade1, fade2);
 
             ctx.strokeStyle = BOND_LINE_SETTINGS.color.replace(
                 /[\d.]+\)$/g,
@@ -409,10 +346,8 @@ export function renderBonds(digits) {
             ctx.stroke();
         }
 
-        // Child bonds
         if (
-            VISUALS.childBonds &&
-            CHILD_BOND_LINE_SETTINGS.enabled &&
+            VISUALS.childBonds.enabled &&
             d.mother &&
             activeSet.has(d.mother) &&
             d.age < CONFIG.adolescenceAge
@@ -433,13 +368,12 @@ export function renderBonds(digits) {
 }
 
 // ============================================================
-// Render all digits + overlays
+// RENDER ALL
 // ============================================================
 
 export function renderAll(digits) {
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     const activeSet = new Set(digits.filter((d) => d));
 
     for (const d of digits) if (d) renderDigit(d, activeSet);

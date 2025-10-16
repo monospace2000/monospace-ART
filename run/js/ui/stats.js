@@ -42,7 +42,7 @@ export const STATS_CONFIG = [
                     (state.epochCumulativeCounts.M[digit] || 0) +
                     (state.epochCumulativeCounts.F[digit] || 0);
                 for (let i = 0; i < count; i++) {
-                    //epochTotal = crossSum(epochTotal, parseInt(digit));
+                    epochTotal = crossSum(epochTotal, parseInt(digit));
                 }
             }
             return epochTotal;
