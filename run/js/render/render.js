@@ -4,11 +4,11 @@
 // + Optional Simulation Overlays (search radius, bonds, attraction)
 // ============================================================
 
-import { CONFIG } from "../config/config.js";
-import { log, moduleTag } from "../utils/utilities.js";
+import { CONFIG } from '../config/config.js';
+import { log, moduleTag } from '../utils/utilities.js';
 
 // ============================================================
-// 🔧 CONFIGURABLE APPEARANCE SETTINGS
+// ðŸ”§ CONFIGURABLE APPEARANCE SETTINGS
 // ============================================================
 
 const GLOBE_SETTINGS = {
@@ -18,32 +18,35 @@ const GLOBE_SETTINGS = {
     highlight: 0.4,
     shadow: 0.4,
 };
-const OUTLINE_SETTINGS = { enabled: true, maxAlpha: 0.8, baseWidth: 0.5, color:  "rgba(0,0,0,1)" };
+const OUTLINE_SETTINGS = {
+    enabled: true,
+    maxAlpha: 0.8,
+    baseWidth: 0.5,
+    color: 'rgba(0,0,0,1)',
+};
 const SHADOW_SETTINGS = {
     enabled: false,
     offsetX: 0,
     offsetY: 0,
     blur: 20,
-    color: "rgba(0,0,0,0.3)",
+    color: 'rgba(0,0,0,0.3)',
 };
 const GLOW_SETTINGS = { enabled: true, strength: 20, opacity: 0.9 };
 const BLUR_SETTINGS = { enabled: true, maxBlur: 4 };
 
-
-
 // ============================================================
-// 🔧 SIMULATION OVERLAY SETTINGS
+// ðŸ”§ SIMULATION OVERLAY SETTINGS
 // ============================================================
 
 const SEARCH_RADIUS_SETTINGS = {
     enabled: true,
-    color: "rgba(0,0,255,0.15)",
+    color: 'rgba(0,0,255,0.15)',
     lineWidth: 1,
     fillOpacity: 0.05,
 };
 const BOND_LINE_SETTINGS = {
     enabled: true,
-    color: "rgba(0,200,0,0.5)",
+    color: 'rgba(0,200,0,0.5)',
     lineWidth: 2,
 };
 const CHILD_BOND_LINE_SETTINGS = {
@@ -53,21 +56,36 @@ const CHILD_BOND_LINE_SETTINGS = {
 };
 const ATTRACTION_LINE_SETTINGS = {
     enabled: true,
-    maleToFemale: { color: "rgba(255,255,255,0.7)", width: 1 },
+    maleToFemale: { color: 'rgba(255,255,255,0.7)', width: 1 },
 };
 
 // ============================================================
-// 🔧 VISUALIZATION TOGGLES
+// 🔧 AGE INDICATOR SETTINGS
+// ============================================================
+
+const AGE_INDICATOR_SETTINGS = {
+    enabled: true, // toggle visibility
+    width: 2, // arc line width
+    colors: {
+        young: 'rgba(255,255,255,1)', // newborn
+        mature: 'rgba(0,255,0,1)', // reproductive age
+        old: 'rgba(255,0,0,1)', // old age
+    },
+};
+
+// ============================================================
+// ðŸ”§ VISUALIZATION TOGGLES
 // ============================================================
 
 export const VISUALS = {
     shadows: true,
-    outlines: true,
+    outlines: false,
     glow: true,
     searchRadius: true,
     bonds: true,
     childBonds: true,
     attractionLines: true,
+    ageIndicator: true, //  new
 };
 
 // ============================================================
@@ -89,7 +107,7 @@ export function updateDigitAppearance(d) {
 
     const t = Math.min(d.age / CONFIG.matureAge, 1);
     let r, g, b;
-    if (d.sex === "M") {
+    if (d.sex === 'M') {
         r = (255 + t * (100 - 255)) | 0;
         g = (255 + t * (160 - 255)) | 0;
         b = 255;
@@ -105,7 +123,10 @@ export function updateDigitAppearance(d) {
     const highlight = `rgb(${lighten(r)},${lighten(g)},${lighten(b)})`;
     const shadow = `rgb(${darken(r)},${darken(g)},${darken(b)})`;
 
-    const outlineColor = `rgba(0,0,0,${Math.min(opacity, OUTLINE_SETTINGS.maxAlpha)})`;
+    const outlineColor = `rgba(0,0,0,${Math.min(
+        opacity,
+        OUTLINE_SETTINGS.maxAlpha
+    )})`;
     const outlineWidth = OUTLINE_SETTINGS.baseWidth + scale * 0.5;
 
     const speed = Math.hypot(d.dx || 0, d.dy || 0);
@@ -145,9 +166,9 @@ export function updateDigitAppearance(d) {
 // ============================================================
 
 export function initCanvasRenderer() {
-    canvas = document.getElementById("dslCanvas");
-    if (!canvas) throw new Error("Canvas element not found: #dslCanvas");
-    ctx = canvas.getContext("2d");
+    canvas = document.getElementById('dslCanvas');
+    if (!canvas) throw new Error('Canvas element not found: #dslCanvas');
+    ctx = canvas.getContext('2d');
     return { canvas, ctx };
 }
 
@@ -177,7 +198,9 @@ export function renderDigit(d, activeSet) {
 
     // --- Apply glow if enabled ---
     if (VISUALS.glow && GLOW_SETTINGS.enabled) {
-        ctx.shadowColor = `rgba(${props.color.match(/\d+/g).join(",")},${GLOW_SETTINGS.opacity})`;
+        ctx.shadowColor = `rgba(${props.color.match(/\d+/g).join(',')},${
+            GLOW_SETTINGS.opacity
+        })`;
         ctx.shadowBlur = GLOW_SETTINGS.strength;
     }
 
@@ -214,17 +237,86 @@ export function renderDigit(d, activeSet) {
         ctx.strokeStyle = props.outlineColor;
         ctx.stroke();
     }
+    if (VISUALS.ageIndicator && AGE_INDICATOR_SETTINGS.enabled) {
+        const r = size / 2 + props.outlineWidth * 1.2;
+        const ageRatio = Math.min(d.age / CONFIG.maxAge, 1); // 0 → 1
+        const remaining = 1 - ageRatio; // reverse countdown
+        const fade = remaining < 0.2 ? remaining / 0.2 : 1; // fade out near end of life
+
+        // --- parse rgba string ---
+        const parseRGBA = (str) => {
+            const m = str.match(
+                /rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]*)\)/i
+            );
+            if (m) {
+                const r = parseInt(m[1], 10);
+                const g = parseInt(m[2], 10);
+                const b = parseInt(m[3], 10);
+                const a = m[4] === '' ? 1 : parseFloat(m[4]);
+                return [r, g, b, a];
+            }
+            return [255, 255, 255, 1]; // fallback
+        };
+
+        const [rY, gY, bY, aY] = parseRGBA(AGE_INDICATOR_SETTINGS.colors.young);
+        const [rM, gM, bM, aM] = parseRGBA(
+            AGE_INDICATOR_SETTINGS.colors.mature
+        );
+        const [rO, gO, bO, aO] = parseRGBA(AGE_INDICATOR_SETTINGS.colors.old);
+
+        // --- smooth color interpolation ---
+        let t; // interpolation factor 0 → 1
+        let rC, gC, bC, aC;
+
+        if (ageRatio < CONFIG.matureAge / CONFIG.maxAge) {
+            t = ageRatio / (CONFIG.matureAge / CONFIG.maxAge);
+            rC = rY + (rM - rY) * t;
+            gC = gY + (gM - gY) * t;
+            bC = bY + (bM - bY) * t;
+            aC = aY + (aM - aY) * t;
+        } else {
+            t =
+                (ageRatio - CONFIG.matureAge / CONFIG.maxAge) /
+                ((CONFIG.oldAge - CONFIG.matureAge) / CONFIG.maxAge);
+            rC = rM + (rO - rM) * t;
+            gC = gM + (gO - gM) * t;
+            bC = bM + (bO - bM) * t;
+            aC = aM + (aO - aM) * t;
+        }
+
+        // --- draw reversed arc ---
+        ctx.save();
+        ctx.beginPath();
+        ctx.lineWidth = AGE_INDICATOR_SETTINGS.width;
+        ctx.strokeStyle = `rgba(${rC | 0},${gC | 0},${bC | 0},${aC * fade})`;
+        ctx.arc(
+            d.x,
+            d.y,
+            r,
+            -Math.PI / 2, // start at top
+            -Math.PI / 2 - Math.PI * 2 * remaining, // negative = reversed clockwise
+            true // anticlockwise flag for clarity
+        );
+        ctx.stroke();
+        ctx.closePath();
+        ctx.restore();
+    }
 
     // --- Label ---
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = '#000';
     ctx.font = `${size * 0.6}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText(d.name, d.x, d.y);
     ctx.restore();
 
     // --- Overlays ---
-    if (VISUALS.searchRadius && SEARCH_RADIUS_SETTINGS.enabled && d.sex === "M" && d.age >= CONFIG.matureAge) {
+    if (
+        VISUALS.searchRadius &&
+        SEARCH_RADIUS_SETTINGS.enabled &&
+        d.sex === 'M' &&
+        d.age >= CONFIG.matureAge
+    ) {
         ctx.save();
         ctx.fillStyle = `rgba(0,0,255,${SEARCH_RADIUS_SETTINGS.fillOpacity})`;
         ctx.strokeStyle = SEARCH_RADIUS_SETTINGS.color;
@@ -240,7 +332,7 @@ export function renderDigit(d, activeSet) {
     if (
         VISUALS.attractionLines &&
         ATTRACTION_LINE_SETTINGS.enabled &&
-        d.sex === "M" &&
+        d.sex === 'M' &&
         d.age >= CONFIG.matureAge &&
         d.age < CONFIG.oldAge &&
         d.attractionTarget
@@ -249,7 +341,7 @@ export function renderDigit(d, activeSet) {
         const validTarget =
             target &&
             activeSet.has(target) &&
-            target.sex === "F" &&
+            target.sex === 'F' &&
             target.age >= CONFIG.matureAge &&
             target.age < CONFIG.oldAge &&
             target.gestationTimer === 0 &&
@@ -268,7 +360,6 @@ export function renderDigit(d, activeSet) {
     }
 }
 
-
 // ============================================================
 // Render bonding lines safely
 // ============================================================
@@ -276,35 +367,47 @@ export function renderDigit(d, activeSet) {
 export function renderBonds(digits) {
     if (!ctx) return;
     ctx.save();
-    ctx.lineCap = "round";
+    ctx.lineCap = 'round';
 
     const activeDigits = digits.filter((d) => d);
     const activeSet = new Set(activeDigits);
 
     for (const d of activeDigits) {
         // Adult bonds
-// Adult bonds
-if (VISUALS.bonds && BOND_LINE_SETTINGS.enabled && d.bondedTo && activeSet.has(d.bondedTo)) {
-    const other = d.bondedTo;
+        // Adult bonds
+        if (
+            VISUALS.bonds &&
+            BOND_LINE_SETTINGS.enabled &&
+            d.bondedTo &&
+            activeSet.has(d.bondedTo)
+        ) {
+            const other = d.bondedTo;
 
-    // Compute fade for each digit
-    const fade1 = d.age < CONFIG.oldAge
-        ? 1
-        : 1 - (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge);
-    const fade2 = other.age < CONFIG.oldAge
-        ? 1
-        : 1 - (other.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge);
+            // Compute fade for each digit
+            const fade1 =
+                d.age < CONFIG.oldAge
+                    ? 1
+                    : 1 -
+                      (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge);
+            const fade2 =
+                other.age < CONFIG.oldAge
+                    ? 1
+                    : 1 -
+                      (other.age - CONFIG.oldAge) /
+                          (CONFIG.maxAge - CONFIG.oldAge);
 
-    const alpha = Math.min(fade1, fade2); // line fades if either partner is old
+            const alpha = Math.min(fade1, fade2); // line fades if either partner is old
 
-    ctx.strokeStyle = BOND_LINE_SETTINGS.color.replace(/[\d.]+\)$/g, `${alpha})`);
-    ctx.lineWidth = BOND_LINE_SETTINGS.lineWidth;
-    ctx.beginPath();
-    ctx.moveTo(d.x, d.y);
-    ctx.lineTo(other.x, other.y);
-    ctx.stroke();
-}
-
+            ctx.strokeStyle = BOND_LINE_SETTINGS.color.replace(
+                /[\d.]+\)$/g,
+                `${alpha})`
+            );
+            ctx.lineWidth = BOND_LINE_SETTINGS.lineWidth;
+            ctx.beginPath();
+            ctx.moveTo(d.x, d.y);
+            ctx.lineTo(other.x, other.y);
+            ctx.stroke();
+        }
 
         // Child bonds
         if (
@@ -315,7 +418,9 @@ if (VISUALS.bonds && BOND_LINE_SETTINGS.enabled && d.bondedTo && activeSet.has(d
             d.age < CONFIG.adolescenceAge
         ) {
             const fade = 1 - d.age / CONFIG.adolescenceAge;
-            ctx.strokeStyle = `rgba(${CHILD_BOND_LINE_SETTINGS.baseColor.join(",")},${fade})`;
+            ctx.strokeStyle = `rgba(${CHILD_BOND_LINE_SETTINGS.baseColor.join(
+                ','
+            )},${fade})`;
             ctx.lineWidth = CHILD_BOND_LINE_SETTINGS.lineWidth;
             ctx.beginPath();
             ctx.moveTo(d.x, d.y);

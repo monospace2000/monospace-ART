@@ -2,28 +2,28 @@
 // STATS & UI (Safe Version)
 // ============================================================
 
-import { state } from "../model/state.js";
-import { log, moduleTag, trace } from "../utils/utilities.js";
-import { crossSum } from "../utils/utilities.js";
+import { state } from '../model/state.js';
+import { log, moduleTag, trace } from '../utils/utilities.js';
+import { crossSum } from '../utils/helpers.js';
 // ============================================================
 // CONFIG: Which stats to display
 // Each entry defines a label and a value-producing function
 // ============================================================
 export const STATS_CONFIG = [
     {
-        id: "epoch",
-        label: "Epoch",
+        id: 'epoch',
+        label: 'Epoch',
         value: () => state.resetCount + 1,
     },
     {
-        id: "elapsed",
-        label: "Elapsed Time",
+        id: 'elapsed',
+        label: 'Elapsed Time',
         value: () =>
-            ((Date.now() - state.resetStartTime) / 1000).toFixed(1) + "s",
+            ((Date.now() - state.resetStartTime) / 1000).toFixed(1) + 's',
     },
     {
-        id: "current",
-        label: "Current Value",
+        id: 'current',
+        label: 'Current Value',
         value: () => {
             let total = 0;
             for (const d of state.digits)
@@ -32,8 +32,8 @@ export const STATS_CONFIG = [
         },
     },
     {
-        id: "epochTotal",
-        label: "Epoch Total Value",
+        id: 'epochTotal',
+        label: 'Epoch Total Value',
         value: () => {
             let epochTotal = 0;
             for (let n = 1; n <= 9; n++) {
@@ -42,7 +42,7 @@ export const STATS_CONFIG = [
                     (state.epochCumulativeCounts.M[digit] || 0) +
                     (state.epochCumulativeCounts.F[digit] || 0);
                 for (let i = 0; i < count; i++) {
-                    epochTotal = crossSum(epochTotal, parseInt(digit));
+                    //epochTotal = crossSum(epochTotal, parseInt(digit));
                 }
             }
             return epochTotal;
@@ -54,16 +54,16 @@ export const STATS_CONFIG = [
 // INIT STATS BAR
 // ============================================================
 export function initStatsBar() {
-    const container = document.getElementById("statsBarContent");
+    const container = document.getElementById('statsBarContent');
     if (!container) return;
 
     // Clear any existing stats
-    container.innerHTML = "";
+    container.innerHTML = '';
 
     // Dynamically build stat items
     STATS_CONFIG.forEach(({ id, label }) => {
-        const item = document.createElement("div");
-        item.className = "statsbar-item";
+        const item = document.createElement('div');
+        item.className = 'statsbar-item';
         item.id = `stat-${id}`;
         item.innerHTML = `
       <div class="statsbar-item-label">${label}</div>
@@ -84,10 +84,10 @@ export function updateStatsBar() {
 
         try {
             const newValue = value();
-            valueEl.textContent = newValue ?? "–";
+            valueEl.textContent = newValue ?? '–';
         } catch (err) {
             console.warn(`⚠️ Error updating stat "${id}":`, err);
-            valueEl.textContent = "–";
+            valueEl.textContent = '–';
         }
     });
 }
@@ -96,10 +96,10 @@ export function updateStatsBar() {
 // STATS TABLE
 // ---------------------------
 export function updateStatsTable() {
-    const tbody = document.querySelector("#statsTable tbody");
+    const tbody = document.querySelector('#statsTable tbody');
     if (!tbody) return; // Table not yet in DOM
 
-    tbody.innerHTML = "";
+    tbody.innerHTML = '';
 
     const rows = [];
     let maxCurrent = 0,
@@ -137,19 +137,19 @@ export function updateStatsTable() {
       <tr>
         <td>${row.digit}</td>
         <td style="background-color: rgba(100, 160, 255, ${mCurOpacity});">${
-            row.mCur || ""
+            row.mCur || ''
         }</td>
         <td style="background-color: rgba(255, 100, 100, ${fCurOpacity});">${
-            row.fCur || ""
+            row.fCur || ''
         }</td>
-        <td><strong>${row.mCur + row.fCur || ""}</strong></td>
+        <td><strong>${row.mCur + row.fCur || ''}</strong></td>
         <td style="background-color: rgba(100, 160, 255, ${mCumOpacity});">${
-            row.mCum || ""
+            row.mCum || ''
         }</td>
         <td style="background-color: rgba(255, 100, 100, ${fCumOpacity});">${
-            row.fCum || ""
+            row.fCum || ''
         }</td>
-        <td><strong>${row.mCum + row.fCum || ""}</strong></td>
+        <td><strong>${row.mCum + row.fCum || ''}</strong></td>
       </tr>
     `;
     }
@@ -184,7 +184,6 @@ export function updateStatsTable() {
 // GRAPH
 // ---------------------------
 
-
 let graph = null;
 
 export function graphValue() {
@@ -198,13 +197,13 @@ export function graphValue() {
 
     state.rawTotalValue = rawTotalValue;
     return rawTotalValue;
-    return Math.round(rawTotalValue/currentAlive);
+    return Math.round(rawTotalValue / currentAlive);
 }
 
 export function initGraph() {
-    const canvas = document.getElementById("graphCanvas");
+    const canvas = document.getElementById('graphCanvas');
     if (!canvas) {
-        log("Graph canvas not yet available — will initialize later.");
+        log('Graph canvas not yet available — will initialize later.');
         return false;
     }
     graph = {
@@ -213,7 +212,7 @@ export function initGraph() {
         updateCounter: 0,
         updateInterval: 5,
         canvas,
-        ctx: canvas.getContext("2d"),
+        ctx: canvas.getContext('2d'),
     };
     return true;
 }
@@ -246,7 +245,7 @@ export function drawGraph() {
     const range = maxValue;
 
     // Grid lines
-    ctx.strokeStyle = "#e0e0e0";
+    ctx.strokeStyle = '#e0e0e0';
     ctx.lineWidth = 1;
     for (let i = 0; i <= 5; i++) {
         const y = (height - 20) * (i / 5) + 10;
@@ -257,9 +256,9 @@ export function drawGraph() {
     }
 
     // Labels
-    ctx.fillStyle = "black";
-    ctx.font = "10px sans-serif";
-    ctx.textAlign = "right";
+    ctx.fillStyle = 'black';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
     for (let i = 0; i <= 5; i++) {
         const y = (height - 20) * (i / 5) + 10;
         const value = Math.round(maxValue - (range * i) / 5);
@@ -267,7 +266,7 @@ export function drawGraph() {
     }
 
     // Graph line
-    ctx.strokeStyle = "#2196F3";
+    ctx.strokeStyle = '#2196F3';
     ctx.lineWidth = 2;
     ctx.beginPath();
 
@@ -280,9 +279,9 @@ export function drawGraph() {
     ctx.stroke();
 
     if (data.length > 0) {
-        ctx.fillStyle = "black";
-        ctx.font = "bold 12px sans-serif";
-        ctx.textAlign = "left";
+        ctx.fillStyle = 'black';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'left';
         ctx.fillText(`Current: ${data[data.length - 1]}`, 35, 20);
     }
 }

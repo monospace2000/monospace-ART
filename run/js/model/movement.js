@@ -2,18 +2,20 @@
 // MOVEMENT FUNCTIONS (Canvas-Only, internal targets & wall clamping)
 // ============================================================
 
-import { CONFIG } from "../config/config.js";
-import { distance, applySpringPhysics } from "../utils/utilities.js";
-import { state } from "./state.js";
-import { updateDigitAppearance } from "../render/render.js"; // ensure this import exists
-import { log, moduleTag, trace } from "../utils/utilities.js";
-
+import { CONFIG } from '../config/config.js';
+import { distance, applySpringPhysics } from '../utils/helpers.js';
+import { state } from './state.js';
+import { updateDigitAppearance } from '../render/render.js'; // ensure this import exists
+import { log, moduleTag, trace } from '../utils/utilities.js';
 
 // Helper: keep a position inside the screen
 function clampTarget(target) {
     const margin = CONFIG.digitSize / 2 + 5; // margin to avoid edges
     target.x = Math.max(margin, Math.min(target.x, window.innerWidth - margin));
-    target.y = Math.max(margin, Math.min(target.y, window.innerHeight - margin));
+    target.y = Math.max(
+        margin,
+        Math.min(target.y, window.innerHeight - margin)
+    );
 }
 
 // Update a single digit's position
@@ -25,7 +27,7 @@ export function updateDigitPosition(d) {
         if (!d.target) d.target = { x: d.x, y: d.y };
         if (!d.orbitAngle) d.orbitAngle = Math.random() * Math.PI * 2;
 
-        d.orbitAngle += 0.01; 
+        d.orbitAngle += 0.01;
         const radius = CONFIG.bondedOffset * (0.8 + Math.random() * 0.2);
 
         d.target.x = d.mother.x + Math.cos(d.orbitAngle) * radius;
@@ -48,7 +50,7 @@ export function updateDigitPosition(d) {
     }
 
     // --- Adult males bonded ---
-    else if (d.sex === "M" && d.bondedTo) {
+    else if (d.sex === 'M' && d.bondedTo) {
         if (!d.target) d.target = { x: d.x, y: d.y };
         if (!d.orbitAngle) d.orbitAngle = Math.random() * Math.PI * 2;
 
@@ -70,32 +72,37 @@ export function updateDigitPosition(d) {
         moved = true;
     }
 
-// Adult males seeking females
-else if (d.sex === "M" && d.age >= CONFIG.matureAge && d.age < CONFIG.oldAge) {
-    const targetFemale = nearestFemale(d);
-    if (targetFemale) {
-        const dist = distance(d, targetFemale);
+    // Adult males seeking females
+    else if (
+        d.sex === 'M' &&
+        d.age >= CONFIG.matureAge &&
+        d.age < CONFIG.oldAge
+    ) {
+        const targetFemale = nearestFemale(d);
+        if (targetFemale) {
+            const dist = distance(d, targetFemale);
 
-        // Try to bond if in range
-        if (dist <= CONFIG.mateDistance && !d.bondedTo && targetFemale.gestationTimer === 0) {
-            bondPair(d, targetFemale);
+            // Try to bond if in range
+            if (
+                dist <= CONFIG.mateDistance &&
+                !d.bondedTo &&
+                targetFemale.gestationTimer === 0
+            ) {
+                bondPair(d, targetFemale);
+            }
+
+            // Move toward female's current position (for physics)
+            if (!d.target) d.target = { x: d.x, y: d.y };
+            d.target.x = targetFemale.x;
+            d.target.y = targetFemale.y;
+            seekTarget(d, d.target, dist);
+
+            // Store reference for rendering the attraction line
+            d.attractionTarget = targetFemale;
+        } else {
+            d.attractionTarget = null;
         }
-
-        // Move toward female's current position (for physics)
-        if (!d.target) d.target = { x: d.x, y: d.y };
-        d.target.x = targetFemale.x;
-        d.target.y = targetFemale.y;
-        seekTarget(d, d.target, dist);
-
-        // Store reference for rendering the attraction line
-        d.attractionTarget = targetFemale;
-    } else {
-        d.attractionTarget = null;
     }
-}
-
-
-
 
     // --- Females and unbonded males ---
     if (!moved) {
@@ -114,12 +121,13 @@ export function nearestFemale(male) {
 
     for (const f of state.digits) {
         if (
-            f.sex !== "F" ||
+            f.sex !== 'F' ||
             f.age < CONFIG.matureAge ||
             f.age >= CONFIG.oldAge ||
             f.gestationTimer > 0 ||
             f.bondedTo
-        ) continue;
+        )
+            continue;
 
         const dist = distance(male, f);
         if (dist < minDist) {
@@ -137,7 +145,7 @@ export function seekTarget(d, target, dist) {
     let blend = 0.08;
     let speedFactor = 0.7;
 
-    if (d.sex === "M" && !d.bondedTo && target.gestationTimer === 0) {
+    if (d.sex === 'M' && !d.bondedTo && target.gestationTimer === 0) {
         blend = 0.15;
         speedFactor = 1.0;
     }
@@ -171,7 +179,10 @@ export function applyJitter(d) {
 
     const jitter = (Math.random() - 0.5) * CONFIG.velocityJitter * jitterScale;
     const baseSpeed = CONFIG.speed * 0.2;
-    const speed = Math.max(baseSpeed, Math.min(CONFIG.speed * (1 + jitter), CONFIG.speed * 1.2));
+    const speed = Math.max(
+        baseSpeed,
+        Math.min(CONFIG.speed * (1 + jitter), CONFIG.speed * 1.2)
+    );
 
     d.dx = Math.cos(angle) * speed;
     d.dy = Math.sin(angle) * speed;
@@ -190,7 +201,6 @@ export function updatePosition(d) {
     d.x += d.dx;
     d.y += d.dy;
 }
-
 
 export function bounceOffWalls(d) {
     const margin = 5;
@@ -223,6 +233,5 @@ export function bounceOffWalls(d) {
         d.dy *= -0.8;
     }
 }
-
 
 log(`[${moduleTag(import.meta)}] loaded`);

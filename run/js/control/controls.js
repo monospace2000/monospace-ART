@@ -2,17 +2,17 @@
 // SIMULATION CONTROL (Canvas-Ready)
 // ============================================================
 
-import { state } from "../model/state.js";
-import { createDigit, killDigit } from "../model/digit.js";
-import { CONFIG } from "../config/config.js";
-import { updateDigitPosition } from "../model/movement.js";
-import { createCountsObject } from "../model/state.js";
-import { reproduce } from "../model/reproduction.js";
-import { updateStats } from "../ui/stats.js";
-import { applyAttractor } from "../model/attractor.js";
-import { attractorDebugCtx } from "../model/attractor.js";
-import { log, moduleTag, trace } from "../utils/utilities.js";
-import { renderAll } from "../render/render.js";
+import { state } from '../model/state.js';
+import { createDigit, killDigit } from '../model/digit.js';
+import { CONFIG } from '../config/config.js';
+import { updateDigitPosition } from '../model/movement.js';
+import { createCountsObject } from '../model/state.js';
+import { reproduce } from '../model/reproduction.js';
+import { updateStats } from '../ui/stats.js';
+import { applyAttractor } from '../model/attractor.js';
+import { attractorDebugCtx } from '../model/attractor.js';
+import { log, moduleTag, trace } from '../utils/utilities.js';
+import { renderAll } from '../render/render.js';
 
 // ------------------------------------------------------------
 // Canvas setup
@@ -20,13 +20,11 @@ import { renderAll } from "../render/render.js";
 let canvas, ctx;
 
 export function initSimulationCanvas() {
-    canvas = document.getElementById("dslCanvas");
-    if (!canvas) throw new Error("Canvas element not found: #dslCanvas");
-    ctx = canvas.getContext("2d");
+    canvas = document.getElementById('dslCanvas');
+    if (!canvas) throw new Error('Canvas element not found: #dslCanvas');
+    ctx = canvas.getContext('2d');
     return { canvas, ctx };
 }
-
-
 
 // ------------------------------------------------------------
 // Initialize starting digits
@@ -35,8 +33,8 @@ function initStartingDigits() {
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight / 2;
 
-    const d1 = createDigit("1", "M", cx - 30, cy);
-    const d2 = createDigit("1", "F", cx + 30, cy);
+    const d1 = createDigit('1', 'M', cx - 30, cy);
+    const d2 = createDigit('1', 'F', cx + 30, cy);
 
     [d1, d2].forEach((d) => {
         const angle = Math.random() * 2 * Math.PI;
@@ -68,6 +66,7 @@ let lastTime = performance.now();
 
 export function tickSimulation(now = performance.now()) {
     if (!state.paused) {
+        state.tick++;
         const deltaTime = (now - lastTime) / 1000;
         lastTime = now;
 

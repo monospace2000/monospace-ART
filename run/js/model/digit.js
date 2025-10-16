@@ -2,17 +2,16 @@
 // DIGIT MODULE (Canvas-Only)
 // ================================
 
-import { log, moduleTag, trace } from "../utils/utilities.js";
-import { state } from "./state.js";
-import { updateDigitPosition } from "./movement.js";
-import { updateDigitAppearance } from "../render/render.js";
-import { NUMEROLOGY, applyNumerologyTraits } from "./numerology.js";
-import { CONFIG } from "../config/config.js";
+import { log, moduleTag, trace } from '../utils/utilities.js';
+import { state } from './state.js';
+import { updateDigitPosition } from './movement.js';
+import { updateDigitAppearance } from '../render/render.js';
+import { NUMEROLOGY, applyNumerologyTraits } from './numerology.js';
+import { CONFIG } from '../config/config.js';
 
-console.log("CONFIG in digit.js");
+console.log('CONFIG in digit.js');
 
 export function createDigit(name, sex, x, y, speedFactor = 1, mother, father) {
-
     const angle = Math.random() * 2 * Math.PI;
     const digit = {
         name,
@@ -23,7 +22,7 @@ export function createDigit(name, sex, x, y, speedFactor = 1, mother, father) {
         dy: mother ? 0 : Math.sin(angle) * CONFIG.speed * speedFactor,
         age: 0,
         lastRepro: -Infinity,
-        element: null,           // <-- NO DOM element
+        element: null, // <-- NO DOM element
         bondedTo: null,
         gestationTimer: 0,
         mother,

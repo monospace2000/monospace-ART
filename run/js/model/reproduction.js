@@ -2,28 +2,26 @@
 // REPRODUCTION
 // ============================================================
 
-import { state } from "./state.js";
-import { createDigit } from "./digit.js";
-import { CONFIG } from "../config/config.js";
-import { log, moduleTag, trace, crossSum} from "../utils/utilities.js";
-
+import { state } from './state.js';
+import { createDigit } from './digit.js';
+import { CONFIG } from '../config/config.js';
+import { crossSum } from '../utils/helpers.js';
+import { log, moduleTag, trace } from '../utils/utilities.js';
 
 export function reproduce() {
     if (state.digits.length >= CONFIG.POP_CAP) return;
 
     for (const f of state.digits) {
-        if (f.sex === "F" && f.gestationTimer > 0) {
-        
-        f.gestationTimer--;
+        if (f.sex === 'F' && f.gestationTimer > 0) {
+            f.gestationTimer--;
 
             if (f.gestationTimer === 0 && f.bondedTo) {
-
                 const m = f.bondedTo;
                 const name = crossSum(
                     parseInt(f.name),
                     parseInt(m.name)
                 ).toString();
-                const sex = Math.random() < 0.5 ? "M" : "F";
+                const sex = Math.random() < 0.5 ? 'M' : 'F';
                 const x =
                     (f.x + m.x) / 2 +
                     (Math.random() - 0.5) * CONFIG.newbornOffset;

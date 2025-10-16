@@ -2,41 +2,46 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
+        <!--         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+ -->
         <!-- Primary Meta Tags -->
         <title>DIGITALSEXLIFE</title>
-        <meta name="description" content="DIGITALSEXLIFE is an interactive browser-based simulation where numbers become digital agents, moving, bonding, aging, and reproducing. Explore emergent patterns, intimacy, and life cycles in a playful generative ecosystem.">
+        <meta
+            name="description"
+            content="DIGITALSEXLIFE is an interactive browser-based simulation where numbers become digital agents, moving, bonding, aging, and reproducing. Explore emergent patterns, intimacy, and life cycles in a playful generative ecosystem." />
 
-        <meta property="og:type" content="website">
-        <meta property="og:url" content="https://digitalsexlife.com/">
-        <meta property="og:title" content="DIGITALSEXLIFE">
-        <meta property="og:description" content="Explore DIGITALSEXLIFE, a generative simulation where numbers act as digital lifeforms, interacting, bonding, and reproducing. Watch how simple numeric rules create complex, lifelike behaviors.">
-        <meta property="og:image" content="https://digitalsexlife.com/assets/images/site_preview.png">
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://digitalsexlife.com/" />
+        <meta property="og:title" content="DIGITALSEXLIFE" />
+        <meta
+            property="og:description"
+            content="Explore DIGITALSEXLIFE, a generative simulation where numbers act as digital lifeforms, interacting, bonding, and reproducing. Watch how simple numeric rules create complex, lifelike behaviors." />
+        <meta
+            property="og:image"
+            content="https://digitalsexlife.com/assets/images/site_preview.png" />
 
-        <meta name="twitter:card" content="summary_large_image">
-        <meta name="twitter:title" content="DIGITALSEXLIFE">
-        <meta name="twitter:description" content="Explore DIGITALSEXLIFE, a generative simulation where numbers act as digital lifeforms, interacting, bonding, and reproducing. Watch how simple numeric rules create complex, lifelike behaviors.">
-        <meta name="twitter:image" content="https://digitalsexlife.com/assets/images/site_preview.png">
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="DIGITALSEXLIFE" />
+        <meta
+            name="twitter:description"
+            content="Explore DIGITALSEXLIFE, a generative simulation where numbers act as digital lifeforms, interacting, bonding, and reproducing. Watch how simple numeric rules create complex, lifelike behaviors." />
+        <meta
+            name="twitter:image"
+            content="https://digitalsexlife.com/assets/images/site_preview.png" />
 
-        <meta name="author" content="Hens Breet">
-        <meta name="keywords" content="DIGITALSEXLIFE, DSL, generative simulation, interactive art, digital life, numerology, emergent behavior, digital intimacy, HTML5 art, JavaScript art, interactive ecosystem, generative art, web-based simulation">
-        <meta name="robots" content="index, follow">
-
+        <meta name="author" content="Hens Breet" />
+        <meta
+            name="keywords"
+            content="DIGITALSEXLIFE, DSL, generative simulation, interactive art, digital life, numerology, emergent behavior, digital intimacy, HTML5 art, JavaScript art, interactive ecosystem, generative art, web-based simulation" />
+        <meta name="robots" content="index, follow" />
 
         <link rel="stylesheet" href="assets/css/style.css" />
         <link rel="stylesheet" href="run/css/base.css" />
         <link rel="stylesheet" href="run/css/digit.css" />
         <link rel="stylesheet" href="run/css/ui.css" />
-
     </head>
     <body>
-
-
-
-
-
-        <img src="/stats-logger.php" style="display:none;">
+        <img src="/stats-logger.php" style="display: none" />
 
         <!-- WELCOME SCREEN / ENTER BUTTON -->
         <div id="intro">
@@ -54,14 +59,14 @@
         <script src="assets/js/colorcycle.js"></script>
 
         <!-- MAIN CONTROLLER -->
-       <script type="module">
-        document.addEventListener("DOMContentLoaded", () => {
-            const intro = document.getElementById("intro");
-            const enterBtn = document.getElementById("enterBtn");
+        <script type="module">
+            document.addEventListener('DOMContentLoaded', () => {
+                const intro = document.getElementById('intro');
+                const enterBtn = document.getElementById('enterBtn');
 
-            const enterHandler = () => {
-                // Hide intro immediately
-/* 
+                const enterHandler = () => {
+                    // Hide intro immediately
+                    /* 
                 // Fullscreen request must be synchronous and triggered directly by user gesture
                 if (!document.fullscreenElement) {
                     document.body.requestFullscreen().catch(err => {
@@ -69,27 +74,25 @@
                     });
                 }
 
- */                // Hide intro immediately
-                intro.style.display = "none";
+ */ // Hide intro immediately
+                    intro.style.display = 'none';
 
-                // Dynamically load and start simulation module
-                import("./run/dist/dsl.min.js")
-                    .then(module => module.init())
-                    .catch(err => console.error("Error loading module:", err));
+                    // Dynamically load and start simulation module
+                    import('./run/dist/dsl.min.js')
+                        .then((module) => module.init())
+                        .catch((err) =>
+                            console.error('Error loading module:', err)
+                        );
 
-                // Remove event listeners to prevent double execution
-                enterBtn.removeEventListener("click", enterHandler);
-                enterBtn.removeEventListener("touchstart", enterHandler);
-            };
+                    // Remove event listeners to prevent double execution
+                    enterBtn.removeEventListener('click', enterHandler);
+                    enterBtn.removeEventListener('touchstart', enterHandler);
+                };
 
-            // Listen for both click and touchstart for mobile compatibility
-            enterBtn.addEventListener("click", enterHandler);
-            enterBtn.addEventListener("touchstart", enterHandler);
-        });
+                // Listen for both click and touchstart for mobile compatibility
+                enterBtn.addEventListener('click', enterHandler);
+                enterBtn.addEventListener('touchstart', enterHandler);
+            });
         </script>
-
-
-
-
     </body>
 </html>
