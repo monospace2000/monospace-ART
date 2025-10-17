@@ -2,25 +2,25 @@
 // SIMULATION CONTROL
 // ============================================================
 
-import { state } from "../model/state.js";
-import { createDigit, killDigit } from "../model/digit.js";
-import { CONFIG } from "../config/config.js";
-import { updateDigitPosition } from "../model/movement.js";
-import { updateDigitAppearance } from "../render/render.js";
-import { createCountsObject } from "../model/state.js";
-import { reproduce } from "../model/reproduction.js";
-import { updateStats } from "../ui/stats.js";
-import { applyAttractor } from "../model/attractor.js";
-import { attractorDebugCtx } from "../model/attractor.js";
-import { log, moduleTag, trace } from "../utils/utilities.js";
+import { state } from '../model/state.js';
+import { createDigit, killDigit } from '../model/digit.js';
+import { CONFIG } from '../config/config.js';
+import { updateDigitPosition } from '../model/movement.js';
+import { updateDigitAppearance } from '../render/render.js';
+import { createCountsObject } from '../model/state.js';
+import { reproduce } from '../model/reproduction.js';
+import { updateStats } from '../ui/stats.js';
+import { applyAttractor } from '../model/attractor.js';
+import { attractorDebugCtx } from '../model/attractor.js';
+import { log, moduleTag, trace } from '../utils/utilities.js';
 
 // Helper: initialize starting digits with proper velocity
 function initStartingDigits() {
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight / 2;
 
-    const d1 = createDigit("1", "M", cx - 30, cy);
-    const d2 = createDigit("1", "F", cx + 30, cy);
+    const d1 = createDigit('1', 'M', cx - 30, cy);
+    const d2 = createDigit('1', 'F', cx + 30, cy);
 
     [d1, d2].forEach((d) => {
         const angle = Math.random() * 2 * Math.PI;
@@ -28,10 +28,8 @@ function initStartingDigits() {
         d.dx = Math.cos(angle) * speed;
         d.dy = Math.sin(angle) * speed;
         d.followTimer = 0; // start moving immediately
-
     });
     window.requestAnimationFrame(() => startSimulation());
-
 }
 
 export function resetSimulation() {
@@ -45,7 +43,6 @@ export function resetSimulation() {
     state.resetStartTime = Date.now();
     state.epochCumulativeCounts = createCountsObject();
 }
-
 
 let lastTime = performance.now();
 
@@ -99,7 +96,6 @@ export function tickSimulation(now = performance.now()) {
         state.animationFrameId = requestAnimationFrame(tickSimulation);
     }
 }
-
 
 export function startSimulation() {
     if (!state.running) {

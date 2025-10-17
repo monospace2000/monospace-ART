@@ -19,7 +19,7 @@ import { log, moduleTag } from '../utils/utilities.js';
 
 export const VISUALS = {
     //shadows: { enabled: false, label: 'Shadows' },
-    outlines: { enabled: false, label: 'Outlines' },
+    outlines: { enabled: true, label: 'Outlines' },
     glow: { enabled: true, label: 'Glow' },
     searchRadius: { enabled: false, label: 'Search Radius' },
     bonds: { enabled: false, label: 'Bonds' },
@@ -32,19 +32,30 @@ export const VISUALS = {
 // APPEARANCE SETTINGS
 // ============================================================
 
+// Text color and font
+const TEXT_SETTINGS = {
+    color: 'rgba(255, 255, 255, 1)',
+    font: 'sans-serif',
+};
+
 // Globe shading: creates 3D sphere effect with light source
 const GLOBE_SETTINGS = {
     lightAngle: Math.PI / 4, // Direction of light source (45 degrees)
     lightDistance: 0.3, // Distance of highlight from center
     highlight: 0.4, // Brightness increase for lit areas
     shadow: 0.4, // Darkness increase for shadowed areas
+    transparency: 1.0, // Globe transparency (0.0-1.0): 1.0=opaque, 0.0=invisible
+    // Glass effect uses gradient: highlights stay opaque, shadows become transparent
+    highlightOpacity: 1.0, // Opacity multiplier for highlight (typically 1.0 for glass)
+    midtoneOpacity: 0.7, // Opacity multiplier for midtone (0.5-0.8 for glass)
+    shadowOpacity: 0.2, // Opacity multiplier for shadow (0.1-0.3 for glass)
 };
 
 // Outline rendering around each digit
 const OUTLINE_SETTINGS = {
     maxAlpha: 0.8, // Maximum outline opacity
     baseWidth: 0.5, // Base outline thickness
-    color: 'rgba(0,0,0,1)', // Outline color (black)
+    color: 'rgba(255,255,255,0.5)', // Outline color
 };
 
 // Drop shadow effect (currently disabled)
@@ -59,6 +70,8 @@ const SHADOW_SETTINGS = {
 const GLOW_SETTINGS = {
     strength: 20, // Glow blur radius
     opacity: 0.9, // Glow opacity
+    layers: 1, // Number of glow layers for intensity (1-5 recommended)
+    colorBoost: 1.2, // Color intensity multiplier (1.0 = normal, higher = more vibrant)
 };
 
 // Motion blur based on digit speed
@@ -155,6 +168,11 @@ export function initCanvasRenderer() {
  * @returns {Object} Visual properties (scale, colors, opacity, etc.)
  */
 export function updateDigitAppearance(d) {
+    // text color
+
+    const textColor = TEXT_SETTINGS.color;
+    const font = TEXT_SETTINGS.font;
+
     // Scale: grows from 30% to 100% as digit matures
     const scale = 0.3 + Math.min(d.age / CONFIG.matureAge, 1) * 0.7;
 
@@ -162,7 +180,10 @@ export function updateDigitAppearance(d) {
     const opacity =
         d.age < CONFIG.oldAge
             ? 1
-            : 1 - (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge);
+            : Math.pow(
+                  1 - (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge),
+                  3
+              );
 
     // Color transition: shifts as digit matures (0-1 range)
     const t = Math.min(d.age / CONFIG.matureAge, 1);
@@ -190,11 +211,33 @@ export function updateDigitAppearance(d) {
     const highlight = `rgb(${lighten(r)},${lighten(g)},${lighten(b)})`;
     const shadow = `rgb(${darken(r)},${darken(g)},${darken(b)})`;
 
+    // Calculate gradient opacities for glass effect
+    // Age-based opacity affects all parts, then glass settings create gradient
+    const highlightAlpha =
+        opacity * GLOBE_SETTINGS.transparency * GLOBE_SETTINGS.highlightOpacity;
+    const midtoneAlpha =
+        opacity * GLOBE_SETTINGS.transparency * GLOBE_SETTINGS.midtoneOpacity;
+    const shadowAlpha =
+        opacity * GLOBE_SETTINGS.transparency * GLOBE_SETTINGS.shadowOpacity;
+
+    // Convert RGB colors to RGBA with varying opacity
+    const highlightRGBA = `rgba(${lighten(r)},${lighten(g)},${lighten(
+        b
+    )},${highlightAlpha})`;
+    const midtoneRGBA = `rgba(${r},${g},${b},${midtoneAlpha})`;
+    const shadowRGBA = `rgba(${darken(r)},${darken(g)},${darken(
+        b
+    )},${shadowAlpha})`;
+
     // Outline properties
-    const outlineColor = `rgba(0,0,0,${Math.min(
-        opacity,
-        OUTLINE_SETTINGS.maxAlpha
-    )})`;
+    // Parse color from settings and apply opacity
+    const outlineRGB = OUTLINE_SETTINGS.color.match(/\d+/g) || [0, 0, 0];
+
+    const settingsAlpha =
+        parseFloat(OUTLINE_SETTINGS.color.match(/[\d.]+\)$/)?.[0]) || 1;
+    const outlineColor = `rgba(${outlineRGB[0]},${outlineRGB[1]},${
+        outlineRGB[2]
+    },${Math.min(opacity * settingsAlpha, OUTLINE_SETTINGS.maxAlpha)})`;
     const outlineWidth = OUTLINE_SETTINGS.baseWidth + scale * 0.5;
 
     // Motion blur based on velocity
@@ -217,10 +260,15 @@ export function updateDigitAppearance(d) {
 
     return {
         scale,
+        textColor,
+        font,
         color: baseColor,
         opacity,
         highlight,
         shadow,
+        highlightRGBA,
+        midtoneRGBA,
+        shadowRGBA,
         outlineColor,
         outlineWidth,
         blur,
@@ -235,15 +283,80 @@ export function updateDigitAppearance(d) {
 
 /**
  * Render glow effect around a digit
- * @param {Object} props - Visual properties from updateDigitAppearance
+ * Creates a separate outer glow that doesn't interfere with globe transparency
+ * Uses multiple layers and color boosting for enhanced visibility
+ * @param {Object} d - Digit object
+ * @param {number} size - Digit size
  */
-function renderGlow(props) {
+function renderGlow(d, size) {
     if (!VISUALS.glow.enabled) return;
 
-    ctx.shadowColor = `rgba(${props.color.match(/\d+/g).join(',')},${
-        GLOW_SETTINGS.opacity
-    })`;
-    ctx.shadowBlur = GLOW_SETTINGS.strength;
+    const props = updateDigitAppearance(d);
+    const rgb = props.color.match(/\d+/g).map(Number);
+
+    // Boost color intensity
+    const boostedR = Math.min(
+        255,
+        Math.floor(rgb[0] * GLOW_SETTINGS.colorBoost)
+    );
+    const boostedG = Math.min(
+        255,
+        Math.floor(rgb[1] * GLOW_SETTINGS.colorBoost)
+    );
+    const boostedB = Math.min(
+        255,
+        Math.floor(rgb[2] * GLOW_SETTINGS.colorBoost)
+    );
+
+    ctx.save();
+
+    // Draw multiple layers for increased intensity
+    for (let layer = 0; layer < GLOW_SETTINGS.layers; layer++) {
+        // Draw multiple rings with decreasing opacity for smooth glow
+        const rings = 20;
+        for (let i = 0; i < rings; i++) {
+            const progress = i / rings;
+            // const radius = size / 2 + GLOW_SETTINGS.strength * progress;
+            const radius =
+                size / 2 +
+                (GLOW_SETTINGS.strength * progress * size) / CONFIG.digitSize;
+            const alpha =
+                (GLOW_SETTINGS.opacity * (1 - progress) * props.opacity) /
+                rings;
+
+            ctx.fillStyle = `rgba(${boostedR},${boostedG},${boostedB},${alpha})`;
+            ctx.beginPath();
+            ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    ctx.restore();
+}
+
+/**
+ * Render drop shadow effect around a digit
+ * Creates a separate outer shadow that doesn't interfere with globe transparency
+ * @param {Object} d - Digit object
+ * @param {number} size - Digit size
+ */
+function renderDropShadow(d, size) {
+    // Uncomment the VISUALS check when enabling shadows
+    // if (!VISUALS.shadows.enabled) return;
+
+    ctx.save();
+    ctx.shadowColor = SHADOW_SETTINGS.color;
+    ctx.shadowOffsetX = SHADOW_SETTINGS.offsetX;
+    ctx.shadowOffsetY = SHADOW_SETTINGS.offsetY;
+    ctx.shadowBlur = SHADOW_SETTINGS.blur;
+
+    // Draw invisible circle that casts the shadow
+    ctx.fillStyle = 'transparent';
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, size / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.closePath();
+
+    ctx.restore();
 }
 
 /**
@@ -389,13 +502,21 @@ export function renderDigit(d, activeSet) {
     const props = updateDigitAppearance(d);
     const size = CONFIG.digitSize * props.scale;
 
+    // Skip rendering if opacity is too low (prevents "pop" at end of life)
+    if (props.opacity < 0.01) return;
+
+    // Render external effects first (glow and shadow as separate layers)
+    // These are drawn before the main globe so they don't interfere with transparency
+    renderGlow(d, size);
+    // renderDropShadow(d, size);  // Uncomment to enable drop shadows
+
     ctx.save();
-    ctx.globalAlpha = props.opacity;
 
-    // Apply glow effect (must be set before drawing)
-    renderGlow(props);
+    //return;
+    // Don't set globalAlpha - we'll use RGBA colors with per-gradient opacity
 
-    // Draw main circle with radial gradient (globe shading)
+    // Draw main circle with radial gradient (globe shading with glass effect)
+    // Each color stop has its own alpha for proper glass/transparent effect
     ctx.beginPath();
     const g = ctx.createRadialGradient(
         props.lx, // Highlight center X
@@ -405,18 +526,14 @@ export function renderDigit(d, activeSet) {
         d.y, // Outer center Y
         size / 2 // Outer radius (full digit size)
     );
-    g.addColorStop(0, props.highlight); // Bright center
-    g.addColorStop(0.3, props.color); // Base color
-    g.addColorStop(1, props.shadow); // Dark edge
+    // Glass effect: opaque highlight → semi-transparent midtone → very transparent shadow
+    g.addColorStop(0, props.highlightRGBA); // Bright center (most opaque)
+    g.addColorStop(0.3, props.midtoneRGBA); // Base color (medium opacity)
+    g.addColorStop(1, props.shadowRGBA); // Dark edge (most transparent)
     ctx.fillStyle = g;
     ctx.arc(d.x, d.y, size / 2, 0, Math.PI * 2);
     ctx.fill();
     ctx.closePath();
-
-    // Clear shadow settings before outline
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
 
     // Draw outline around circle
     renderOutline(props);
@@ -425,7 +542,8 @@ export function renderDigit(d, activeSet) {
     renderAgeIndicator(d, size, props);
 
     // Draw digit name/number in center
-    ctx.fillStyle = '#000';
+    ctx.globalAlpha = props.opacity; // Apply opacity to text too
+    ctx.fillStyle = props.textColor;
     ctx.font = `${size * 0.6}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -433,7 +551,8 @@ export function renderDigit(d, activeSet) {
 
     ctx.restore();
 
-    // Draw simulation overlays (not affected by digit opacity)
+    // Draw simulation overlays (not affected by globe transparency)
+    // These render at full opacity regardless of GLOBE_SETTINGS.transparency
     renderSearchRadius(d);
     renderAttractionLine(d, activeSet);
 }
