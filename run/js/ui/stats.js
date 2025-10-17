@@ -1,14 +1,37 @@
 // ============================================================
 // STATS & UI (Safe Version)
 // ============================================================
-
 import { state } from '../model/state.js';
 import { log, moduleTag, trace } from '../utils/utilities.js';
 import { crossSum } from '../utils/helpers.js';
+import { NUMEROLOGY } from '../model/numerology.js';
+
 // ============================================================
 // CONFIG: Which stats to display
-// Each entry defines a label and a value-producing function
+// Each entry defines a label, a value function, and optionally a color function
 // ============================================================
+
+// ============================================================
+// INIT STATS BAR
+// ============================================================
+export function initStatsBar() {
+    const container = document.getElementById('statsBarContent');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    STATS_CONFIG.forEach(({ id, label }) => {
+        const item = document.createElement('div');
+        item.className = 'statsbar-item';
+        item.id = `stat-${id}`;
+        item.innerHTML = `
+            <div class="statsbar-item-label">${label}</div>
+            <div class="statsbar-item-value">–</div>
+        `;
+        container.appendChild(item);
+    });
+}
+
 export const STATS_CONFIG = [
     {
         id: 'epoch',
@@ -25,58 +48,60 @@ export const STATS_CONFIG = [
         id: 'current',
         label: 'Current Value',
         value: () => {
-            let total = 0;
-            for (const d of state.digits)
-                total = crossSum(total, parseInt(d.name));
-            return total;
+            let rawTotal = 0;
+            let crossSumTotal = 0;
+            for (const d of state.digits) {
+                const digitValue = parseInt(d.name);
+                rawTotal += digitValue;
+                crossSumTotal = crossSum(crossSumTotal, digitValue);
+            }
+            return { crossSum: crossSumTotal, total: rawTotal };
         },
+        format: (val) =>
+            `<span style="color: ${
+                NUMEROLOGY[val.crossSum]?.color || '#ffffff'
+            }">${val.crossSum}</span> (${val.total})`,
     },
     {
         id: 'epochTotal',
         label: 'Epoch Total Value',
         value: () => {
-            let epochTotal = 0;
+            let rawTotal = 0;
+            let crossSumTotal = 0;
+
             for (let n = 1; n <= 9; n++) {
                 const digit = n.toString();
                 const count =
                     (state.epochCumulativeCounts.M[digit] || 0) +
                     (state.epochCumulativeCounts.F[digit] || 0);
+                rawTotal += n * count;
                 for (let i = 0; i < count; i++) {
-                    epochTotal = crossSum(epochTotal, parseInt(digit));
+                    crossSumTotal = crossSum(crossSumTotal, n);
                 }
             }
-            return epochTotal;
+
+            // include current total to never be zero
+            let currentTotal = 0;
+            for (const d of state.digits)
+                currentTotal = crossSum(currentTotal, parseInt(d.name));
+            crossSumTotal = crossSum(crossSumTotal, currentTotal);
+            rawTotal += state.digits.reduce(
+                (sum, d) => sum + parseInt(d.name),
+                0
+            );
+
+            return { crossSum: crossSumTotal, total: rawTotal };
         },
+        format: (val) =>
+            `<span style="color: ${
+                NUMEROLOGY[val.crossSum]?.color || '#ffffff'
+            }">${val.crossSum}</span> (${val.total})`,
     },
 ];
 
-// ============================================================
-// INIT STATS BAR
-// ============================================================
-export function initStatsBar() {
-    const container = document.getElementById('statsBarContent');
-    if (!container) return;
-
-    // Clear any existing stats
-    container.innerHTML = '';
-
-    // Dynamically build stat items
-    STATS_CONFIG.forEach(({ id, label }) => {
-        const item = document.createElement('div');
-        item.className = 'statsbar-item';
-        item.id = `stat-${id}`;
-        item.innerHTML = `
-      <div class="statsbar-item-label">${label}</div>
-      <div class="statsbar-item-value">–</div>
-    `;
-        container.appendChild(item);
-    });
-}
-// ============================================================
-// UPDATE STATS BAR
-// ============================================================
+// Update function remains the same, no changes needed
 export function updateStatsBar() {
-    STATS_CONFIG.forEach(({ id, value }) => {
+    STATS_CONFIG.forEach(({ id, value, format }) => {
         const valueEl = document.querySelector(
             `#stat-${id} .statsbar-item-value`
         );
@@ -84,10 +109,16 @@ export function updateStatsBar() {
 
         try {
             const newValue = value();
-            valueEl.textContent = newValue ?? '–';
+            if (format && typeof newValue === 'object') {
+                valueEl.innerHTML = format(newValue);
+            } else {
+                valueEl.textContent = newValue ?? '–';
+                valueEl.style.color = '#ffffff';
+            }
         } catch (err) {
-            console.warn(`⚠️ Error updating stat "${id}":`, err);
+            console.warn(`Error updating stat "${id}":`, err);
             valueEl.textContent = '–';
+            valueEl.style.color = '#ffffff';
         }
     });
 }
