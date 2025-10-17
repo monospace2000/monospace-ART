@@ -580,7 +580,6 @@ _.param-slider-wrapper:hover {
 
 #appearanceModal .modal-content {
     padding: 15px;
-    background: rgba(245, 245, 245, 0.95);
     display: flex;
     flex-direction: column;
     gap: 12px;

@@ -7,6 +7,10 @@ import { distance, applySpringPhysics } from '../utils/helpers.js';
 import { state } from './state.js';
 import { updateDigitAppearance } from '../render/render.js'; // ensure this import exists
 import { log, moduleTag, trace } from '../utils/utilities.js';
+import {
+    resolveDigitCollisionsSoft,
+    resolveDigitCollisions,
+} from '../movement/collision.js';
 
 // Helper: keep a position inside the screen
 function clampTarget(target) {
@@ -110,8 +114,42 @@ export function updateDigitPosition(d) {
     }
 
     clampVelocity(d, CONFIG.speed);
-    updatePosition(d);
-    bounceOffWalls(d);
+
+    //updateAllDigits();
+    //updatePosition(d);
+    //bounceOffWalls(d);
+}
+
+export function updateAllDigits() {
+    const digits = state.digits;
+
+    // Update individual positions
+    for (const d of digits) {
+        if (d) updateDigitPosition(d);
+    }
+
+    /*       resolveDigitCollisions(digits, {
+        bounceFactor: 0.9,
+        minSeparation: 2,
+        maxIterations: 3,
+        applyVelocity: true
+    });
+ */
+    // Apply soft-repulsion to prevent overlaps
+    resolveDigitCollisionsSoft(digits, {
+        minSeparation: 2, // extra spacing
+        stiffness: 0.05, // spring strength
+        damping: 0.85, // reduces oscillation
+        maxForce: 5, // max separation per frame
+    });
+
+    // Finally, update positions and handle wall bounces
+    for (const d of digits) {
+        if (d) {
+            updatePosition(d); // moves d.x/d.y using d.dx/dy
+            bounceOffWalls(d); // keeps digit inside canvas
+        }
+    }
 }
 
 // --- Helpers ---

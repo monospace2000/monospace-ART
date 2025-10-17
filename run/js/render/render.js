@@ -92,13 +92,13 @@ const SEARCH_RADIUS_SETTINGS = {
 
 // Bond lines between mated pairs
 const BOND_LINE_SETTINGS = {
-    color: 'rgba(0,200,0,0.5)', // Green line color
-    lineWidth: 2, // Line thickness
+    color: 'rgba(0,200,0,0.2)', // Green line color
+    lineWidth: 1, // Line thickness
 };
 
 // Bond lines between children and mothers
 const CHILD_BOND_LINE_SETTINGS = {
-    baseColor: [255, 165, 0], // Orange RGB values
+    color: 'rgba(255, 165, 0, 0.3)', // Orange RGB values
     lineWidth: 1.5, // Line thickness
 };
 
@@ -415,7 +415,7 @@ function renderAgeIndicator(d, size, props) {
     ctx.save();
     ctx.beginPath();
     ctx.lineWidth = AGE_INDICATOR_SETTINGS.width;
-    ctx.strokeStyle = `rgb(${rC},${gC},${bC})`;
+    ctx.strokeStyle = `rgba(${rC},${gC},${bC},${props.opacity})`;
     ctx.arc(
         d.x,
         d.y,
@@ -572,16 +572,13 @@ export function renderBonds(digits) {
     ctx.save();
     ctx.lineCap = 'round';
 
-    // Filter to active digits only
     const activeDigits = digits.filter((d) => d);
     const activeSet = new Set(activeDigits);
 
     for (const d of activeDigits) {
-        // Render mate bonds (between bonded pairs)
+        // Render mate bonds
         if (VISUALS.bonds.enabled && d.bondedTo && activeSet.has(d.bondedTo)) {
             const other = d.bondedTo;
-
-            // Calculate fade based on both digits' ages
             const fade1 =
                 d.age < CONFIG.oldAge
                     ? 1
@@ -595,7 +592,6 @@ export function renderBonds(digits) {
                           (CONFIG.maxAge - CONFIG.oldAge);
             const alpha = Math.min(fade1, fade2);
 
-            // Draw bond line with fade
             ctx.strokeStyle = BOND_LINE_SETTINGS.color.replace(
                 /[\d.]+\)$/g,
                 `${alpha})`
@@ -607,19 +603,21 @@ export function renderBonds(digits) {
             ctx.stroke();
         }
 
-        // Render child-mother bonds (for young digits)
+        // Render child-mother bonds
         if (
             VISUALS.childBonds.enabled &&
             d.mother &&
             activeSet.has(d.mother) &&
             d.age < CONFIG.adolescenceAge
         ) {
-            // Fade out as child reaches adolescence
             const fade = 1 - d.age / CONFIG.adolescenceAge;
 
-            ctx.strokeStyle = `rgba(${CHILD_BOND_LINE_SETTINGS.baseColor.join(
-                ','
-            )},${fade})`;
+            // Replace alpha in existing rgba color string
+            ctx.strokeStyle = CHILD_BOND_LINE_SETTINGS.color.replace(
+                /[\d.]+\)$/g,
+                `${fade})`
+            );
+
             ctx.lineWidth = CHILD_BOND_LINE_SETTINGS.lineWidth;
             ctx.beginPath();
             ctx.moveTo(d.x, d.y);

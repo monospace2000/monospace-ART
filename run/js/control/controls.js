@@ -5,7 +5,7 @@
 import { state } from '../model/state.js';
 import { createDigit, killDigit } from '../model/digit.js';
 import { CONFIG } from '../config/config.js';
-import { updateDigitPosition } from '../model/movement.js';
+import { updateDigitPosition, updateAllDigits } from '../model/movement.js';
 import { createCountsObject } from '../model/state.js';
 import { reproduce } from '../model/reproduction.js';
 import { updateStats } from '../ui/stats.js';
@@ -104,6 +104,7 @@ export function tickSimulation(now = performance.now()) {
         // Update stats UI (DOM)
         updateStats();
 
+        updateAllDigits();
         // Render all digits on canvas
         renderAll(state.digits);
     }

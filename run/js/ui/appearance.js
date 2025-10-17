@@ -16,7 +16,7 @@ export function setupAppearanceModal() {
     globalDiv.style.marginBottom = '10px';
 
     const allOnBtn = document.createElement('button');
-    allOnBtn.textContent = 'All On';
+    allOnBtn.textContent = 'Show All';
     allOnBtn.onclick = () => {
         Object.keys(VISUALS).forEach((key) => (VISUALS[key].enabled = true));
         refreshAppearanceToggles();
@@ -24,7 +24,7 @@ export function setupAppearanceModal() {
     };
 
     const allOffBtn = document.createElement('button');
-    allOffBtn.textContent = 'All Off';
+    allOffBtn.textContent = 'Hide All';
     allOffBtn.style.marginLeft = '5px';
     allOffBtn.onclick = () => {
         Object.keys(VISUALS).forEach((key) => (VISUALS[key].enabled = false));
