@@ -130,15 +130,23 @@ export function setupAppearanceModal() {
     btnRow.style.gap = '5px';
 
     const allOn = makeButton('Show All', () => {
-        Object.keys(VISUALS).forEach((k) => (VISUALS[k].enabled = true));
+        Object.keys(VISUALS).forEach((k) => {
+            if (k === 'glow' || k === 'shadows') return; // skip these
+            VISUALS[k].enabled = true;
+        });
         syncAppearanceUI();
         triggerUpdate();
     });
+
     const allOff = makeButton('Hide All', () => {
-        Object.keys(VISUALS).forEach((k) => (VISUALS[k].enabled = false));
+        Object.keys(VISUALS).forEach((k) => {
+            if (k === 'glow' || k === 'shadows') return; // skip these
+            VISUALS[k].enabled = false;
+        });
         syncAppearanceUI();
         triggerUpdate();
     });
+
     btnRow.append(allOn, allOff);
     overlaysSection.appendChild(btnRow);
 
