@@ -1,15 +1,14 @@
 // ============================================================
 // CONFIG MODULE
 // ============================================================
-import { log, moduleTag, trace, showConfig } from "../utils/utilities.js";
-import { state } from "../model/state.js"; // holds current digits
+import { log, moduleTag, trace, showConfig } from '../utils/utilities.js';
+import { state } from '../model/state.js'; // holds current digits
 
 // Internal backing for FPS and POP_CAP
 let _FPS = 60;
 let _POP_CAP = 48;
 
 export const CONFIG = {
-
     // --- Movement ---
     _speed: 3,
     get speed() {
@@ -40,19 +39,19 @@ export const CONFIG = {
         this.updateDerivedFrames();
     },
 
-        // --- Display ---
+    // --- Display ---
     _digitSize: null,
     get digitSize() {
         return (
             this._digitSize ??
-            Math.min(Math.max(window.innerWidth / 15, 30), 40)
+            Math.min(Math.max(window.innerWidth / 15, 30), 36)
         );
     },
     set digitSize(value) {
         this._digitSize = value;
         document.documentElement.style.setProperty(
-            "--digit-size",
-            value + "px"
+            '--digit-size',
+            value + 'px'
         );
     },
 
@@ -87,7 +86,6 @@ export const CONFIG = {
         _FPS = value;
         this.updateDerivedFrames();
     },
-
 
     _juvenileAgeSec: null,
     get juvenileAgeSec() {
@@ -171,8 +169,8 @@ export const CONFIG = {
     showAttractorLines: true,
 
     // === Spring physics for bonded movement ===
-    springK: 0.09, // spring stiffness
-    springDamping: 0.6, // damping factor (0 = no damping, 1 = heavy damping)
+    springK: 0.14, // spring stiffness
+    springDamping: 0.2, // damping factor (0 = no damping, 1 = heavy damping)
     bondedJitter: 0.9, // liveliness
 
     // --- Derived frame counts ---
@@ -192,8 +190,8 @@ CONFIG.updateDerivedFrames();
 
 // Apply digit size to CSS
 document.documentElement.style.setProperty(
-    "--digit-size",
-    CONFIG.digitSize + "px"
+    '--digit-size',
+    CONFIG.digitSize + 'px'
 );
 
 // Expose for dev/debug

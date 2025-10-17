@@ -14,7 +14,7 @@ import { log, moduleTag } from '../utils/utilities.js';
 export const VISUALS = {
     //shadows: { enabled: false, label: 'Shadows' },
     outlines: { enabled: false, label: 'Outlines' },
-    glow: { enabled: false, label: 'Glow' },
+    glow: { enabled: true, label: 'Glow' },
     searchRadius: { enabled: false, label: 'Search Radius' },
     bonds: { enabled: false, label: 'Bonds' },
     childBonds: { enabled: false, label: 'Child Bonds' },
