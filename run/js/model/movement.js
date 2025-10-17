@@ -128,21 +128,21 @@ export function updateAllDigits() {
         if (d) updateDigitPosition(d);
     }
 
-    /*       resolveDigitCollisions(digits, {
+    resolveDigitCollisions(digits, {
         bounceFactor: 0.9,
         minSeparation: 2,
         maxIterations: 3,
-        applyVelocity: true
+        applyVelocity: true,
     });
- */
-    // Apply soft-repulsion to prevent overlaps
+
+    /*    // Apply soft-repulsion to prevent overlaps
     resolveDigitCollisionsSoft(digits, {
         minSeparation: 2, // extra spacing
         stiffness: 0.05, // spring strength
         damping: 0.85, // reduces oscillation
         maxForce: 5, // max separation per frame
     });
-
+ */
     // Finally, update positions and handle wall bounces
     for (const d of digits) {
         if (d) {

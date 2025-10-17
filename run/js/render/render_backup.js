@@ -10,7 +10,6 @@
 
 import { CONFIG } from '../config/config.js';
 import { log, moduleTag } from '../utils/utilities.js';
-import { handleBall, handleBubble, handleFlat } from '../ui/appearance.js';
 
 // ============================================================
 // VISUALIZATION TOGGLES
@@ -19,9 +18,9 @@ import { handleBall, handleBubble, handleFlat } from '../ui/appearance.js';
 // Can be toggled dynamically during runtime
 
 export const VISUALS = {
-    shadows: { enabled: false, label: 'Shadows' },
-    glow: { enabled: false, label: 'Glow' },
-    outlines: { enabled: false, label: 'Outlines' },
+    //shadows: { enabled: false, label: 'Shadows' },
+    outlines: { enabled: true, label: 'Outlines' },
+    glow: { enabled: true, label: 'Glow' },
     searchRadius: { enabled: false, label: 'Search Radius' },
     bonds: { enabled: false, label: 'Bonds' },
     childBonds: { enabled: false, label: 'Child Bonds' },
@@ -32,50 +31,6 @@ export const VISUALS = {
 // ============================================================
 // APPEARANCE SETTINGS
 // ============================================================
-
-/* export let isBall = false;
-export let isBubble = false;
-export let isFlat = true; // Start with flat as default
- */
-export function ball() {
-    // balls:
-    GLOBE_SETTINGS.highlightOpacity = 1;
-    GLOBE_SETTINGS.midtoneOpacity = 1;
-    GLOBE_SETTINGS.shadowOpacity = 1;
-    GLOBE_SETTINGS.highlight = 0.3;
-    GLOBE_SETTINGS.shadow = 0.7;
-    OUTLINE_SETTINGS.color = 'rgba(0,0,0,0.5)';
-    TEXT_SETTINGS.color = 'rgba(0, 0, 0, 0.7)';
-    VISUALS.outlines.enabled = true;
-    VISUALS.glow.enabled = false;
-    VISUALS.shadows.enabled = true;
-}
-
-export function bubble() {
-    //bubbles:
-    GLOBE_SETTINGS.highlightOpacity = 1;
-    GLOBE_SETTINGS.midtoneOpacity = 0.6;
-    GLOBE_SETTINGS.shadowOpacity = 0.2;
-    OUTLINE_SETTINGS.color = 'rgba(255,255,255,0.5)';
-    TEXT_SETTINGS.color = 'rgba(255, 255, 255, 1)';
-    VISUALS.outlines.enabled = true;
-    VISUALS.glow.enabled = true;
-    VISUALS.shadows.enabled = false;
-}
-
-export function flat() {
-    //flat:
-    GLOBE_SETTINGS.highlightOpacity = 1;
-    GLOBE_SETTINGS.midtoneOpacity = 1;
-    GLOBE_SETTINGS.shadowOpacity = 1;
-    GLOBE_SETTINGS.highlight = 0;
-    GLOBE_SETTINGS.shadow = 0;
-    OUTLINE_SETTINGS.color = 'rgba(0,0,0,0.5)';
-    TEXT_SETTINGS.color = 'rgba(0, 0, 0, 0.7)';
-    VISUALS.outlines.enabled = false;
-    VISUALS.shadows.enabled = false;
-    VISUALS.glow.enabled = false;
-}
 
 // Text color and font
 const TEXT_SETTINGS = {
@@ -92,7 +47,7 @@ const GLOBE_SETTINGS = {
     transparency: 1.0, // Globe transparency (0.0-1.0): 1.0=opaque, 0.0=invisible
     // Glass effect uses gradient: highlights stay opaque, shadows become transparent
     highlightOpacity: 1.0, // Opacity multiplier for highlight (typically 1.0 for glass)
-    midtoneOpacity: 0.6, // Opacity multiplier for midtone (0.5-0.8 for glass)
+    midtoneOpacity: 0.7, // Opacity multiplier for midtone (0.5-0.8 for glass)
     shadowOpacity: 0.2, // Opacity multiplier for shadow (0.1-0.3 for glass)
 };
 
@@ -103,15 +58,12 @@ const OUTLINE_SETTINGS = {
     color: 'rgba(255,255,255,0.5)', // Outline color
 };
 
-// Drop shadow effect
+// Drop shadow effect (currently disabled)
 const SHADOW_SETTINGS = {
-    color: 'rgba(0,0,0,5)', // shadow tint
-    offsetX: 1, // very slight horizontal shift
-    offsetY: 1.5, // very slight vertical shift
-    blur: 4, // smaller blur radius
-    spread: 0.3, // minimal growth outward
-    opacity: 0.3, // subtle transparency
-    layers: 1, // keep it simple
+    offsetX: 0, // Horizontal shadow offset
+    offsetY: 0, // Vertical shadow offset
+    blur: 20, // Shadow blur radius
+    color: 'rgba(0,0,0,0.3)', // Shadow color and opacity
 };
 
 // Glow effect around digits
@@ -203,22 +155,6 @@ export function initCanvasRenderer() {
     log(`[${moduleTag(import.meta)}] Canvas renderer initialized`);
 
     return { canvas, ctx };
-}
-/**
- * select an appearance preset
- */
-
-export function setAppearance(preset) {
-    if (preset == 'bubble') {
-        handleBubble();
-        return 'bubble';
-    } else if (preset == 'ball') {
-        handleBall();
-        return 'ball';
-    } else {
-        handleFlat();
-        return 'flat';
-    }
 }
 
 // ============================================================
@@ -345,12 +281,20 @@ export function updateDigitAppearance(d) {
 // VISUAL OVERLAY FUNCTIONS
 // ============================================================
 
+/**
+ * Render glow effect around a digit
+ * Creates a separate outer glow that doesn't interfere with globe transparency
+ * Uses multiple layers and color boosting for enhanced visibility
+ * @param {Object} d - Digit object
+ * @param {number} size - Digit size
+ */
 function renderGlow(d, size) {
     if (!VISUALS.glow.enabled) return;
 
     const props = updateDigitAppearance(d);
     const rgb = props.color.match(/\d+/g).map(Number);
 
+    // Boost color intensity
     const boostedR = Math.min(
         255,
         Math.floor(rgb[0] * GLOW_SETTINGS.colorBoost)
@@ -364,90 +308,53 @@ function renderGlow(d, size) {
         Math.floor(rgb[2] * GLOW_SETTINGS.colorBoost)
     );
 
-    const baseRadius = size / 2;
-    const scaleFactor = size / CONFIG.digitSize;
-
     ctx.save();
-    ctx.globalCompositeOperation = 'destination-over';
 
+    // Draw multiple layers for increased intensity
     for (let layer = 0; layer < GLOW_SETTINGS.layers; layer++) {
+        // Draw multiple rings with decreasing opacity for smooth glow
         const rings = 20;
         for (let i = 0; i < rings; i++) {
             const progress = i / rings;
-            const outerRadius =
-                baseRadius + GLOW_SETTINGS.strength * progress * scaleFactor;
+            // const radius = size / 2 + GLOW_SETTINGS.strength * progress;
+            const radius =
+                size / 2 +
+                (GLOW_SETTINGS.strength * progress * size) / CONFIG.digitSize;
             const alpha =
                 (GLOW_SETTINGS.opacity * (1 - progress) * props.opacity) /
                 rings;
 
             ctx.fillStyle = `rgba(${boostedR},${boostedG},${boostedB},${alpha})`;
             ctx.beginPath();
-            ctx.arc(d.x, d.y, outerRadius, 0, Math.PI * 2);
-            // only subtract inner circle if radius > 0
-            if (baseRadius > 0)
-                ctx.arc(d.x, d.y, baseRadius, 0, Math.PI * 2, true);
-            ctx.closePath();
-            ctx.fill('evenodd');
+            ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
-
     ctx.restore();
 }
 
 /**
- * Render shadow effect around a digit
- * Works like glow, uses shadow color, and correctly subtracts inner circle
+ * Render drop shadow effect around a digit
+ * Creates a separate outer shadow that doesn't interfere with globe transparency
  * @param {Object} d - Digit object
  * @param {number} size - Digit size
  */
 function renderDropShadow(d, size) {
-    if (!VISUALS.shadows.enabled) return;
-
-    const props = updateDigitAppearance(d);
-    const rgb = SHADOW_SETTINGS.color.match(/\d+/g)
-        ? SHADOW_SETTINGS.color.match(/\d+/g).map(Number)
-        : props.color.match(/\d+/g).map(Number);
-
-    const baseRadius = size / 2;
-    const scaleFactor = size / CONFIG.digitSize;
+    // Uncomment the VISUALS check when enabling shadows
+    // if (!VISUALS.shadows.enabled) return;
 
     ctx.save();
-    ctx.globalCompositeOperation = 'destination-over'; // render behind digit
+    ctx.shadowColor = SHADOW_SETTINGS.color;
+    ctx.shadowOffsetX = SHADOW_SETTINGS.offsetX;
+    ctx.shadowOffsetY = SHADOW_SETTINGS.offsetY;
+    ctx.shadowBlur = SHADOW_SETTINGS.blur;
 
-    const rings = 12;
-
-    for (let layer = 0; layer < SHADOW_SETTINGS.layers; layer++) {
-        for (let i = 0; i < rings; i++) {
-            const progress = i / rings;
-
-            // scale offsets
-            const offsetX =
-                SHADOW_SETTINGS.offsetX *
-                scaleFactor *
-                (1 + progress * (SHADOW_SETTINGS.spread || 0));
-            const offsetY =
-                SHADOW_SETTINGS.offsetY *
-                scaleFactor *
-                (1 + progress * (SHADOW_SETTINGS.spread || 0));
-
-            const outerRadius =
-                baseRadius +
-                SHADOW_SETTINGS.blur * (progress + 0.5) * scaleFactor; // outer ring
-
-            const alpha =
-                (SHADOW_SETTINGS.opacity * (1 - progress) * props.opacity) /
-                rings;
-            ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
-
-            ctx.beginPath();
-            // outer circle is offset
-            ctx.arc(d.x + offsetX, d.y + offsetY, outerRadius, 0, Math.PI * 2);
-            // inner circle is always centered on digit
-            ctx.arc(d.x, d.y, baseRadius, 0, Math.PI * 2, true);
-            ctx.closePath();
-            ctx.fill('evenodd');
-        }
-    }
+    // Draw invisible circle that casts the shadow
+    ctx.fillStyle = 'transparent';
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, size / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.closePath();
 
     ctx.restore();
 }
@@ -601,7 +508,7 @@ export function renderDigit(d, activeSet) {
     // Render external effects first (glow and shadow as separate layers)
     // These are drawn before the main globe so they don't interfere with transparency
     renderGlow(d, size);
-    renderDropShadow(d, size); // Uncomment to enable drop shadows
+    // renderDropShadow(d, size);  // Uncomment to enable drop shadows
 
     ctx.save();
 

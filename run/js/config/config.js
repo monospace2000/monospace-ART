@@ -3,6 +3,9 @@
 // ============================================================
 import { log, moduleTag, trace, showConfig } from '../utils/utilities.js';
 import { state } from '../model/state.js'; // holds current digits
+import { setAppearance } from '../render/render.js';
+
+setAppearance('flat'); // flat, ball, or bubble
 
 // Internal backing for FPS and POP_CAP
 let _FPS = 60;
@@ -122,12 +125,6 @@ export const CONFIG = {
         this._oldAgeSec = value;
         this.updateDerivedFrames();
     },
-
-    velocityJitter: 1.0,
-    directionJitter: 0.3,
-    jitterYoung: 0.4,
-    jitterOld: 0.2,
-
     // --- Reproduction ---
     _reproCooldownSec: null,
     get reproCooldownSec() {
@@ -156,6 +153,13 @@ export const CONFIG = {
         this.updateDerivedFrames();
     },
 
+    //
+    velocityJitter: 1.0,
+    directionJitter: 0.2,
+    jitterYoung: 0.2,
+    jitterOld: 0.2,
+    //
+
     bondedOffset: 50,
 
     // --- Newborn settings ---
@@ -171,7 +175,7 @@ export const CONFIG = {
     // === Spring physics for bonded movement ===
     springK: 0.14, // spring stiffness
     springDamping: 0.2, // damping factor (0 = no damping, 1 = heavy damping)
-    bondedJitter: 0.9, // liveliness
+    bondedJitter: 0.2, // liveliness
 
     // --- Derived frame counts ---
     updateDerivedFrames() {
