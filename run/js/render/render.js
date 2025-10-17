@@ -11,11 +11,16 @@
 import { CONFIG } from '../config/config.js';
 import { log, moduleTag } from '../utils/utilities.js';
 import { handleBall, handleBubble, handleFlat } from '../ui/appearance.js';
+import {
+    getCachedAppearance,
+    clearAppearanceCache,
+} from '../model/movement.js';
+import { getActiveDigits } from '../control/controls.js';
 
 // ============================================================
 // VISUALIZATION TOGGLES
 // ============================================================
-// These control which visual features are enabled/disabled
+// Controls which visual features are enabled/disabled
 // Can be toggled dynamically during runtime
 
 export const VISUALS = {
@@ -32,52 +37,9 @@ export const VISUALS = {
 // ============================================================
 // APPEARANCE SETTINGS
 // ============================================================
+// Centralized visual style configuration
 
-/* export let isBall = false;
-export let isBubble = false;
-export let isFlat = true; // Start with flat as default
- */
-export function ball() {
-    // balls:
-    GLOBE_SETTINGS.highlightOpacity = 1;
-    GLOBE_SETTINGS.midtoneOpacity = 1;
-    GLOBE_SETTINGS.shadowOpacity = 1;
-    GLOBE_SETTINGS.highlight = 0.3;
-    GLOBE_SETTINGS.shadow = 0.7;
-    OUTLINE_SETTINGS.color = 'rgba(0,0,0,0.5)';
-    TEXT_SETTINGS.color = 'rgba(0, 0, 0, 0.7)';
-    VISUALS.outlines.enabled = true;
-    VISUALS.glow.enabled = false;
-    VISUALS.shadows.enabled = true;
-}
-
-export function bubble() {
-    //bubbles:
-    GLOBE_SETTINGS.highlightOpacity = 1;
-    GLOBE_SETTINGS.midtoneOpacity = 0.6;
-    GLOBE_SETTINGS.shadowOpacity = 0.2;
-    OUTLINE_SETTINGS.color = 'rgba(255,255,255,0.5)';
-    TEXT_SETTINGS.color = 'rgba(255, 255, 255, 1)';
-    VISUALS.outlines.enabled = true;
-    VISUALS.glow.enabled = true;
-    VISUALS.shadows.enabled = false;
-}
-
-export function flat() {
-    //flat:
-    GLOBE_SETTINGS.highlightOpacity = 1;
-    GLOBE_SETTINGS.midtoneOpacity = 1;
-    GLOBE_SETTINGS.shadowOpacity = 1;
-    GLOBE_SETTINGS.highlight = 0;
-    GLOBE_SETTINGS.shadow = 0;
-    OUTLINE_SETTINGS.color = 'rgba(0,0,0,0.5)';
-    TEXT_SETTINGS.color = 'rgba(0, 0, 0, 0.7)';
-    VISUALS.outlines.enabled = false;
-    VISUALS.shadows.enabled = false;
-    VISUALS.glow.enabled = false;
-}
-
-// Text color and font
+// Text rendering configuration
 const TEXT_SETTINGS = {
     color: 'rgba(255, 255, 255, 1)',
     font: 'sans-serif',
@@ -86,12 +48,12 @@ const TEXT_SETTINGS = {
 // Globe shading: creates 3D sphere effect with light source
 const GLOBE_SETTINGS = {
     lightAngle: Math.PI / 4, // Direction of light source (45 degrees)
-    lightDistance: 0.3, // Distance of highlight from center
-    highlight: 0.4, // Brightness increase for lit areas
-    shadow: 0.4, // Darkness increase for shadowed areas
-    transparency: 1.0, // Globe transparency (0.0-1.0): 1.0=opaque, 0.0=invisible
-    // Glass effect uses gradient: highlights stay opaque, shadows become transparent
-    highlightOpacity: 1.0, // Opacity multiplier for highlight (typically 1.0 for glass)
+    lightDistance: 0.3, // Distance of highlight from center (0.0-1.0)
+    highlight: 0.4, // Brightness increase for lit areas (0.0-1.0)
+    shadow: 0.4, // Darkness increase for shadowed areas (0.0-1.0)
+    transparency: 1.0, // Globe transparency (1.0=opaque, 0.0=invisible)
+    // Glass effect uses gradient opacity: highlights opaque, shadows transparent
+    highlightOpacity: 1.0, // Opacity multiplier for highlight (typically 1.0)
     midtoneOpacity: 0.6, // Opacity multiplier for midtone (0.5-0.8 for glass)
     shadowOpacity: 0.2, // Opacity multiplier for shadow (0.1-0.3 for glass)
 };
@@ -99,77 +61,69 @@ const GLOBE_SETTINGS = {
 // Outline rendering around each digit
 const OUTLINE_SETTINGS = {
     maxAlpha: 0.8, // Maximum outline opacity
-    baseWidth: 0.5, // Base outline thickness
-    color: 'rgba(255,255,255,0.5)', // Outline color
+    baseWidth: 0.5, // Base outline thickness in pixels
+    color: 'rgba(255,255,255,0.5)', // Default outline color
 };
 
-// Drop shadow effect
+// Drop shadow effect (rendered behind digit)
 const SHADOW_SETTINGS = {
-    color: 'rgba(0,0,0,5)', // shadow tint
-    offsetX: 1, // very slight horizontal shift
-    offsetY: 1.5, // very slight vertical shift
-    blur: 4, // smaller blur radius
-    spread: 0.3, // minimal growth outward
-    opacity: 0.3, // subtle transparency
-    layers: 1, // keep it simple
+    color: 'rgba(0,0,0,5)', // Shadow tint color
+    offsetX: 1, // Horizontal offset in pixels
+    offsetY: 1.5, // Vertical offset in pixels
+    blur: 4, // Blur radius in pixels
+    spread: 0.3, // How much shadow expands outward
+    opacity: 0.3, // Overall shadow opacity
+    layers: 1, // Number of shadow layers (1 recommended)
 };
 
-// Glow effect around digits
+// Glow effect around digits (rendered behind digit)
 const GLOW_SETTINGS = {
-    strength: 20, // Glow blur radius
-    opacity: 0.9, // Glow opacity
+    strength: 20, // Glow radius in pixels
+    opacity: 0.9, // Glow opacity (0.0-1.0)
     layers: 1, // Number of glow layers for intensity (1-5 recommended)
-    colorBoost: 1.2, // Color intensity multiplier (1.0 = normal, higher = more vibrant)
+    colorBoost: 1.2, // Color intensity multiplier (1.0=normal, >1.0=vibrant)
 };
-
-// Motion blur based on digit speed
-const BLUR_SETTINGS = {
-    maxBlur: 4, // Maximum blur amount at full speed
-};
-
-// ============================================================
-// SIMULATION OVERLAY SETTINGS
-// ============================================================
 
 // Search radius visualization (attraction range for males)
 const SEARCH_RADIUS_SETTINGS = {
     color: 'rgba(0,0,255,0.15)', // Border color
-    lineWidth: 1, // Border thickness
+    lineWidth: 1, // Border thickness in pixels
     fillOpacity: 0.05, // Fill transparency
 };
 
 // Bond lines between mated pairs
 const BOND_LINE_SETTINGS = {
     color: 'rgba(0,200,0,0.2)', // Green line color
-    lineWidth: 1, // Line thickness
+    lineWidth: 1, // Line thickness in pixels
 };
 
 // Bond lines between children and mothers
 const CHILD_BOND_LINE_SETTINGS = {
-    color: 'rgba(255, 165, 0, 0.3)', // Orange RGB values
-    lineWidth: 1.5, // Line thickness
+    color: 'rgba(255, 165, 0, 0.3)', // Orange line color
+    lineWidth: 1.5, // Line thickness in pixels
 };
 
 // Attraction lines from males to potential mates
 const ATTRACTION_LINE_SETTINGS = {
     maleToFemale: {
         color: 'rgba(255,255,255,0.7)', // White semi-transparent
-        width: 1, // Line thickness
+        width: 1, // Line thickness in pixels
     },
 };
 
-// ============================================================
-// AGE INDICATOR SETTINGS
-// ============================================================
-// Circular progress indicator showing remaining lifespan
-
+// Age indicator ring configuration
 const AGE_INDICATOR_SETTINGS = {
-    width: 2, // Ring thickness
+    width: 2, // Ring thickness in pixels
     colors: {
         young: 'rgba(255,255,255,1)', // White for young
         mature: 'rgba(0,255,0,1)', // Green for mature
         old: 'rgba(255,0,0,1)', // Red for old
     },
+};
+
+// Motion blur configuration (based on digit velocity)
+const BLUR_SETTINGS = {
+    maxBlur: 4, // Maximum blur amount at full speed
 };
 
 // ============================================================
@@ -204,15 +158,71 @@ export function initCanvasRenderer() {
 
     return { canvas, ctx };
 }
-/**
- * select an appearance preset
- */
 
+// ============================================================
+// APPEARANCE PRESETS
+// ============================================================
+// Three preset styles that configure multiple visual settings at once
+
+/**
+ * Configure settings for "ball" appearance
+ * Creates solid, opaque spheres with strong shading
+ */
+export function ball() {
+    GLOBE_SETTINGS.highlightOpacity = 1;
+    GLOBE_SETTINGS.midtoneOpacity = 1;
+    GLOBE_SETTINGS.shadowOpacity = 1;
+    GLOBE_SETTINGS.highlight = 0.3;
+    GLOBE_SETTINGS.shadow = 0.7;
+    OUTLINE_SETTINGS.color = 'rgba(0,0,0,0.5)';
+    TEXT_SETTINGS.color = 'rgba(0, 0, 0, 0.7)';
+    VISUALS.outlines.enabled = true;
+    VISUALS.glow.enabled = false;
+    VISUALS.shadows.enabled = true;
+}
+
+/**
+ * Configure settings for "bubble" appearance
+ * Creates translucent glass-like spheres with glow
+ */
+export function bubble() {
+    GLOBE_SETTINGS.highlightOpacity = 1;
+    GLOBE_SETTINGS.midtoneOpacity = 0.6;
+    GLOBE_SETTINGS.shadowOpacity = 0.2;
+    OUTLINE_SETTINGS.color = 'rgba(255,255,255,0.5)';
+    TEXT_SETTINGS.color = 'rgba(255, 255, 255, 1)';
+    VISUALS.outlines.enabled = true;
+    VISUALS.glow.enabled = true;
+    VISUALS.shadows.enabled = false;
+}
+
+/**
+ * Configure settings for "flat" appearance
+ * Creates simple flat circles without shading effects
+ */
+export function flat() {
+    GLOBE_SETTINGS.highlightOpacity = 1;
+    GLOBE_SETTINGS.midtoneOpacity = 1;
+    GLOBE_SETTINGS.shadowOpacity = 1;
+    GLOBE_SETTINGS.highlight = 0;
+    GLOBE_SETTINGS.shadow = 0;
+    OUTLINE_SETTINGS.color = 'rgba(0,0,0,0.5)';
+    TEXT_SETTINGS.color = 'rgba(0, 0, 0, 0.7)';
+    VISUALS.outlines.enabled = false;
+    VISUALS.shadows.enabled = false;
+    VISUALS.glow.enabled = false;
+}
+
+/**
+ * Select an appearance preset by name
+ * @param {string} preset - Name of preset ('ball', 'bubble', or 'flat')
+ * @returns {string} The preset name that was applied
+ */
 export function setAppearance(preset) {
-    if (preset == 'bubble') {
+    if (preset === 'bubble') {
         handleBubble();
         return 'bubble';
-    } else if (preset == 'ball') {
+    } else if (preset === 'ball') {
         handleBall();
         return 'ball';
     } else {
@@ -222,8 +232,105 @@ export function setAppearance(preset) {
 }
 
 // ============================================================
+// COLOR UTILITIES
+// ============================================================
+// Helper functions for color manipulation
+
+/**
+ * Lighten a color value by adding to it
+ * @param {number} c - Color component (0-255)
+ * @returns {number} Lightened color component, clamped to 255
+ */
+function lightenColor(c) {
+    return Math.min(255, c + 255 * GLOBE_SETTINGS.highlight);
+}
+
+/**
+ * Darken a color value by multiplying it
+ * @param {number} c - Color component (0-255)
+ * @returns {number} Darkened color component, clamped to 0
+ */
+function darkenColor(c) {
+    return Math.max(0, c * (1 - GLOBE_SETTINGS.shadow));
+}
+
+/**
+ * Parse RGB values from an rgba() or rgb() color string
+ * @param {string} str - Color string in format 'rgba(r,g,b,a)' or 'rgb(r,g,b)'
+ * @returns {Array<number>} Array of [r, g, b] values
+ */
+function parseRGB(str) {
+    const match = str.match(/\d+/g);
+    return match ? match.slice(0, 3).map(Number) : [255, 255, 255];
+}
+
+/**
+ * Parse alpha value from an rgba() color string
+ * @param {string} str - Color string in format 'rgba(r,g,b,a)'
+ * @returns {number} Alpha value (0.0-1.0), defaults to 1.0 if not found
+ */
+function parseAlpha(str) {
+    const match = str.match(/[\d.]+\)$/);
+    return match ? parseFloat(match[0]) : 1.0;
+}
+
+// ============================================================
 // APPEARANCE CALCULATION
 // ============================================================
+
+/**
+ * Calculate base color (RGB) for a digit based on sex and maturity
+ * Males: white → blue as they mature
+ * Females: white → pink as they mature
+ * @param {Object} d - Digit object
+ * @param {number} maturityRatio - Maturity progress (0.0-1.0)
+ * @returns {Object} RGB color components {r, g, b}
+ */
+function calculateDigitColor(d, maturityRatio) {
+    let r, g, b;
+
+    if (d.sex === 'M') {
+        // Males: light blue (255,255,255) → darker blue (100,160,255)
+        r = Math.floor(255 + maturityRatio * (100 - 255));
+        g = Math.floor(255 + maturityRatio * (160 - 255));
+        b = 255;
+    } else {
+        // Females: white (255,255,255) → pink (255,100,100)
+        r = 255;
+        g = Math.floor(255 + maturityRatio * (100 - 255));
+        b = Math.floor(255 + maturityRatio * (100 - 255));
+    }
+
+    return { r, g, b };
+}
+
+/**
+ * Calculate opacity for a digit based on age
+ * Full opacity until old age, then fades out until death
+ * @param {Object} d - Digit object
+ * @returns {number} Opacity value (0.0-1.0)
+ */
+function calculateOpacity(d) {
+    if (d.age < CONFIG.oldAge) {
+        return 1.0;
+    }
+
+    // Cubic fade for smoother transition
+    const ageProgress =
+        (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge);
+    return Math.pow(1 - ageProgress, 3);
+}
+
+/**
+ * Calculate scale for a digit based on age
+ * Grows from 30% to 100% as digit matures
+ * @param {Object} d - Digit object
+ * @returns {number} Scale multiplier (0.3-1.0)
+ */
+function calculateScale(d) {
+    const maturityRatio = Math.min(d.age / CONFIG.matureAge, 1);
+    return 0.3 + maturityRatio * 0.7;
+}
 
 /**
  * Calculate all visual properties for a digit based on its state
@@ -232,104 +339,72 @@ export function setAppearance(preset) {
  * @returns {Object} Visual properties (scale, colors, opacity, etc.)
  */
 export function updateDigitAppearance(d) {
-    // text color
-
-    const textColor = TEXT_SETTINGS.color;
-    const font = TEXT_SETTINGS.font;
-
-    // Scale: grows from 30% to 100% as digit matures
-    const scale = 0.3 + Math.min(d.age / CONFIG.matureAge, 1) * 0.7;
-
-    // Opacity: full until old age, then fades to 0 at death
-    const opacity =
-        d.age < CONFIG.oldAge
-            ? 1
-            : Math.pow(
-                  1 - (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge),
-                  3
-              );
-
-    // Color transition: shifts as digit matures (0-1 range)
-    const t = Math.min(d.age / CONFIG.matureAge, 1);
+    // Calculate basic age-based properties
+    const scale = calculateScale(d);
+    const opacity = calculateOpacity(d);
+    const maturityRatio = Math.min(d.age / CONFIG.matureAge, 1);
 
     // Calculate base color based on sex and maturity
-    let r, g, b;
-    if (d.sex === 'M') {
-        // Males: light blue (255,255,255) → darker blue (100,160,255)
-        r = (255 + t * (100 - 255)) | 0;
-        g = (255 + t * (160 - 255)) | 0;
-        b = 255;
-    } else {
-        // Females: white (255,255,255) → pink (255,100,100)
-        r = 255;
-        g = (255 + t * (100 - 255)) | 0;
-        b = (255 + t * (100 - 255)) | 0;
-    }
+    const { r, g, b } = calculateDigitColor(d, maturityRatio);
 
     // Create color strings for base, highlight, and shadow
     const baseColor = `rgb(${r},${g},${b})`;
-
-    const lighten = (c) => Math.min(255, c + 255 * GLOBE_SETTINGS.highlight);
-    const darken = (c) => Math.max(0, c * (1 - GLOBE_SETTINGS.shadow));
-
-    const highlight = `rgb(${lighten(r)},${lighten(g)},${lighten(b)})`;
-    const shadow = `rgb(${darken(r)},${darken(g)},${darken(b)})`;
+    const highlightColor = `rgb(${lightenColor(r)},${lightenColor(
+        g
+    )},${lightenColor(b)})`;
+    const shadowColor = `rgb(${darkenColor(r)},${darkenColor(g)},${darkenColor(
+        b
+    )})`;
 
     // Calculate gradient opacities for glass effect
     // Age-based opacity affects all parts, then glass settings create gradient
-    const highlightAlpha =
-        opacity * GLOBE_SETTINGS.transparency * GLOBE_SETTINGS.highlightOpacity;
-    const midtoneAlpha =
-        opacity * GLOBE_SETTINGS.transparency * GLOBE_SETTINGS.midtoneOpacity;
-    const shadowAlpha =
-        opacity * GLOBE_SETTINGS.transparency * GLOBE_SETTINGS.shadowOpacity;
+    const baseOpacity = opacity * GLOBE_SETTINGS.transparency;
+    const highlightAlpha = baseOpacity * GLOBE_SETTINGS.highlightOpacity;
+    const midtoneAlpha = baseOpacity * GLOBE_SETTINGS.midtoneOpacity;
+    const shadowAlpha = baseOpacity * GLOBE_SETTINGS.shadowOpacity;
 
-    // Convert RGB colors to RGBA with varying opacity
-    const highlightRGBA = `rgba(${lighten(r)},${lighten(g)},${lighten(
-        b
-    )},${highlightAlpha})`;
+    // Convert RGB colors to RGBA with varying opacity for glass effect
+    const highlightRGBA = `rgba(${lightenColor(r)},${lightenColor(
+        g
+    )},${lightenColor(b)},${highlightAlpha})`;
     const midtoneRGBA = `rgba(${r},${g},${b},${midtoneAlpha})`;
-    const shadowRGBA = `rgba(${darken(r)},${darken(g)},${darken(
+    const shadowRGBA = `rgba(${darkenColor(r)},${darkenColor(g)},${darkenColor(
         b
     )},${shadowAlpha})`;
 
-    // Outline properties
-    // Parse color from settings and apply opacity
-    const outlineRGB = OUTLINE_SETTINGS.color.match(/\d+/g) || [0, 0, 0];
-
-    const settingsAlpha =
-        parseFloat(OUTLINE_SETTINGS.color.match(/[\d.]+\)$/)?.[0]) || 1;
+    // Calculate outline properties
+    const outlineRGB = parseRGB(OUTLINE_SETTINGS.color);
+    const outlineSettingsAlpha = parseAlpha(OUTLINE_SETTINGS.color);
     const outlineColor = `rgba(${outlineRGB[0]},${outlineRGB[1]},${
         outlineRGB[2]
-    },${Math.min(opacity * settingsAlpha, OUTLINE_SETTINGS.maxAlpha)})`;
+    },${Math.min(opacity * outlineSettingsAlpha, OUTLINE_SETTINGS.maxAlpha)})`;
     const outlineWidth = OUTLINE_SETTINGS.baseWidth + scale * 0.5;
 
-    // Motion blur based on velocity
+    // Calculate motion blur based on velocity
     const speed = Math.hypot(d.dx || 0, d.dy || 0);
     const blur = Math.min(speed / CONFIG.speed, 1) * BLUR_SETTINGS.maxBlur;
 
     // Calculate light source position for gradient
+    const size = CONFIG.digitSize * scale;
     const lx =
         d.x -
         Math.cos(GLOBE_SETTINGS.lightAngle) *
             GLOBE_SETTINGS.lightDistance *
-            CONFIG.digitSize *
-            scale;
+            size;
     const ly =
         d.y -
         Math.sin(GLOBE_SETTINGS.lightAngle) *
             GLOBE_SETTINGS.lightDistance *
-            CONFIG.digitSize *
-            scale;
+            size;
 
     return {
         scale,
-        textColor,
-        font,
+        textColor: TEXT_SETTINGS.color,
+        font: TEXT_SETTINGS.font,
         color: baseColor,
         opacity,
-        highlight,
-        shadow,
+        highlight: highlightColor,
+        shadow: shadowColor,
         highlightRGBA,
         midtoneRGBA,
         shadowRGBA,
@@ -342,50 +417,56 @@ export function updateDigitAppearance(d) {
 }
 
 // ============================================================
-// VISUAL OVERLAY FUNCTIONS
+// EFFECT RENDERING (GLOW AND SHADOW)
 // ============================================================
+// Both glow and shadow use similar ring-based rendering technique
 
-function renderGlow(d, size) {
-    if (!VISUALS.glow.enabled) return;
-
-    const props = updateDigitAppearance(d);
-    const rgb = props.color.match(/\d+/g).map(Number);
-
-    const boostedR = Math.min(
-        255,
-        Math.floor(rgb[0] * GLOW_SETTINGS.colorBoost)
-    );
-    const boostedG = Math.min(
-        255,
-        Math.floor(rgb[1] * GLOW_SETTINGS.colorBoost)
-    );
-    const boostedB = Math.min(
-        255,
-        Math.floor(rgb[2] * GLOW_SETTINGS.colorBoost)
-    );
-
+/**
+ * Render concentric rings of color around a digit
+ * Used by both glow and shadow effects
+ * @param {Object} d - Digit object
+ * @param {number} size - Digit size
+ * @param {Object} settings - Effect settings (strength, opacity, layers)
+ * @param {Array<number>} rgb - RGB color array [r, g, b]
+ * @param {number} baseOpacity - Base opacity from digit appearance
+ * @param {number} offsetX - Horizontal offset for rings (0 for glow, offset for shadow)
+ * @param {number} offsetY - Vertical offset for rings (0 for glow, offset for shadow)
+ */
+function renderRingEffect(
+    d,
+    size,
+    settings,
+    rgb,
+    baseOpacity,
+    offsetX = 0,
+    offsetY = 0
+) {
     const baseRadius = size / 2;
     const scaleFactor = size / CONFIG.digitSize;
+    const rings = 15; // Number of concentric rings to draw
 
     ctx.save();
-    ctx.globalCompositeOperation = 'destination-over';
+    ctx.globalCompositeOperation = 'destination-over'; // Render behind digit
 
-    for (let layer = 0; layer < GLOW_SETTINGS.layers; layer++) {
-        const rings = 20;
+    // Draw multiple layers for intensity
+    for (let layer = 0; layer < settings.layers; layer++) {
+        // Draw each ring from inner to outer
         for (let i = 0; i < rings; i++) {
-            const progress = i / rings;
-            const outerRadius =
-                baseRadius + GLOW_SETTINGS.strength * progress * scaleFactor;
-            const alpha =
-                (GLOW_SETTINGS.opacity * (1 - progress) * props.opacity) /
-                rings;
+            const progress = i / rings; // 0.0 at center, 1.0 at edge
 
-            ctx.fillStyle = `rgba(${boostedR},${boostedG},${boostedB},${alpha})`;
+            // Calculate outer radius (expands outward)
+            const outerRadius =
+                baseRadius + settings.strength * progress * scaleFactor;
+
+            // Calculate alpha (fades to transparent at edge)
+            const alpha =
+                (settings.opacity * (1 - progress) * baseOpacity) / rings;
+
+            // Draw ring as donut shape (outer circle minus inner circle)
+            ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
             ctx.beginPath();
-            ctx.arc(d.x, d.y, outerRadius, 0, Math.PI * 2);
-            // only subtract inner circle if radius > 0
-            if (baseRadius > 0)
-                ctx.arc(d.x, d.y, baseRadius, 0, Math.PI * 2, true);
+            ctx.arc(d.x + offsetX, d.y + offsetY, outerRadius, 0, Math.PI * 2);
+            ctx.arc(d.x, d.y, baseRadius, 0, Math.PI * 2, true); // Subtract inner
             ctx.closePath();
             ctx.fill('evenodd');
         }
@@ -395,62 +476,61 @@ function renderGlow(d, size) {
 }
 
 /**
- * Render shadow effect around a digit
- * Works like glow, uses shadow color, and correctly subtracts inner circle
+ * Render glow effect around a digit
+ * @param {Object} d - Digit object
+ * @param {number} size - Digit size
+ */
+function renderGlow(d, size) {
+    if (!VISUALS.glow.enabled) return;
+
+    // Get digit color and boost it for glow
+    const props = updateDigitAppearance(d);
+    const rgb = parseRGB(props.color);
+    const boostedRGB = rgb.map((c) =>
+        Math.min(255, Math.floor(c * GLOW_SETTINGS.colorBoost))
+    );
+
+    // Render glow using ring effect (centered on digit)
+    renderRingEffect(d, size, GLOW_SETTINGS, boostedRGB, props.opacity);
+}
+
+/**
+ * Render drop shadow effect around a digit
  * @param {Object} d - Digit object
  * @param {number} size - Digit size
  */
 function renderDropShadow(d, size) {
     if (!VISUALS.shadows.enabled) return;
 
+    // Get shadow color
     const props = updateDigitAppearance(d);
-    const rgb = SHADOW_SETTINGS.color.match(/\d+/g)
-        ? SHADOW_SETTINGS.color.match(/\d+/g).map(Number)
-        : props.color.match(/\d+/g).map(Number);
+    const rgb = parseRGB(SHADOW_SETTINGS.color);
 
-    const baseRadius = size / 2;
+    // Calculate scaled offsets
     const scaleFactor = size / CONFIG.digitSize;
+    const offsetX = SHADOW_SETTINGS.offsetX * scaleFactor;
+    const offsetY = SHADOW_SETTINGS.offsetY * scaleFactor;
 
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-over'; // render behind digit
-
-    const rings = 12;
-
-    for (let layer = 0; layer < SHADOW_SETTINGS.layers; layer++) {
-        for (let i = 0; i < rings; i++) {
-            const progress = i / rings;
-
-            // scale offsets
-            const offsetX =
-                SHADOW_SETTINGS.offsetX *
-                scaleFactor *
-                (1 + progress * (SHADOW_SETTINGS.spread || 0));
-            const offsetY =
-                SHADOW_SETTINGS.offsetY *
-                scaleFactor *
-                (1 + progress * (SHADOW_SETTINGS.spread || 0));
-
-            const outerRadius =
-                baseRadius +
-                SHADOW_SETTINGS.blur * (progress + 0.5) * scaleFactor; // outer ring
-
-            const alpha =
-                (SHADOW_SETTINGS.opacity * (1 - progress) * props.opacity) /
-                rings;
-            ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
-
-            ctx.beginPath();
-            // outer circle is offset
-            ctx.arc(d.x + offsetX, d.y + offsetY, outerRadius, 0, Math.PI * 2);
-            // inner circle is always centered on digit
-            ctx.arc(d.x, d.y, baseRadius, 0, Math.PI * 2, true);
-            ctx.closePath();
-            ctx.fill('evenodd');
-        }
-    }
-
-    ctx.restore();
+    // Render shadow using ring effect (offset from digit)
+    renderRingEffect(
+        d,
+        size,
+        {
+            strength: SHADOW_SETTINGS.blur,
+            opacity: SHADOW_SETTINGS.opacity,
+            layers: SHADOW_SETTINGS.layers,
+        },
+        rgb,
+        props.opacity,
+        offsetX,
+        offsetY
+    );
 }
+
+// ============================================================
+// DIGIT OVERLAY RENDERING
+// ============================================================
+// Additional visual elements drawn on or around the digit
 
 /**
  * Render outline around a digit
@@ -474,47 +554,37 @@ function renderOutline(props) {
 function renderAgeIndicator(d, size, props) {
     if (!VISUALS.ageIndicator.enabled) return;
 
-    // Calculate ring radius (outside outline)
-    const r = size / 2 + props.outlineWidth * 1.2;
+    // Calculate ring radius (just outside outline)
+    const ringRadius = size / 2 + props.outlineWidth * 1.2;
 
-    // Calculate age progression and remaining life
+    // Calculate remaining life percentage
     const ageRatio = Math.min(d.age / CONFIG.maxAge, 1);
     const remaining = 1 - ageRatio;
 
-    // Helper to parse RGB from rgba/rgb string
-    const parseRGBA = (str) => {
-        const m = str.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]*)\)/i);
-        return m
-            ? [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])]
-            : [255, 255, 255];
-    };
-
-    // Get color values for different life stages
-    const [rY, gY, bY] = parseRGBA(AGE_INDICATOR_SETTINGS.colors.young);
-    const [rM, gM, bM] = parseRGBA(AGE_INDICATOR_SETTINGS.colors.mature);
-    const [rO, gO, bO] = parseRGBA(AGE_INDICATOR_SETTINGS.colors.old);
-
-    // Select color based on current life stage
-    let rC, gC, bC;
+    // Determine color based on life stage
+    let colorKey;
     if (d.age < CONFIG.matureAge) {
-        [rC, gC, bC] = [rY, gY, bY];
+        colorKey = 'young';
     } else if (d.age < CONFIG.oldAge) {
-        [rC, gC, bC] = [rM, gM, bM];
+        colorKey = 'mature';
     } else {
-        [rC, gC, bC] = [rO, gO, bO];
+        colorKey = 'old';
     }
+
+    // Parse color and apply opacity
+    const [r, g, b] = parseRGB(AGE_INDICATOR_SETTINGS.colors[colorKey]);
 
     // Draw arc showing remaining life (counter-clockwise from top)
     ctx.save();
     ctx.beginPath();
     ctx.lineWidth = AGE_INDICATOR_SETTINGS.width;
-    ctx.strokeStyle = `rgba(${rC},${gC},${bC},${props.opacity})`;
+    ctx.strokeStyle = `rgba(${r},${g},${b},${props.opacity})`;
     ctx.arc(
         d.x,
         d.y,
-        r,
-        -Math.PI / 2,
-        -Math.PI / 2 - Math.PI * 2 * remaining,
+        ringRadius,
+        -Math.PI / 2, // Start at top
+        -Math.PI / 2 - Math.PI * 2 * remaining, // Sweep counter-clockwise
         true
     );
     ctx.stroke();
@@ -557,8 +627,8 @@ function renderAttractionLine(d, activeSet) {
 
     const target = d.attractionTarget;
 
-    // Validate target is still viable
-    const validTarget =
+    // Validate target is still viable for mating
+    const isValidTarget =
         target &&
         activeSet.has(target) &&
         target.sex === 'F' &&
@@ -567,7 +637,7 @@ function renderAttractionLine(d, activeSet) {
         target.gestationTimer === 0 &&
         !target.bondedTo;
 
-    if (!validTarget) return;
+    if (!isValidTarget) return;
 
     // Draw line from male to female
     ctx.save();
@@ -592,26 +662,21 @@ function renderAttractionLine(d, activeSet) {
  */
 export function renderDigit(d, activeSet) {
     // Calculate all visual properties
-    const props = updateDigitAppearance(d);
+    const props = getCachedAppearance(d);
     const size = CONFIG.digitSize * props.scale;
 
-    // Skip rendering if opacity is too low (prevents "pop" at end of life)
+    // Skip rendering if opacity is too low (prevents visual artifacts)
     if (props.opacity < 0.01) return;
 
-    // Render external effects first (glow and shadow as separate layers)
-    // These are drawn before the main globe so they don't interfere with transparency
+    // Render external effects first (behind main digit)
     renderGlow(d, size);
-    renderDropShadow(d, size); // Uncomment to enable drop shadows
+    renderDropShadow(d, size);
 
     ctx.save();
 
-    //return;
-    // Don't set globalAlpha - we'll use RGBA colors with per-gradient opacity
-
     // Draw main circle with radial gradient (globe shading with glass effect)
-    // Each color stop has its own alpha for proper glass/transparent effect
     ctx.beginPath();
-    const g = ctx.createRadialGradient(
+    const gradient = ctx.createRadialGradient(
         props.lx, // Highlight center X
         props.ly, // Highlight center Y
         size * 0.1, // Inner radius (small bright spot)
@@ -619,11 +684,13 @@ export function renderDigit(d, activeSet) {
         d.y, // Outer center Y
         size / 2 // Outer radius (full digit size)
     );
+
     // Glass effect: opaque highlight → semi-transparent midtone → very transparent shadow
-    g.addColorStop(0, props.highlightRGBA); // Bright center (most opaque)
-    g.addColorStop(0.3, props.midtoneRGBA); // Base color (medium opacity)
-    g.addColorStop(1, props.shadowRGBA); // Dark edge (most transparent)
-    ctx.fillStyle = g;
+    gradient.addColorStop(0, props.highlightRGBA); // Bright center (most opaque)
+    gradient.addColorStop(0.3, props.midtoneRGBA); // Base color (medium opacity)
+    gradient.addColorStop(1, props.shadowRGBA); // Dark edge (most transparent)
+
+    ctx.fillStyle = gradient;
     ctx.arc(d.x, d.y, size / 2, 0, Math.PI * 2);
     ctx.fill();
     ctx.closePath();
@@ -635,9 +702,9 @@ export function renderDigit(d, activeSet) {
     renderAgeIndicator(d, size, props);
 
     // Draw digit name/number in center
-    ctx.globalAlpha = props.opacity; // Apply opacity to text too
+    ctx.globalAlpha = props.opacity;
     ctx.fillStyle = props.textColor;
-    ctx.font = `${size * 0.6}px sans-serif`;
+    ctx.font = `${size * 0.6}px ${props.font}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(d.name, d.x, d.y);
@@ -645,7 +712,6 @@ export function renderDigit(d, activeSet) {
     ctx.restore();
 
     // Draw simulation overlays (not affected by globe transparency)
-    // These render at full opacity regardless of GLOBE_SETTINGS.transparency
     renderSearchRadius(d);
     renderAttractionLine(d, activeSet);
 }
@@ -655,62 +721,74 @@ export function renderDigit(d, activeSet) {
 // ============================================================
 
 /**
+ * Calculate fade factor for a digit based on age
+ * Used to fade out bonds as digits age
+ * @param {Object} d - Digit object
+ * @returns {number} Fade factor (0.0-1.0)
+ */
+function calculateBondFade(d) {
+    if (d.age < CONFIG.oldAge) {
+        return 1.0;
+    }
+    return 1 - (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge);
+}
+
+/**
  * Render all bond lines between digits
  * Includes mate bonds (green) and child-mother bonds (orange)
  * @param {Array} digits - Array of all digits
  */
-export function renderBonds(digits) {
+export function renderBonds(digits, activeSet) {
     if (!ctx) return;
+
+    // Safety check: ensure we have an activeSet
+    if (!activeSet) {
+        console.warn('renderBonds called without activeSet, creating one');
+        activeSet = new Set(digits.filter((d) => d));
+    }
 
     ctx.save();
     ctx.lineCap = 'round';
 
-    const activeDigits = digits.filter((d) => d);
-    const activeSet = new Set(activeDigits);
+    for (const d of digits) {
+        if (!d) continue; // Safety check in case nulls slip through
 
-    for (const d of activeDigits) {
-        // Render mate bonds
+        // Render mate bonds (green lines between bonded pairs)
         if (VISUALS.bonds.enabled && d.bondedTo && activeSet.has(d.bondedTo)) {
-            const other = d.bondedTo;
-            const fade1 =
-                d.age < CONFIG.oldAge
-                    ? 1
-                    : 1 -
-                      (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge);
-            const fade2 =
-                other.age < CONFIG.oldAge
-                    ? 1
-                    : 1 -
-                      (other.age - CONFIG.oldAge) /
-                          (CONFIG.maxAge - CONFIG.oldAge);
+            const partner = d.bondedTo;
+
+            // Calculate fade based on both partners' ages
+            const fade1 = calculateBondFade(d);
+            const fade2 = calculateBondFade(partner);
             const alpha = Math.min(fade1, fade2);
 
+            // Draw bond line with age-based fading
             ctx.strokeStyle = BOND_LINE_SETTINGS.color.replace(
-                /[\d.]+\)$/g,
+                /[\d.]+\)$/,
                 `${alpha})`
             );
             ctx.lineWidth = BOND_LINE_SETTINGS.lineWidth;
             ctx.beginPath();
             ctx.moveTo(d.x, d.y);
-            ctx.lineTo(other.x, other.y);
+            ctx.lineTo(partner.x, partner.y);
             ctx.stroke();
         }
 
-        // Render child-mother bonds
+        // Render child-mother bonds (orange lines that fade as child grows)
         if (
             VISUALS.childBonds.enabled &&
             d.mother &&
             activeSet.has(d.mother) &&
             d.age < CONFIG.adolescenceAge
         ) {
+            // Fade bond as child approaches adolescence
             const fade = 1 - d.age / CONFIG.adolescenceAge;
 
-            // Replace alpha in existing rgba color string
+            // Draw bond line with age-based fading
             ctx.strokeStyle = CHILD_BOND_LINE_SETTINGS.color.replace(
-                /[\d.]+\)$/g,
+                /[\d.]+\)$/,
                 `${fade})`
             );
-
             ctx.lineWidth = CHILD_BOND_LINE_SETTINGS.lineWidth;
             ctx.beginPath();
             ctx.moveTo(d.x, d.y);
@@ -729,26 +807,25 @@ export function renderBonds(digits) {
 /**
  * Render all digits and their bonds
  * This is the main entry point for each frame
- * @param {Array} digits - Array of all digits to render
+ * @param {Array} digits - Array of active digits to render
+ * @param {Set} activeSet - Set of active digits for efficient lookup
  */
-export function renderAll(digits) {
+export function renderAll(digits, activeSet) {
     if (!ctx) return;
 
     // Clear previous frame
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Create set of active digits for efficient lookup in overlays
-    const activeSet = new Set(digits.filter((d) => d));
+    // No need to create activeSet here anymore - it's passed in
 
     // Render all individual digits
     for (const d of digits) {
-        if (d) renderDigit(d, activeSet);
+        renderDigit(d, activeSet);
     }
 
     // Render bond lines on top of all digits
-    renderBonds(digits);
+    renderBonds(digits, activeSet);
 }
-
 // ============================================================
 // MODULE LOAD MESSAGE
 // ============================================================

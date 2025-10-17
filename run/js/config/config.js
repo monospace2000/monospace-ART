@@ -13,7 +13,7 @@ let _POP_CAP = 48;
 
 export const CONFIG = {
     // --- Movement ---
-    _speed: 3,
+    _speed: 5,
     get speed() {
         //        return this._speed;
         return this._speed ?? Math.min(Math.max(window.innerWidth / 500, 2), 5);
@@ -154,13 +154,13 @@ export const CONFIG = {
     },
 
     //
-    velocityJitter: 1.0,
+    velocityJitter: 0.5,
     directionJitter: 0.2,
     jitterYoung: 0.2,
     jitterOld: 0.2,
     //
 
-    bondedOffset: 50,
+    bondedOffset: 30,
 
     // --- Newborn settings ---
     newbornSpeedFactor: 1,
