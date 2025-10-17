@@ -81,6 +81,9 @@
     margin: 0;
     font-weight: normal;
 }
+#topMenuBar #aboutBtn {
+    min-width: unset !important;
+}
 
 #topMenuBar .project-attribution {
     width: 343px;
@@ -89,11 +92,11 @@
     opacity: 0.4;
     transform: scale(0.67);
     transform-origin: right center;
-    cursor: pointer;
-    transition: 0.3s opacity;
+    _cursor: pointer;
+    _transition: 0.3s opacity;
 }
 #topMenuBar .project-attribution:hover {
-    opacity: 0.7;
+    _opacity: 0.7;
 }
 #topMenuBar #exitFullscreen {
     display: none; /* hidden by default */
@@ -512,7 +515,7 @@ _.param-slider-wrapper:hover {
         display: none !important;
     }
 
-    #aboutBtn {
+    #monospaceArtTag {
         display: none;
     }
 
@@ -522,8 +525,6 @@ _.param-slider-wrapper:hover {
         font-size: 16px;
         white-space: nowrap;
         overflow: hidden;
-        text-overflow: ellipsis;
-        cursor: pointer;
         color: #fff;
         text-align: center;
         padding: 0 5px;
