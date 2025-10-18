@@ -12,6 +12,9 @@ import { CONFIG } from '../config/config.js';
 console.log('CONFIG in digit.js');
 
 export function createDigit(name, sex, x, y, speedFactor = 1, mother, father) {
+    const variation = CONFIG.maxAge * (CONFIG.maxAgeVariation ?? 0.2); // ±20% default
+    const delta = (Math.random() * 2 - 1) * variation;
+
     const angle = Math.random() * 2 * Math.PI;
     const digit = {
         name,
@@ -21,6 +24,7 @@ export function createDigit(name, sex, x, y, speedFactor = 1, mother, father) {
         dx: mother ? 0 : Math.cos(angle) * CONFIG.speed * speedFactor,
         dy: mother ? 0 : Math.sin(angle) * CONFIG.speed * speedFactor,
         age: 0,
+        maxAge: CONFIG.maxAge + delta,
         lastRepro: -Infinity,
         element: null, // <-- NO DOM element
         bondedTo: null,
@@ -47,6 +51,16 @@ export function createDigit(name, sex, x, y, speedFactor = 1, mother, father) {
 }
 
 export function killDigit(d) {
+    // Break any existing bonds
+    for (const other of state.digits) {
+        if (!other) continue;
+        if (other.bondedTo === d) other.bondedTo = null;
+        if (other.mother === d) other.mother = null;
+        if (Array.isArray(other.children)) {
+            other.children = other.children.filter((c) => c !== d);
+        }
+    }
+
     state.currentCounts[d.sex][d.name] = Math.max(
         0,
         state.currentCounts[d.sex][d.name] - 1

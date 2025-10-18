@@ -154,6 +154,8 @@ export const CONFIG = {
     },
 
     //
+    maxAgeVariation: 0.2, // 20%
+    //
     velocityJitter: 0.5,
     directionJitter: 0.2,
     jitterYoung: 0.2,

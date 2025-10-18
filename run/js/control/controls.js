@@ -199,7 +199,7 @@ function updateDigitLifecycle(digit, frameIncrement) {
     }
 
     // Check for death from old age
-    if (digit.age > CONFIG.maxAge) {
+    if (digit.age > digit.maxAge) {
         killDigit(digit);
         return true; // Digit was killed
     }

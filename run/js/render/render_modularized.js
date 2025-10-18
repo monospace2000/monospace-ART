@@ -186,7 +186,7 @@ export function updateDigitAppearance(d) {
         d.age < CONFIG.oldAge
             ? 1
             : Math.pow(
-                  1 - (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge),
+                  1 - (d.age - CONFIG.oldAge) / (d.maxAge - CONFIG.oldAge),
                   3
               );
 

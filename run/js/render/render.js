@@ -316,8 +316,7 @@ function calculateOpacity(d) {
     }
 
     // Cubic fade for smoother transition
-    const ageProgress =
-        (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge);
+    const ageProgress = (d.age - CONFIG.oldAge) / (d.maxAge - CONFIG.oldAge);
     return Math.pow(1 - ageProgress, 3);
 }
 
@@ -558,7 +557,7 @@ function renderAgeIndicator(d, size, props) {
     const ringRadius = size / 2 + props.outlineWidth * 1.2;
 
     // Calculate remaining life percentage
-    const ageRatio = Math.min(d.age / CONFIG.maxAge, 1);
+    const ageRatio = Math.min(d.age / d.maxAge, 1);
     const remaining = 1 - ageRatio;
 
     // Determine color based on life stage
@@ -730,7 +729,7 @@ function calculateBondFade(d) {
     if (d.age < CONFIG.oldAge) {
         return 1.0;
     }
-    return 1 - (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge);
+    return 1 - (d.age - CONFIG.oldAge) / (d.maxAge - CONFIG.oldAge);
 }
 
 /**

@@ -121,7 +121,7 @@ export function renderAgeIndicator(d, size, props) {
     const r = size / 2 + props.outlineWidth * 1.2;
 
     // Calculate age progression and remaining life
-    const ageRatio = Math.min(d.age / CONFIG.maxAge, 1);
+    const ageRatio = Math.min(d.age / d.maxAge, 1);
     const remaining = 1 - ageRatio;
 
     // Helper to parse RGB from rgba/rgb string
@@ -248,14 +248,13 @@ export function renderBonds(digits) {
             const fade1 =
                 d.age < CONFIG.oldAge
                     ? 1
-                    : 1 -
-                      (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge);
+                    : 1 - (d.age - CONFIG.oldAge) / (d.maxAge - CONFIG.oldAge);
             const fade2 =
                 other.age < CONFIG.oldAge
                     ? 1
                     : 1 -
                       (other.age - CONFIG.oldAge) /
-                          (CONFIG.maxAge - CONFIG.oldAge);
+                          (other.maxAge - CONFIG.oldAge);
             const alpha = Math.min(fade1, fade2);
 
             ctx.strokeStyle = BOND_LINE_SETTINGS.color.replace(

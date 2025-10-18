@@ -78,7 +78,7 @@ export function tickSimulation(now = performance.now()) {
             }
 
             // Kill digit if it exceeds max age
-            if (d.age > CONFIG.maxAge) killDigit(d);
+            if (d.age > d.maxAge) killDigit(d);
         }
 
         // Handle reproduction

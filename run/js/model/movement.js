@@ -16,6 +16,7 @@ import { state } from './state.js';
 import { updateDigitAppearance } from '../render/render.js';
 import { log, moduleTag } from '../utils/utilities.js';
 import { resolveDigitCollisions } from '../movement/collision.js';
+import { validateBonds } from '../model/validation.js';
 
 // ============================================================
 // APPEARANCE CACHE
@@ -161,9 +162,9 @@ function updateOrbit(
         d,
         d.target.x,
         d.target.y,
-        CONFIG.springK,
-        CONFIG.springDamping,
-        CONFIG.speed * speedMultiplier
+        CONFIG.springK * 2.0, // double stiffness
+        CONFIG.springDamping * 0.7, // reduce damping slightly
+        CONFIG.speed * 1.5 // boost movement speed
     );
 
     // Add extra jitter if requested (for children)
@@ -294,7 +295,8 @@ function moveTowardTarget(d, target, dist) {
     const angle = currentAngle * (1 - blend) + targetAngle * blend;
 
     // Scale speed based on distance (slower when closer)
-    const approachFactor = Math.min(dist / CONFIG.attractionRadius, 1);
+    //const approachFactor = Math.min(dist / CONFIG.attractionRadius, 1);
+    const approachFactor = 1;
     const speed = CONFIG.speed * speedFactor * approachFactor;
 
     // Set velocity components
@@ -355,7 +357,7 @@ function handleSeekingMaleMovement(d) {
  */
 function applyJitterMovement(d) {
     // Calculate age-based jitter scale
-    const ageRatio = d.age / CONFIG.maxAge;
+    const ageRatio = d.age / d.maxAge;
     const jitterScale =
         ageRatio < 0.3
             ? CONFIG.jitterYoung
@@ -484,6 +486,11 @@ export function updateDigitPosition(d) {
  */
 export function updateAllDigits() {
     const digits = state.digits;
+
+    // Validate relationships first (catch ghost bonds early)
+    for (const d of digits) {
+        if (d) validateBonds(d, true); // true = auto-fix mode
+    }
 
     // Update individual movement behaviors
     for (const d of digits) {

@@ -29,7 +29,7 @@ export function updateDigitAppearance(d) {
     // --- Opacity fades when old ---
     const opacity = d.age < CONFIG.oldAge
         ? 1
-        : 1 - (d.age - CONFIG.oldAge) / (CONFIG.maxAge - CONFIG.oldAge);
+        : 1 - (d.age - CONFIG.oldAge) / (d.maxAge - CONFIG.oldAge);
 
     // --- Color transition based on sex ---
     const t = Math.min(d.age / CONFIG.matureAge, 1);
