@@ -17,8 +17,11 @@ import { updateAllDigits } from '../model/movement.js';
 import { createCountsObject } from '../model/state.js';
 import { reproduce } from '../model/reproduction.js';
 import { updateStats } from '../ui/stats.js';
-import { applyAttractor } from '../model/attractor.js';
-import { attractorDebugCtx } from '../model/attractor.js';
+import {
+    applyAttractor,
+    drawAttractorDebug,
+    clearAttractorDebug,
+} from '../model/attractor.js';
 import { log, moduleTag } from '../utils/utilities.js';
 import { renderAll } from '../render/render.js';
 import { clearAppearanceCache } from '../model/movement.js';
@@ -163,21 +166,6 @@ function calculateFrameIncrement(currentTime) {
     return deltaSeconds * CONFIG.FPS;
 }
 
-/**
- * Clear attractor debug visualization if enabled
- * Must be called before drawing new attractor lines
- */
-function clearAttractorDebug() {
-    if (CONFIG.showAttractorLines && attractorDebugCtx) {
-        attractorDebugCtx.clearRect(
-            0,
-            0,
-            attractorDebugCtx.canvas.width,
-            attractorDebugCtx.canvas.height
-        );
-    }
-}
-
 // ============================================================
 // DIGIT LIFECYCLE
 // ============================================================
@@ -193,7 +181,7 @@ function updateDigitLifecycle(digit, frameIncrement) {
     // Age digit based on frame time
     digit.age += frameIncrement;
 
-    // Apply attractor force if enabled
+    // Apply attractor force if enabled (ADD THIS)
     if (CONFIG.enableAttractor) {
         applyAttractor(digit);
     }
@@ -272,15 +260,18 @@ export function tickSimulation(currentTime = performance.now()) {
         const frameIncrement = calculateFrameIncrement(currentTime);
 
         // Clear caches at start of frame
-        clearAppearanceCache(); // ADD THIS LINE
-        // Clear debug overlays
-        clearAttractorDebug();
-
-        // ADD THIS LINE - Prepare active digits for the frame
-        prepareFrameData(); // ← THIS IS MISSING!
+        clearAppearanceCache();
 
         // Update digit lifecycles (aging, death, reproduction)
+        // This modifies state.digits array - may add/remove digits
         updateAllDigitsLifecycle(frameIncrement);
+
+        // Prepare frame data AFTER all modifications are complete
+        prepareFrameData();
+
+        // Clear and draw attractor debug
+        clearAttractorDebug();
+        drawAttractorDebug();
 
         // Update digit positions and physics
         updateAllDigits();
@@ -289,8 +280,7 @@ export function tickSimulation(currentTime = performance.now()) {
         updateStats();
 
         // Render all digits to canvas
-        //        renderAll(state.digits);
-        renderAll(frameActiveDigits, frameActiveSet); // CHANGE THIS LINE
+        renderAll(frameActiveDigits, frameActiveSet);
     }
 
     // Continue animation loop if simulation is running

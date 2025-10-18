@@ -4,12 +4,21 @@ body {
     width: 100%;
     margin: 0;
     overflow: hidden;
-    background: radial-gradient(
-        ellipse at center,
-        rgba(0, 48, 0, 1),
-        rgba(0, 0, 0, 1)
-    );
-    _background: gray;
+    background: black;
     color: #fff;
     font-family: system-ui, sans-serif;
+}
+.dark {
+    background: radial-gradient(
+        ellipse at center,
+        rgba(0, 60, 00, 1),
+        rgba(0, 0, 0, 1)
+    );
+}
+.light {
+    background: radial-gradient(
+        ellipse at center,
+        rgba(240, 240, 240, 1),
+        rgba(180, 170, 160, 1)
+    );
 }

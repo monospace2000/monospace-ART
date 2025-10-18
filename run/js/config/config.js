@@ -169,10 +169,10 @@ export const CONFIG = {
     newbornOffset: 2,
 
     // --- Attractor interaction ---
-    enableAttractor: false,
+    enableAttractor: true,
     attractorRadius: 250,
-    attractorStrength: 0.2,
-    showAttractorLines: true,
+    attractorStrength: 0.1,
+    showAttractorOverlay: true,
 
     // === Spring physics for bonded movement ===
     springK: 0.3, // spring stiffness

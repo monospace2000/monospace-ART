@@ -49,8 +49,8 @@ const TEXT_SETTINGS = {
 const GLOBE_SETTINGS = {
     lightAngle: Math.PI / 4, // Direction of light source (45 degrees)
     lightDistance: 0.3, // Distance of highlight from center (0.0-1.0)
-    highlight: 0.4, // Brightness increase for lit areas (0.0-1.0)
-    shadow: 0.4, // Darkness increase for shadowed areas (0.0-1.0)
+    highlight: 0.6, // Brightness increase for lit areas (0.0-1.0)
+    shadow: 0.1, // Darkness increase for shadowed areas (0.0-1.0)
     transparency: 1.0, // Globe transparency (1.0=opaque, 0.0=invisible)
     // Glass effect uses gradient opacity: highlights opaque, shadows transparent
     highlightOpacity: 1.0, // Opacity multiplier for highlight (typically 1.0)

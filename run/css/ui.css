@@ -109,11 +109,16 @@
    MODALS
    Overlay and modal window styling for stats, graph, menu, etc.
    ============================================================ */
+/* ============================================================
+   MODALS
+   Overlay and modal window styling for stats, graph, menu, etc.
+   ============================================================ */
 .modal-overlay {
     display: none;
     position: fixed;
     inset: 0;
     z-index: 9990;
+    pointer-events: none; /* ADD THIS - let events pass through to canvas */
 }
 
 .modal-window {
@@ -128,6 +133,7 @@
     overflow: hidden;
     flex-direction: column;
     width: 420px;
+    pointer-events: auto; /* ADD THIS - modal itself catches events */
 }
 
 .modal-header {
@@ -144,6 +150,7 @@
     align-items: center;
     user-select: none;
     border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    pointer-events: auto; /* ADD THIS - ensure header is draggable */
 }
 
 .modal-title {
@@ -171,6 +178,7 @@
 .modal-content {
     padding: 10px;
     background: rgba(0, 0, 0, 0.1);
+    pointer-events: auto; /* ADD THIS - ensure content is interactive */
 }
 
 /* ============================================================

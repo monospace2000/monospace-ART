@@ -164,10 +164,39 @@ export function setupAppearanceModal() {
             )
         );
     });
+
     container.appendChild(overlaysSection);
 
-    // Initial sync
+    // --- Background Section ---
+    const backgroundSection = makeSection('Background');
+
+    const handleBackgroundChange = (theme) => {
+        document.body.classList.remove('light', 'dark');
+        document.body.classList.add(theme);
+    };
+
+    /*     // Assume "dark" is selected by default
+    const isDark =
+        document.body.classList.contains('dark') ||
+        !document.body.classList.contains('light');
+ */
+    backgroundSection.appendChild(
+        makeRadio('background-dark', 'Dark', true, () =>
+            handleBackgroundChange('dark')
+        )
+    );
+
+    backgroundSection.appendChild(
+        makeRadio('background-light', 'Light', false, () =>
+            handleBackgroundChange('light')
+        )
+    );
+
+    container.appendChild(backgroundSection);
+
+    // --- Initial sync ---
     syncAppearanceUI();
+    document.getElementById('background-dark').checked = true;
 }
 
 // ============================================================

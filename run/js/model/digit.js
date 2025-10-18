@@ -31,8 +31,12 @@ export function createDigit(name, sex, x, y, speedFactor = 1, mother, father) {
         gestationTimer: 0,
         mother,
         father,
-        attractedZero: false,
+        children: [], // <-- new array to track children
     };
+
+    // Link this digit to mother/father
+    if (mother) mother.children.push(digit);
+    if (father) father.children.push(digit);
 
     // Apply numerology traits if needed
     // applyNumerologyTraits(digit);

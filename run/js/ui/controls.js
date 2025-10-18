@@ -1,6 +1,7 @@
 // ============================================================
 // SIMULATION CONTROL
 // ============================================================
+return;
 
 import { state } from '../model/state.js';
 import { createDigit, killDigit } from '../model/digit.js';
@@ -68,14 +69,14 @@ export function tickSimulation(now = performance.now()) {
         for (const d of [...state.digits]) {
             d.age += frameIncrement; // scaled by FPS
 
-            // Update digit position and appearance
-            updateDigitPosition(d);
-            updateDigitAppearance(d);
-
             // --- APPLY ATTRACTOR INTERACTION ---
             if (CONFIG.enableAttractor) {
                 applyAttractor(d);
             }
+
+            // Update digit position and appearance
+            updateDigitPosition(d);
+            updateDigitAppearance(d);
 
             // Kill digit if it exceeds max age
             if (d.age > d.maxAge) killDigit(d);

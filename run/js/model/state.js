@@ -2,8 +2,7 @@
 // STATE MODULE
 // ============================================================
 
-import { log, moduleTag, trace } from "../utils/utilities.js";
-
+import { log, moduleTag, trace } from '../utils/utilities.js';
 
 export function createCountsObject() {
     return {
@@ -28,4 +27,3 @@ export const state = {
 };
 
 log(`[${moduleTag(import.meta)}] loaded`);
- 
