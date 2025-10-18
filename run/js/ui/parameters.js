@@ -39,7 +39,7 @@ export function initializeParameters() {
         target: CONFIG,
         property: 'maxAgeSec',
         min: 5,
-        max: 50,
+        max: 25,
         step: 1,
         //onChange: (v) => log(`Max age changed to ${v}s`),
     });

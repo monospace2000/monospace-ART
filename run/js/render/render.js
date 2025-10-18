@@ -714,21 +714,18 @@ export function renderDigit(d, activeSet) {
     renderSearchRadius(d);
     renderAttractionLine(d, activeSet);
 }
-
 // ============================================================
-// BOND RENDERING
+// BOND RENDERING (Ghost-Safe + Optimized)
 // ============================================================
 
 /**
  * Calculate fade factor for a digit based on age
  * Used to fade out bonds as digits age
  * @param {Object} d - Digit object
- * @returns {number} Fade factor (0.0-1.0)
+ * @returns {number} Fade factor (0.0–1.0)
  */
 function calculateBondFade(d) {
-    if (d.age < CONFIG.oldAge) {
-        return 1.0;
-    }
+    if (d.age < CONFIG.oldAge) return 1.0;
     return 1 - (d.age - CONFIG.oldAge) / (d.maxAge - CONFIG.oldAge);
 }
 
@@ -736,11 +733,12 @@ function calculateBondFade(d) {
  * Render all bond lines between digits
  * Includes mate bonds (green) and child-mother bonds (orange)
  * @param {Array} digits - Array of all digits
+ * @param {Set} activeSet - Optional set of active digits for quick lookup
  */
 export function renderBonds(digits, activeSet) {
     if (!ctx) return;
 
-    // Safety check: ensure we have an activeSet
+    // Ensure we have a valid activeSet
     if (!activeSet) {
         console.warn('renderBonds called without activeSet, creating one');
         activeSet = new Set(digits.filter((d) => d));
@@ -749,17 +747,28 @@ export function renderBonds(digits, activeSet) {
     ctx.save();
     ctx.lineCap = 'round';
 
+    // --- Loop through all digits
     for (const d of digits) {
-        if (!d) continue; // Safety check in case nulls slip through
+        if (!d) continue; // Skip null or undefined entries
 
-        // Render mate bonds (green lines between bonded pairs)
-        if (VISUALS.bonds.enabled && d.bondedTo && activeSet.has(d.bondedTo)) {
+        // ============================================================
+        // MATE BONDS (Green lines between bonded pairs)
+        // ============================================================
+        if (VISUALS.bonds.enabled && d.bondedTo) {
             const partner = d.bondedTo;
 
+            // 👻 Ghost-check: ensure partner still exists and is active
+            if (!partner || !activeSet.has(partner)) {
+                // Optional: mark for cleanup
+                // console.debug(`Ghost mate bond skipped for ID ${d.id}`);
+                continue;
+            }
+
             // Calculate fade based on both partners' ages
-            const fade1 = calculateBondFade(d);
-            const fade2 = calculateBondFade(partner);
-            const alpha = Math.min(fade1, fade2);
+            const alpha = Math.min(
+                calculateBondFade(d),
+                calculateBondFade(partner)
+            );
 
             // Draw bond line with age-based fading
             ctx.strokeStyle = BOND_LINE_SETTINGS.color.replace(
@@ -773,26 +782,33 @@ export function renderBonds(digits, activeSet) {
             ctx.stroke();
         }
 
-        // Render child-mother bonds (orange lines that fade as child grows)
-        if (
-            VISUALS.childBonds.enabled &&
-            d.mother &&
-            activeSet.has(d.mother) &&
-            d.age < CONFIG.adolescenceAge
-        ) {
-            // Fade bond as child approaches adolescence
-            const fade = 1 - d.age / CONFIG.adolescenceAge;
+        // ============================================================
+        // CHILD–MOTHER BONDS (Orange lines)
+        // ============================================================
+        if (VISUALS.childBonds.enabled && d.mother) {
+            const mom = d.mother;
 
-            // Draw bond line with age-based fading
-            ctx.strokeStyle = CHILD_BOND_LINE_SETTINGS.color.replace(
-                /[\d.]+\)$/,
-                `${fade})`
-            );
-            ctx.lineWidth = CHILD_BOND_LINE_SETTINGS.lineWidth;
-            ctx.beginPath();
-            ctx.moveTo(d.x, d.y);
-            ctx.lineTo(d.mother.x, d.mother.y);
-            ctx.stroke();
+            // 👻 Ghost-check: ensure mother still exists and is active
+            if (!mom || !activeSet.has(mom)) {
+                // Optional: mark for cleanup
+                // console.debug(`Ghost mother bond skipped for ID ${d.id}`);
+                continue;
+            }
+
+            // Only draw if child not yet adolescent
+            if (d.age < CONFIG.adolescenceAge) {
+                const fade = 1 - d.age / CONFIG.adolescenceAge;
+
+                ctx.strokeStyle = CHILD_BOND_LINE_SETTINGS.color.replace(
+                    /[\d.]+\)$/,
+                    `${fade})`
+                );
+                ctx.lineWidth = CHILD_BOND_LINE_SETTINGS.lineWidth;
+                ctx.beginPath();
+                ctx.moveTo(d.x, d.y);
+                ctx.lineTo(mom.x, mom.y);
+                ctx.stroke();
+            }
         }
     }
 

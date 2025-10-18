@@ -9,7 +9,7 @@ setAppearance('flat'); // flat, ball, or bubble
 
 // Internal backing for FPS and POP_CAP
 let _FPS = 60;
-let _POP_CAP = 48;
+let _POP_CAP = 60;
 
 export const CONFIG = {
     // --- Movement ---
@@ -24,7 +24,7 @@ export const CONFIG = {
     },
 
     // --- Lifecycle timing (seconds) ---
-    _maxAgeSec: 20,
+    _maxAgeSec: 15, // 10-15 is ideal
     get maxAgeSec() {
         return this._maxAgeSec;
     },
@@ -110,7 +110,7 @@ export const CONFIG = {
 
     _matureAgeSec: null,
     get matureAgeSec() {
-        return this._matureAgeSec ?? this.maxAgeSec / 4;
+        return this._matureAgeSec ?? this.maxAgeSec / 6;
     },
     set matureAgeSec(value) {
         this._matureAgeSec = value;
@@ -119,7 +119,7 @@ export const CONFIG = {
 
     _oldAgeSec: null,
     get oldAgeSec() {
-        return this._oldAgeSec ?? this.maxAgeSec - this.maxAgeSec / 5;
+        return this._oldAgeSec ?? this.maxAgeSec - this.maxAgeSec / 7;
     },
     set oldAgeSec(value) {
         this._oldAgeSec = value;
@@ -128,7 +128,7 @@ export const CONFIG = {
     // --- Reproduction ---
     _reproCooldownSec: null,
     get reproCooldownSec() {
-        return this._reproCooldownSec ?? this.maxAgeSec / 8;
+        return this._reproCooldownSec ?? this.maxAgeSec / 12;
     },
     set reproCooldownSec(value) {
         this._reproCooldownSec = value;
@@ -137,7 +137,7 @@ export const CONFIG = {
 
     _mateDistance: null,
     get mateDistance() {
-        return this._mateDistance ?? 60;
+        return this._mateDistance ?? 40;
     },
     set mateDistance(value) {
         this._mateDistance = value;
@@ -146,7 +146,7 @@ export const CONFIG = {
 
     _gestationSec: null,
     get gestationSec() {
-        return this._gestationSec ?? this.maxAgeSec / 20;
+        return this._gestationSec ?? this.maxAgeSec / 30;
     },
     set gestationSec(value) {
         this._gestationSec = value;
@@ -156,13 +156,13 @@ export const CONFIG = {
     //
     maxAgeVariation: 0.2, // 20%
     //
-    velocityJitter: 0.5,
+    velocityJitter: 0.6,
     directionJitter: 0.2,
     jitterYoung: 0.2,
     jitterOld: 0.2,
     //
 
-    bondedOffset: 30,
+    bondedOffset: 25,
 
     // --- Newborn settings ---
     newbornSpeedFactor: 1,
@@ -175,7 +175,7 @@ export const CONFIG = {
     showAttractorLines: true,
 
     // === Spring physics for bonded movement ===
-    springK: 0.14, // spring stiffness
+    springK: 0.3, // spring stiffness
     springDamping: 0.2, // damping factor (0 = no damping, 1 = heavy damping)
     bondedJitter: 0.2, // liveliness
 
