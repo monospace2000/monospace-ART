@@ -125,3 +125,190 @@ add_action( 'after_setup_theme', function() use ( $priority_addon_files ) {
 		$priority_addon_files
 	);
 });
+
+
+
+
+
+
+
+
+
+
+add_filter('the_content', 'monospace_miniature_cover_fullwidth');
+add_filter('the_excerpt', 'monospace_miniature_cover_fullwidth');
+
+function monospace_miniature_cover_fullwidth($content) {
+
+    global $post;
+    if (!$post) return $content;
+
+    // Only apply to posts in category "miniature"
+    if (!has_category('miniature', $post)) return $content;
+
+    // Find the first image tag
+    if (!preg_match('/<img[^>]+>/i', $content, $match)) return $content;
+
+    $img_tag = $match[0];
+
+    // Extract src
+    if (!preg_match('/src=["\']([^"\']+)["\']/i', $img_tag, $src_match)) return $content;
+
+    $src = $src_match[1];
+
+    // =====================
+    // CONFIGURABLE OPTIONS
+    // =====================
+    $overlay_opacity = 0.5;   // 0 = transparent, 1 = black
+    $mini_scale      = 0.95;  // 1 = full size, 0.5 = 50%
+    $cover_height    = '60vh'; 
+
+    // Wrapper mimicking WP Cover
+    $replacement = '
+    <div style="
+        position:relative;
+        width:100%;
+        height:' . esc_attr($cover_height) . ';
+        background-image:url(' . esc_url($src) . ');
+        background-size:cover;
+        background-position:center;
+        overflow:hidden;
+        margin:1em 0;
+    ">
+        <!-- Dark overlay -->
+        <div style="
+            position:absolute;
+            inset:0;
+            background:rgba(0,0,0,' . esc_attr($overlay_opacity) . ');
+        "></div>
+
+        <!-- Centered mini image -->
+        <div style="
+            position:absolute;
+            top:50%;
+            left:50%;
+            transform:translate(-50%, -50%) scale(' . esc_attr($mini_scale) . ');
+            transform-origin:center;
+        ">
+            ' . $img_tag . '
+        </div>
+
+        <!-- Bottom-right label -->
+        <div style="
+            position:absolute;
+            bottom:10px;
+            right:10px;
+            padding:4px 8px;
+            font-size:12px;
+            letter-spacing:0.5px;
+            background:rgba(0,0,0,0.6);
+            color:white;
+            border-radius:4px;
+            font-family:inherit;
+        ">
+            4×4 miniature acrylic painting
+        </div>
+    </div>
+    ';
+
+    return preg_replace('/<img[^>]+>/i', $replacement, $content, 1);
+}
+
+
+
+
+add_filter('the_content', 'monospace_fullsize_painting_label');
+add_filter('the_excerpt', 'monospace_fullsize_painting_label');
+
+function monospace_fullsize_painting_label($content) {
+    global $post;
+    if (!$post) return $content;
+
+    // Only apply on home or archive pages
+    if (!is_home() && !is_archive()) return $content;
+
+    // Skip if post is in miniature category
+    if (has_category('miniature', $post)) return $content;
+
+    // Find the first image tag
+    if (!preg_match('/<img[^>]+>/i', $content, $match)) return $content;
+
+    $img_tag = $match[0];
+
+    // Default label based on category
+    $label_text = 'full size painting';
+    if (has_category('drawing', $post)) {
+        $label_text = 'full size drawing';
+    }
+
+    // Try to find painting_buy_button shortcode
+    $post_content = get_post_field('post_content', $post->ID);
+    if (preg_match('/\[painting_buy_button\s+id=["\']?(\d+)["\']?\]/i', $post_content, $shortcode_match)) {
+        $product_id = intval($shortcode_match[1]);
+        
+        // Check if WooCommerce is active and product exists
+        if (function_exists('wc_get_product')) {
+            $product = wc_get_product($product_id);
+            
+            if ($product) {
+                $size_slug = '';
+                $medium_slug = '';
+                
+                // Get size taxonomy term
+                $size_terms = get_the_terms($product_id, 'pa_size');
+                if ($size_terms && !is_wp_error($size_terms)) {
+                    $size_slug = $size_terms[0]->slug;
+                }
+                
+                // Get medium taxonomy term
+                $medium_terms = get_the_terms($product_id, 'pa_medium');
+                if ($medium_terms && !is_wp_error($medium_terms)) {
+                    $medium_slug = $medium_terms[0]->slug;
+                }
+                
+                // Build label if we have data
+                if ($size_slug || $medium_slug) {
+                    $label_parts = array_filter([$size_slug, $medium_slug]);
+                    
+                    // Determine type based on category
+                    $type = has_category('drawing', $post) ? 'drawing' : 'painting';
+                    $label_parts[] = $type;
+                    
+                    $label_text = implode(' ', $label_parts);
+                }
+            }
+        }
+    }
+
+    // Wrap image with label
+    $replacement = '
+    <div style="position:relative; display:inline-block; width:100%;">
+        ' . $img_tag . '
+        <div style="
+            position:absolute;
+            bottom:10px;
+            right:10px;
+            padding:4px 8px;
+            font-size:12px;
+            letter-spacing:0.5px;
+            background:rgba(0,0,0,0.6);
+            color:white;
+            border-radius:4px;
+            font-family:inherit;
+        ">
+            ' . esc_html($label_text) . '
+        </div>
+    </div>
+    ';
+
+    return preg_replace('/<img[^>]+>/i', $replacement, $content, 1);
+}
+
+
+// exclude miniatures from paintings page
+function monospace_exclude_miniatures_from_paintings($query) {
+    if (!is_admin() && $query->is_main_query() && is_category('painting')) {
+        $query->set('category__not_in', [ get_cat_ID('miniature') ]);
+    }
+}
+add_action('pre_get_posts', 'monospace_exclude_miniatures_from_paintings');

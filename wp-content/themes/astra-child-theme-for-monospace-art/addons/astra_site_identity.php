@@ -20,7 +20,7 @@ add_action( 'template_redirect', function() {
 add_filter( 'astra_logo', 'custom_astra_logo_link' );
 function custom_astra_logo_link( $html ) {
     // Replace the default logo link with your custom link
-    $custom_url = '/recent-work';
+    $custom_url = '/art-feed/';
     $html = preg_replace( '/href="([^"]*)"/', 'href="' . esc_url( $custom_url ) . '"', $html );
     return $html;
 }

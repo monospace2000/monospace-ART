@@ -1121,7 +1121,7 @@ function monospace_cart_animation_script() {
  */
 function monospace_custom_home() {
     echo '<div class="monospace-home-wrapper">';
-    echo '<a href="https://www.monospace.com/art" class="monospace-home-link" aria-label="Go to home page">';
+    echo '<a href="https://art.monospace.com" class="monospace-home-link" aria-label="Go to home page">';
     echo '<div class="monospace-home-icon">';
     
     // Home icon SVG

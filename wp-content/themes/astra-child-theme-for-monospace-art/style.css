@@ -70,30 +70,21 @@ hr{
   margin: 2em 0 !important;
 }
 
-
-
-/* Links */
-a:hover {
+a { 
+  color: black;
   text-decoration: underline;
 }
 
-label {
-  color: #000000;
-}
-
-/* Paragraphs */
-.entry-content p {
-  margin-top: 2em;
-}
-
-.entry-content p a,
-.entry-content li a {
-  text-decoration: underline;
-}
 
 /*--------------------------------------------------------------
 GALLERY AND IMAGE STYLING
---------------------------------------------------------------*/
+------------------------------*/
+
+figcaption{
+  font-weight: bold;
+  margin: 0;  
+}
+
 
 /* Gallery captions */
 .wp-block-gallery.has-nested-images figcaption {
@@ -179,6 +170,12 @@ WIDGET STYLING
 
 .widget_tag_cloud {
   padding-top: 0 !important;
+}
+a.tag-cloud-link{
+  text-decoration: none;
+}
+a.tag-cloud-link:hover{
+  text-decoration: underline;
 }
 
 .widget-title {
@@ -349,6 +346,14 @@ CUSTOM PRODUCT PAGE STYLING (PAINTINGS)
 }
 
 /*--------------------------------------------------------------
+CART ALIGNMENT STYLING
+--------------------------------------------------------------*/
+td.product-name{
+  display: table-cell !important;
+}
+
+
+/*--------------------------------------------------------------
 RELATED POSTS STYLING
 --------------------------------------------------------------*/
 
@@ -514,8 +519,6 @@ CHECKOUT STYLING
   display: none !important;
 }
 
-
-
 /* Make commission details text smaller in cart and checkout */
 .variation {
     font-size: 0.85em; /* or 85% of normal font size */
@@ -525,7 +528,8 @@ dl.variation dd p{
   display: inline !important;
 }
 .product-quantity{
-  visibility: hidden !important;;
+  display: none;
+  _visibility: hidden !important;;
 }
 .product-name{
   font-weight: bold !important;

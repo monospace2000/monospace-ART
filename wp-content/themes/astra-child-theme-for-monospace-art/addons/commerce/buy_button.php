@@ -39,7 +39,7 @@ function monospace_is_editor_context() {
  *                    - id (int) Product ID of the painting.
  * @return string HTML markup for the painting buy button row or a placeholder.
  */
-function monospace_custom_add_to_cart_shortcode( $atts ) {
+function _monospace_custom_add_to_cart_shortcode( $atts ) {
     $atts = shortcode_atts(
         array( 'id' => null ),
         $atts,
@@ -85,6 +85,88 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
     );
 }
 add_shortcode( 'painting_buy_button', 'monospace_custom_add_to_cart_shortcode' );
+
+
+function monospace_custom_add_to_cart_shortcode( $atts ) {
+    $atts = shortcode_atts(
+        array( 'id' => null ),
+        $atts,
+        'painting_buy_button'
+    );
+
+    $product_id = intval( $atts['id'] );
+    if ( ! $product_id ) {
+        return '';
+    }
+
+    // --- Editor/REST placeholder ---
+    if ( monospace_is_editor_context() ) {
+        return '<div class="painting-buy-placeholder" style="padding:6px;border:1px dashed #aaa;background:#f9f9f9;">'
+             . 'Painting Buy Button (Product ID ' . esc_html( $product_id ) . ')'
+             . '</div>';
+    }
+
+    // --- Front-end logic ---
+    if ( ! function_exists( 'wc_get_product' ) ) return '';
+    $product = wc_get_product( $product_id );
+    if ( ! $product ) return '';
+
+    $status       = function_exists( 'get_field' ) ? get_field( 'painting_availability_status', $product_id ) : '';
+    $gallery_url  = function_exists( 'get_field' ) ? get_field( 'painting_gallery_url', $product_id ) : '';
+    $gallery_name = function_exists( 'get_field' ) ? get_field( 'painting_gallery_name', $product_id ) : '';
+
+    $attr_list = monospace_render_product_attributes( $product, $product_id );
+    $button    = monospace_render_buy_button( $product, $status, $gallery_url, $gallery_name );
+
+// --- Check if product has size 4x4 (by slug) ---
+$show_special = false;
+$attributes = $product->get_attributes();
+
+foreach ( $attributes as $attribute ) {
+    $label = wc_attribute_label( $attribute->get_name() );
+    if ( strtolower($label) === 'size' ) {
+
+        if ( $attribute->is_taxonomy() ) {
+            $terms = wp_get_post_terms( $product_id, $attribute->get_name() );
+            foreach ( $terms as $term ) {
+                if ( $term->slug === '4x4' ) { // check slug instead of name
+                    $show_special = true;
+                    break 2;
+                }
+            }
+        } else {
+            // Custom attribute (not taxonomy) — optionally check value
+            foreach ( $attribute->get_options() as $value ) {
+                if ( strtolower(str_replace(' ', '', $value)) === '4x4' ) {
+                    $show_special = true;
+                    break 2;
+                }
+            }
+        }
+
+    }
+}
+
+$special_text = $show_special
+    ? '<div class="special-discount"> <span style="margin-top:6px;font-size:14px;font-weight:bold;color:#3a3;">Holiday Special: Get 3 for only $99!</span><br><span style="margin-top:6px;font-size:12px;">(Discount applied at checkout.)</span></div>'
+    : '';
+
+    $status_slug  = $status ? sanitize_title( $status ) : 'default';
+    $status_class = ' status-' . $status_slug;
+
+    return sprintf(
+        '<div class="painting-buy-row%s" data-status="%s">
+            <div class="painting-attrs">%s</div>
+            <div class="painting-action">%s%s</div>
+        </div>',
+        esc_attr( $status_class ),
+        esc_attr( $status_slug ),
+        $attr_list,
+        $button,
+        $special_text
+    );
+}
+
 
 
 /**
