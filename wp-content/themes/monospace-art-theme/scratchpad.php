@@ -4,7 +4,7 @@
  *
  * Data-driven: Mediums, sizes, surfaces are configurable
  *
- * @package astra-child-theme-for-monospace-art
+ * @package monospace-art-theme
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;

@@ -118,38 +118,46 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
     $attr_list = monospace_render_product_attributes( $product, $product_id );
     $button    = monospace_render_buy_button( $product, $status, $gallery_url, $gallery_name );
 
-// --- Check if product has size 4x4 (by slug) ---
-$show_special = false;
-$attributes = $product->get_attributes();
+    // --- Check if product has size 4x4 (by slug) ---
+    $show_special = false;
+    $attributes = $product->get_attributes();
 
-foreach ( $attributes as $attribute ) {
-    $label = wc_attribute_label( $attribute->get_name() );
-    if ( strtolower($label) === 'size' ) {
+    // Only show special offer if product is actually available for purchase
+    // Don't show if sold, private, or at gallery
+    $is_available = !in_array($status, ['sold', 'private', 'gallery']) && $product->is_in_stock();
 
-        if ( $attribute->is_taxonomy() ) {
-            $terms = wp_get_post_terms( $product_id, $attribute->get_name() );
-            foreach ( $terms as $term ) {
-                if ( $term->slug === '4x4' ) { // check slug instead of name
-                    $show_special = true;
-                    break 2;
+    if ($is_available) {
+        foreach ( $attributes as $attribute ) {
+            $label = wc_attribute_label( $attribute->get_name() );
+            if ( strtolower($label) === 'size' ) {
+
+                if ( $attribute->is_taxonomy() ) {
+                    $terms = wp_get_post_terms( $product_id, $attribute->get_name() );
+                    foreach ( $terms as $term ) {
+                        if ( $term->slug === '4x4' ) { // check slug instead of name
+                            $show_special = true;
+                            break 2;
+                        }
+                    }
+                } else {
+                    // Custom attribute (not taxonomy) — optionally check value
+                    foreach ( $attribute->get_options() as $value ) {
+                        if ( strtolower(str_replace(' ', '', $value)) === '4x4' ) {
+                            $show_special = true;
+                            break 2;
+                        }
+                    }
                 }
-            }
-        } else {
-            // Custom attribute (not taxonomy) — optionally check value
-            foreach ( $attribute->get_options() as $value ) {
-                if ( strtolower(str_replace(' ', '', $value)) === '4x4' ) {
-                    $show_special = true;
-                    break 2;
-                }
+
             }
         }
-
     }
-}
 
-$special_text = $show_special
-    ? '<div class="special-discount"> <span style="margin-top:6px;font-size:14px;font-weight:bold;color:#3a3;">Holiday Special: Get 3 for only $99!</span><br><span style="margin-top:6px;font-size:12px;">(Discount applied at checkout.)</span></div>'
-    : '';
+
+    $special_text = $show_special
+        ? '<div class="special-discount"> <span style="margin-top:6px;font-size:14px;font-weight:bold;color:#3a3;">Special: Get 3 miniatures for only $99!</span><br><span style="margin-top:6px;font-size:12px;">(Discount applied at checkout.)</span></div>'
+        : '';
+
 
     $status_slug  = $status ? sanitize_title( $status ) : 'default';
     $status_class = ' status-' . $status_slug;
@@ -187,6 +195,7 @@ function monospace_render_product_attributes( $product, $product_id ) {
 
     // Attributes to exclude (by label, case-insensitive)
     $exclude = array( 'year' );
+    $exclude = array();
 
     $attributes = $product->get_attributes();
     $output     = array();

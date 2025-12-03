@@ -1,12 +1,12 @@
 /**
-Theme Name: Astra Child Theme for monospace | art
+Theme Name: monospace ART
 Author: Hens Breet
-Author URI: http://art.monospace.com/about/
-Description: Custom styling for monospace | art website, based on Astra theme.
-Version: 1.0.0
+Author URI: https://art.monospace.com/about/
+Description: Custom styling for the monospace ART website, based on Astra theme.
+Version: 1.8.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
-Text Domain: astra-child-theme-for-monospace-art
+Text Domain: monospace-art-theme
 Template: astra
 */
 
@@ -72,6 +72,9 @@ hr{
 
 a { 
   color: black;
+  text-decoration: underline;
+}
+a:hover{
   text-decoration: underline;
 }
 
@@ -352,7 +355,22 @@ td.product-name{
   display: table-cell !important;
 }
 
+/* pages menu */
+.ast-builder-menu .main-navigation>ul {
+  margin: 0;
+  padding: 0;
+}
 
+/* Prevent search widget from jumping */
+#ast-desktop-header .header-widget-area-inner,
+#ast-desktop-header .header-widget-area-inner .wp-block-columns,
+#ast-desktop-header .header-widget-area-inner .wp-block-column,
+#ast-desktop-header .header-widget-area-inner form.wp-block-search__button-outside {
+    display: flex !important;
+    align-items: center !important;
+    margin: 0 !important;   /* prevent Astra from zeroing margins */
+    padding: 0 !important;
+}
 /*--------------------------------------------------------------
 RELATED POSTS STYLING
 --------------------------------------------------------------*/

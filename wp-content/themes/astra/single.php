@@ -20,11 +20,15 @@ get_header(); ?>
 
 <?php } ?>
 
+
+
+
 	<div id="primary" <?php astra_primary_class(); ?>>
 
 		<?php astra_primary_content_top(); ?>
 
 		<?php astra_content_loop(); ?>
+
 
 		<?php astra_primary_content_bottom(); ?>
 

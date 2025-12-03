@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name: Quick Product
- * Description: Link posts to WooCommerce products with a simple meta box
+ * Plugin Name: monospace ART - Quick Product Creator
+ * Description: Link posts to WooCommerce products with a simple meta box, and edit product attributes.
  * Version: 1.18
  * Author: monospace
  * Requires PHP: 7.4
@@ -101,35 +101,49 @@ class MetaBox {
 	}
 	
 	private function load_data() {
-		// First, check for product ID in shortcode (takes priority)
 		$product_id = $this->extract_product_id_from_shortcode();
-		
-		// If no valid product ID from shortcode, don't load anything
-		// Meta box should remain uninitialized
+
 		if ( ! $product_id ) {
+			// No product linked yet – set your temporary defaults
 			$this->data = [
-				'product_id'   => '',
-				'product_name' => '',
-				'product_price' => '',
-				'attributes'   => [],
-				'categories'   => [],
+				'product_id'    => '',
+				'product_name'  => '',                // optional default name
+				'product_price' => '39',             // default price
+				'attributes'    => [
+					'pa_format' => 'painting',       // default format slug
+					'pa_medium' => 'acrylic',         // default medium slug
+					'pa_surface' => 'canvas-panel',          // default surface slug
+					'pa_size'   => '4x4',             // default size slug
+					'pa_year-created'   => 2025,         // default  year
+				],
+				'categories'    => [],                 // default categories handled below
+				'availability'  => 'available',       // default availability
 			];
+
+			// Optional: assign default category “Original” if it exists
+			$original = get_term_by('name','Original','product_cat');
+			if ( $original ) {
+				$this->data['categories'] = [ $original->term_id ];
+			}
+
 			return;
 		}
-		
+
+		// If product exists, load real data
 		$this->data = [
 			'product_id'   => $product_id,
 			'product_name' => '',
-			'product_price' => '',
+			'product_price'=> '',
 			'attributes'   => [],
 			'categories'   => [],
+			'availability' => 'available',
 		];
-		
-		// Load data from the actual product
+
 		if ( function_exists( 'wc_get_product' ) ) {
 			$this->load_from_product( $product_id );
 		}
 	}
+
 	
 	private function extract_product_id_from_shortcode() {
 		$content = $this->post->post_content;
@@ -188,6 +202,11 @@ class MetaBox {
 		if ( ! is_wp_error( $categories ) ) {
 			$this->data['categories'] = $categories;
 		}
+
+		// Get availability status (ACF stores it as post meta)
+		$availability = get_post_meta( $product_id, 'painting_availability_status', true );
+		$this->data['availability'] = $availability ?: 'available';
+
 	}
 	
 	private function render_styles() {
@@ -248,6 +267,10 @@ class MetaBox {
 				placeholder="<?php esc_attr_e( 'Enter product name', 'quick-product' ); ?>">
 		</div>
 		
+		<?php $this->render_availability_field(); ?>
+
+
+
 		<div class="qp-field">
 			<label><?php esc_html_e( 'Product Price', 'quick-product' ); ?></label>
 			<input type="text" 
@@ -259,6 +282,7 @@ class MetaBox {
 		
 		<?php $this->render_category_checkboxes(); ?>
 		
+
 		<?php $this->render_attribute_dropdowns(); ?>
 		<?php
 	}
@@ -281,13 +305,14 @@ class MetaBox {
 			return;
 		}
 		
+	
 		echo '<hr style="margin: 15px 0;">';
 		echo '<p style="font-weight: 600; margin-bottom: 10px;">' . esc_html__( 'Product Attributes', 'quick-product' ) . '</p>';
 		
 		foreach ( $attribute_taxonomies as $tax ) {
 			$taxonomy = wc_attribute_taxonomy_name( $tax->attribute_name );
 			$selected_value = $this->data['attributes'][ $taxonomy ] ?? '';
-			
+
 			$this->render_single_attribute_dropdown( $taxonomy, $tax->attribute_label, $selected_value );
 		}
 	}
@@ -334,11 +359,38 @@ class MetaBox {
 		<?php
 	}
 	
+	private function render_availability_field() {
+		$availability_options = [
+			'available' => __( 'Available', 'quick-product' ),
+			'sold'      => __( 'Sold', 'quick-product' ),
+			'private'   => __( 'Private Collection', 'quick-product' ),
+			'gallery'   => __( 'At Gallery', 'quick-product' ),
+		];
+		
+		$selected = $this->data['availability'] ?? 'available';
+		
+		?>
+		<div class="qp-field">
+			<label><?php esc_html_e( 'Availability Status', 'quick-product' ); ?></label>
+			<select name="qp_availability" id="qp-availability" style="width: 100%;">
+				<?php foreach ( $availability_options as $value => $label ) : ?>
+					<option value="<?php echo esc_attr( $value ); ?>" 
+						<?php selected( $selected, $value ); ?>>
+						<?php echo esc_html( $label ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+		</div>
+		<?php
+	}
+
+
 	private function render_single_attribute_dropdown( $taxonomy, $label, $selected ) {
 		$terms = get_terms([
 			'taxonomy'   => $taxonomy,
 			'hide_empty' => false,
 		]);
+		
 		
 		if ( is_wp_error( $terms ) || empty( $terms ) ) {
 			return;
@@ -416,7 +468,8 @@ class MetaBox {
 					product_name: $('#qp-product-name').val(),
 					product_price: $('#qp-product-price').val(),
 					attributes: attributes,
-					categories: categories
+					categories: categories,
+					availability: $('#qp-availability').val() // Add this line
 				};
 				
 				// Disable button and show processing
@@ -518,6 +571,8 @@ class AjaxHandler {
 			'product_price' => sanitize_text_field( wp_unslash( $_POST['product_price'] ?? '' ) ),
 			'attributes'    => $this->sanitize_attributes( $_POST['attributes'] ?? [] ),
 			'categories'    => $this->sanitize_categories( $_POST['categories'] ?? [] ),
+		    'availability'  => sanitize_text_field( wp_unslash( $_POST['availability'] ?? 'available' ) ), // Add this line
+
 		];
 	}
 	
@@ -597,7 +652,7 @@ class ProductSyncer {
 		update_post_meta( $product_id, '_related_post_id', $this->post_id );
 		
         //make it available
-        update_post_meta( $product_id, 'painting_availability_status', 'available' );
+        update_post_meta( $product_id, 'painting_availability_status', $this->data['availability'] );
 
 		// Save relationship in post meta
 		update_post_meta( $this->post_id, '_qp_product_id', $product_id );
@@ -605,7 +660,8 @@ class ProductSyncer {
 		update_post_meta( $this->post_id, '_qp_product_price', $this->data['product_price'] );
 		update_post_meta( $this->post_id, '_qp_attributes', $this->data['attributes'] );
 		update_post_meta( $this->post_id, '_qp_categories', $this->data['categories'] );
-		
+		update_post_meta( $this->post_id, '_qp_availability', $this->data['availability'] );
+
 		return [
 			'product_id' => $product_id,
 			'action'     => $action,
@@ -726,6 +782,11 @@ class ProductSyncer {
 		// Set product categories
 		$this->set_categories( $product_id );
 		
+		
+
+			// Save availability status
+			update_post_meta( $product_id, 'painting_availability_status', $this->data['availability'] );
+
 	}
 	
 	private function set_categories( $product_id ) {

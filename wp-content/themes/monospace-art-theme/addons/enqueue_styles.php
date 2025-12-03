@@ -2,7 +2,7 @@
 /**
  * Enqueue scripts and styles
  *
- * @package astra-child-theme-for-monospace-art
+ * @package monospace-art-theme
  */
 
 
@@ -21,10 +21,10 @@
 function child_enqueue_styles() {
 
 	wp_enqueue_style(
-		'astra-child-theme-for-monospace-art-theme-css', // Handle for the child theme stylesheet
+		'monospace-art-theme-css', // Handle for the child theme stylesheet
 		get_stylesheet_directory_uri() . '/style.css',   // Path to the child theme stylesheet
 		array('astra-theme-css'),                        // Dependencies (load after parent theme CSS)
-		CHILD_THEME_ASTRA_CHILD_THEME_FOR_MONOSPACE_ART_VERSION, // Version number for cache busting
+		MONOSPACE_ART_THEME_VERSION, // Version number for cache busting
 		'all'                                           // Media type
 	);
 
