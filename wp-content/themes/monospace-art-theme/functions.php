@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Theme Constants (define first)
  * ------------------------------
  */
-define( 'MONOSPACE_ART_THEME_VERSION', '1.8.0' );
+define( 'MONOSPACE_ART_THEME_VERSION', '1.0.0' );
 define( 'MONOSPACE_ART_THEME_DIR', get_stylesheet_directory() );
 define( 'MONOSPACE_ART_THEME_URI', get_stylesheet_directory_uri() );
 
@@ -25,7 +25,7 @@ define( 'MONOSPACE_ART_THEME_URI', get_stylesheet_directory_uri() );
  * Global Debug Settings
  * ------------------------------
  */
-define( 'MONOSPACE_ADDON_DEBUG', true ); // Set to false to disable loader logging
+define( 'MONOSPACE_ADDON_DEBUG', false ); // Set to false to disable loader logging
 
 function monospace_log( $message ) {
 	if ( defined( 'MONOSPACE_ADDON_DEBUG' ) && MONOSPACE_ADDON_DEBUG ) {
@@ -101,9 +101,10 @@ add_action( 'init', function() use ( $priority_addon_files ) {
 }, 5 );
 
 
-
 // Include About page only in admin
-require_once get_stylesheet_directory() . '/inc/admin/about.php';
+if ( is_admin() ) {
+    require_once get_stylesheet_directory() . '/inc/admin/about.php';
+}
 
 add_action( 'admin_menu', function() {
     add_theme_page(
@@ -128,12 +129,64 @@ add_action( 'admin_init', function() {
     }
 });
 
+// Remove related products from single product pages
+remove_action( 'woocommerce_after_single_product_summary', 'woocommerce_output_related_products', 20 );
 
 
 
+// Usage: [product_price id="123"]
+function ms_product_price_shortcode( $atts ) {
+    $atts = shortcode_atts([ 'id' => null ], $atts);
+    if ( ! $atts['id'] ) return '';
+
+    $product = wc_get_product( intval($atts['id']) );
+    if ( ! $product ) return '';
+
+    $price_html = $product->get_price_html();
+    if ( ! $price_html ) return '';
+
+    // return inline element (no CSS) so it won't cause block margin collapse
+    return '<span class="ms-product-price">' . wp_kses_post( $price_html ) . '</span>';
+}
+add_shortcode( 'product_price', 'ms_product_price_shortcode' );
 
 
+/**
+ * Show publication date for posts in the "blog" category:
+ * - single blog posts
+ * - blog category archive
+ * - main posts feed (home/blog index)
+ */
+add_filter( 'the_content', 'ms_show_date_on_blog_posts_everywhere' );
+function ms_show_date_on_blog_posts_everywhere( $content ) {
 
+    // We only add dates to normal posts
+    if ( get_post_type() !== 'post' ) {
+        return $content;
+    }
+
+    $is_blog_post = has_category( 'blog' );
+
+    // --- SINGLE POST ---
+    if ( is_singular( 'post' ) && $is_blog_post ) {
+        $date_html = '<p class="post-date">' . get_the_date() . '</p>';
+        return $date_html . $content;
+    }
+
+    // --- BLOG CATEGORY ARCHIVE ---
+    if ( is_category( 'blog' ) && is_main_query() ) {
+        $date_html = '<p class="post-date">' . get_the_date() . '</p>';
+        return $date_html . $content;
+    }
+
+    // --- MAIN FEED (home / posts page) ---
+    if ( ( is_home() || is_archive() ) && is_main_query() && $is_blog_post ) {
+        $date_html = '<p class="post-date">' . get_the_date() . '</p>';
+        return $date_html . $content;
+    }
+
+    return $content;
+}
 
 
 

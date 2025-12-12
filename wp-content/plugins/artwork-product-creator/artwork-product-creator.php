@@ -108,13 +108,13 @@ class MetaBox {
 			$this->data = [
 				'product_id'    => '',
 				'product_name'  => '',                // optional default name
-				'product_price' => '39',             // default price
+				'product_price' => '',             // default price
 				'attributes'    => [
-					'pa_format' => 'painting',       // default format slug
-					'pa_medium' => 'acrylic',         // default medium slug
-					'pa_surface' => 'canvas-panel',          // default surface slug
-					'pa_size'   => '4x4',             // default size slug
-					'pa_year-created'   => 2025,         // default  year
+					'pa_format' => '',       // default format slug
+					'pa_medium' => '',         // default medium slug
+					'pa_surface' => '',          // default surface slug
+					'pa_size'   => '',             // default size slug
+					'pa_year-created'   =>date('Y'),         // default  year
 				],
 				'categories'    => [],                 // default categories handled below
 				'availability'  => 'available',       // default availability

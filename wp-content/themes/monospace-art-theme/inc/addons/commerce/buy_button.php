@@ -39,60 +39,38 @@ function monospace_is_editor_context() {
  *                    - id (int) Product ID of the painting.
  * @return string HTML markup for the painting buy button row or a placeholder.
  */
-function _monospace_custom_add_to_cart_shortcode( $atts ) {
-    $atts = shortcode_atts(
-        array( 'id' => null ),
-        $atts,
-        'painting_buy_button'
-    );
-
-    $product_id = intval( $atts['id'] );
-    if ( ! $product_id ) {
-        return '';
-    }
-
-    // --- Editor/REST placeholder ---
-    if ( monospace_is_editor_context() ) {
-        return '<div class="painting-buy-placeholder" style="padding:6px;border:1px dashed #aaa;background:#f9f9f9;">'
-             . 'Painting Buy Button (Product ID ' . esc_html( $product_id ) . ')'
-             . '</div>';
-    }
-
-    // --- Front-end logic ---
-    if ( ! function_exists( 'wc_get_product' ) ) return '';
-    $product = wc_get_product( $product_id );
-    if ( ! $product ) return '';
-
-    $status       = function_exists( 'get_field' ) ? get_field( 'painting_availability_status', $product_id ) : '';
-    $gallery_url  = function_exists( 'get_field' ) ? get_field( 'painting_gallery_url', $product_id ) : '';
-    $gallery_name = function_exists( 'get_field' ) ? get_field( 'painting_gallery_name', $product_id ) : '';
-
-    $attr_list = monospace_render_product_attributes( $product, $product_id );
-    $button    = monospace_render_buy_button( $product, $status, $gallery_url, $gallery_name );
-
-    $status_slug  = $status ? sanitize_title( $status ) : 'default';
-    $status_class = ' status-' . $status_slug;
-
-    return sprintf(
-        '<div class="painting-buy-row%s" data-status="%s">
-            <div class="painting-attrs">%s</div>
-            <div class="painting-action">%s</div>
-        </div>',
-        esc_attr( $status_class ),
-        esc_attr( $status_slug ),
-        $attr_list,
-        $button
-    );
-}
-add_shortcode( 'painting_buy_button', 'monospace_custom_add_to_cart_shortcode' );
-
 
 function monospace_custom_add_to_cart_shortcode( $atts ) {
+
     $atts = shortcode_atts(
         array( 'id' => null ),
         $atts,
         'painting_buy_button'
     );
+
+    // --- Handle placeholder ID "xxxx" ---
+    if ( isset( $atts['id'] ) && $atts['id'] === 'xxxx' ) {
+
+        $status_slug  = 'coming-soon';
+        $status_class = ' status-' . $status_slug;
+
+        // Optional: placeholder attributes (can say "TBA" or leave empty)
+        $attr_list = '<div class="painting-attr">Attributes: TBA</div>';
+
+        // Coming Soon button
+        $button = '<a class="button no-price status-coming-soon" href="#">Coming Soon</a>';
+
+        return sprintf(
+            '<div class="painting-buy-row%s" data-status="%s">
+                <div class="painting-attrs">%s</div>
+                <div class="painting-action">%s</div>
+            </div>',
+            esc_attr( $status_class ),
+            esc_attr( $status_slug ),
+            $attr_list,
+            $button
+        );
+    }
 
     $product_id = intval( $atts['id'] );
     if ( ! $product_id ) {
@@ -174,6 +152,7 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
         $special_text
     );
 }
+add_shortcode( 'painting_buy_button', 'monospace_custom_add_to_cart_shortcode' );
 
 
 
@@ -271,6 +250,8 @@ function monospace_render_product_attributes( $product, $product_id ) {
  * @return string HTML markup for the buy button or status label.
  */
 function monospace_render_buy_button( $product, $status, $gallery_url, $gallery_name ) {
+
+
     $gallery_label = $gallery_name ? 'Available at ' . esc_html( $gallery_name ) : 'Available at Gallery';
 
     switch ( $status ) {

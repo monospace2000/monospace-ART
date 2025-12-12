@@ -22,16 +22,16 @@ function monospace_custom_archive_headers($content) {
 
     if (is_search()) {
         $search_query = get_search_query();
-        $header = '<h4 style="' . esc_attr($inline_style) . '">Results for "' . esc_html($search_query) . '"</h4>';
+        $header = '<h4 style="' . esc_attr($inline_style) . '">🔎 Results for "' . esc_html($search_query) . '"</h4>';
     } elseif (is_category()) {
         $cat = get_queried_object();
         if (!in_array($cat->slug, $excluded_category_slugs)) {
-            $header = '<h4 style="' . esc_attr($inline_style) . '">Category: ' . esc_html($cat->name) . '</h4>';
+            $header = '<h4 style="' . esc_attr($inline_style) . '">📁 Category: ' . esc_html($cat->name) . '</h4>';
         }
     } elseif (is_tag()) {
         $tag = get_queried_object();
         if (!in_array($tag->slug, $excluded_tag_slugs)) {
-            $header = '<h4 style="' . esc_attr($inline_style) . '">Tag: ' . esc_html($tag->name) . '</h4>';
+            $header = '<h4 style="' . esc_attr($inline_style) . '">🏷️ Tag: ' . esc_html($tag->name) . '</h4>';
         }
     }
 
