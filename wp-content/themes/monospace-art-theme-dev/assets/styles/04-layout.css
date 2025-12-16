@@ -1,0 +1,78 @@
+
+/* -----------------------------------------------------------
+   Three-column layout
+----------------------------------------------------------- */
+.three-column-layout {
+    display: flex;
+    max-width: 1400px;
+    margin: 0 auto;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+/* Sidebars */
+.sidebar {
+    flex: 1 1 200px;
+    min-width: 200px;
+    padding: 15px;
+}
+
+/* Main content */
+#main-content {
+    flex: 2 1 600px;
+    min-width: 300px;
+}
+
+/* -------------------------------------------
+   Hide sidebars on standard pages
+------------------------------------------- */
+body.page #left-sidebar > *,
+body.page #right-sidebar > * {
+    display: none;
+}
+
+/* -------------------------------------------
+   Hide sidebars on WooCommerce pages
+   Covers:
+   - Shop archive
+   - Product category/tag archives
+   - Single products
+   - Cart
+   - Checkout
+   - My Account
+------------------------------------------- */
+body.woocommerce #left-sidebar > *,
+body.woocommerce #right-sidebar > *,
+body.woocommerce-page #left-sidebar > *,
+body.woocommerce-page #right-sidebar > *,
+body.post-type-archive-product #left-sidebar > *,
+body.post-type-archive-product #right-sidebar > *,
+body.tax-product_cat #left-sidebar > *,
+body.tax-product_cat #right-sidebar > *,
+body.tax-product_tag #left-sidebar > *,
+body.tax-product_tag #right-sidebar > * {
+    display: none;
+}
+
+
+/* -----------------------------------------------------------
+   Responsive layout adjustments
+----------------------------------------------------------- */
+@media (max-width: 1024px) {
+    /* Hide both sidebars */
+    #left-sidebar,
+    #right-sidebar {
+        display: none !important;
+    }
+
+    /* Main content full width */
+    #main-content {
+        flex: 1 1 100%;
+        min-width: 100%;
+    }
+
+    /* Three-column layout becomes single column */
+    .three-column-layout {
+        display: block;
+    }
+}

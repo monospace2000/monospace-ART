@@ -59,7 +59,7 @@ function monospace_miniature_cover_fullwidth($content) {
     // CONFIGURABLE OPTIONS
     // =====================
     $overlay_opacity = 0.5;   // 0 = transparent, 1 = black
-    $mini_scale      = 0.95;  // 1 = full size, 0.5 = 50%
+    $mini_scale      = 0.9;  // 1 = full size, 0.5 = 50%
     $cover_height    = '60vh';
 
     // Wrapper mimicking WP Cover
@@ -67,12 +67,14 @@ function monospace_miniature_cover_fullwidth($content) {
     <div style="
         position:relative;
         width:100%;
-        height:' . esc_attr($cover_height) . ';
+        aspect-ratio: 1/1;
+        _height:' . esc_attr($cover_height) . ';
         background-image:url(' . esc_url($src) . ');
         background-size:cover;
         background-position:center;
         overflow:hidden;
         margin:1em 0;
+        border-radius: 5px;
         box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.6);
     ">
         <!-- Dark overlay -->

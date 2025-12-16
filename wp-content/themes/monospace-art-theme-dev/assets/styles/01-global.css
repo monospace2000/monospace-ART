@@ -1,0 +1,205 @@
+
+/* -----------------------------------------------------------
+   Global settings
+----------------------------------------------------------- */
+/* Global menu height */
+:root {
+    --menu-bar-height: 64px;
+    --menulink-color: #CCC;
+    --menulink-hover: #FFF;
+    --body-text-color: #333;
+    --body-text-color-light: #666;
+    --header-color: #444;
+    --link-color: #000;
+    --tag-cloud-color: #aaa;
+    --button-color: #046BD2;
+    --menu-background: rgba(0, 0, 0, 0.85);
+    --menu-background-hover: rgba(255, 255, 255, 0.1);
+    --column-center-width: 850px;
+    --column-sidebar-width: 200px;
+
+    --gradient-foreground: rgba(255, 255, 255, 1);
+    --gradient-background: rgba(255, 255, 255, 0);
+    --gradient-center-x: 50vw;
+    --gradient-center-y: 30vh;
+    --gradient-start: 20%;
+    --gradient-radius: 180vw;
+    --body-background: rgb(110, 100, 90);
+    --body-background: rgb(100, 100, 100);
+
+}
+/* --- Mobile Variables --- */
+@media (max-width: 560px) {
+    :root {
+    --gradient-center-x: 50vw;
+    --gradient-center-y: 30vh;
+    --gradient-start: 40%;
+    --gradient-radius: 220vw;
+  }
+}
+/* --- Full-page gradient pseudo-element --- */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2; /* behind everything */
+    background:
+        radial-gradient(
+            circle at var(--gradient-center-x) var(--gradient-center-y),
+            var(--gradient-foreground) var(--gradient-start),
+            var(--gradient-background) var(--gradient-radius)
+        ),
+        var(--body-background);
+    background-size: 100%, 100%;
+    background-repeat: no-repeat;
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+
+
+
+
+
+/* Default body margin */
+body {
+    margin: var(--menu-bar-height);
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 400;
+    font-size: 1rem;
+    line-height: 1.4;
+    color: var(--body-text-color);
+}
+/* Blog post content typography */
+.entry-content,
+.wp-block-post-content {
+    line-height: 1.7;
+}
+
+.wp-block-separator,
+hr {
+    border: none;           /* Remove any default borders */
+    height: 1px;            /* Set thickness */
+    background-color: #000; /* Black color */
+    width: 100%;            /* Full width */
+    margin: 4em 0 1em 0;          /* Optional spacing above and below */
+}
+
+input{
+font-size: 1em;
+padding: 4px;
+}
+text-area{
+    min-width:100%;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Oswald', serif;
+    font-weight: 700;
+    color: var(--header-color);
+}
+
+/* Code blocks */
+pre, code, kbd, samp {
+    font-family: 'Courier Prime', monospace;
+    font-weight: 400;
+    font-size: 0.95em;
+}
+/* links*/
+a, a:hover{
+    color: var(--link-color);
+    text-decoration: underline;
+}
+/* tagcloud links */
+.wp-block-tag-cloud a{
+    color: var(--tag-cloud-color);
+    text-decoration: none;
+}
+.wp-block-tag-cloud a:hover{
+    color: var(--tag-cloud-color);
+    text-decoration: underline;
+}
+.wp-block-tag-cloud{
+    line-height: 1.5;
+}
+
+.ms-product-price{
+    font-family: 'Courier Prime', monospace;
+    font-weight: 600;
+    font-size: 1.5em;
+    margin: 0.5em;
+    line-height: 2em;;
+}
+/* captions */
+figcaption{
+    font-size: 1.2em;
+    font-weight: 700;
+
+}
+/* Left-align gallery captions */
+.wp-block-gallery.has-nested-images figcaption {
+    text-align: left;
+}
+.post-date{
+     font-size: 1.2em;
+   font-weight:700;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*--------------------------------------------------------------
+POST NAVIGATION
+--------------------------------------------------------------*/
+
+.post-navigation {
+  margin: 3rem 0 !important;
+  padding: 1rem 0 !important;
+  border-top: 1px solid #000 !important;
+  border-bottom: 1px solid #000;
+}
+
+.post-navigation .nav-links {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: space-between; /* ← key: puts one link left, one right */
+  align-items: center;
+  width: 100%;
+}
+
+/* Left and right link alignment */
+.post-navigation .nav-links .nav-left {
+  text-align: left;
+  margin-right: auto; /* ensures it's anchored to left */
+}
+
+.post-navigation .nav-links .nav-right {
+  text-align: right;
+  margin-left: auto; /* ensures it's anchored to right */
+}
+
+/* Styling polish */
+.post-navigation .nav-links a {
+  font-weight: bold;
+  font-size: 1em;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Small screens: stack vertically */
+@media (max-width:  560px) {
+  .post-navigation .nav-links a {
+  font-size: 1em;
+}
+
+}

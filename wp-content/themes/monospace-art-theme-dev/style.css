@@ -1,0 +1,11 @@
+/*
+Theme Name: monospace ART
+Theme URI: https://art.monospace.com
+Author: Hens Breet
+Description: Custom top-level theme for monospace ART.
+Version: 1.0.0
+Text Domain: monospace-art-theme
+*/
+
+/* Optionally import all CSS in one go (not required if using wp_enqueue_style for each) */
+/* @import url('assets/css/01-global.css'); */

@@ -64,7 +64,8 @@ add_action( 'woocommerce_after_single_product_summary', function() {
         if ( $url && $title ) {
             echo '<div class="related-blog-link" '.$styles.'>';
             echo '<a href="' . esc_url( $url ) . '" class="button related-blog-button">';
-            echo '◂ Read more: ' . esc_html( $title );
+           // echo '◂◂◂ More about "' . esc_html( $title ) . '"';
+            echo 'More about this item';
             echo '</a>';
             echo '</div>';
         }
@@ -90,4 +91,14 @@ function remove_gallery_image_link( $html, $attachment_id ) {
 
     // Return just the image without the link
     return $image;
+}
+
+
+
+add_filter( 'woocommerce_product_tabs', 'custom_rename_additional_info_tab', 98 );
+function custom_rename_additional_info_tab( $tabs ) {
+    if ( isset( $tabs['additional_information'] ) ) {
+        $tabs['additional_information']['title'] = 'Specifications'; // Change this
+    }
+    return $tabs;
 }

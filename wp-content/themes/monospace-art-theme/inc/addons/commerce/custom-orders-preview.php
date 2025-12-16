@@ -16,6 +16,11 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 add_action('init', function() {
     add_rewrite_endpoint('commissions', EP_ROOT | EP_PAGES);
 }, 5);
+/* 1a) Also re-register after switching themes */
+add_action('after_switch_theme', function () {
+    add_rewrite_endpoint('commissions', EP_ROOT | EP_PAGES);
+    flush_rewrite_rules();
+});
 
 /* 2) Add endpoint to query vars */
 add_filter('woocommerce_get_query_vars', function($vars) {

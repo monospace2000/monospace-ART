@@ -62,14 +62,24 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
 
         return sprintf(
             '<div class="painting-buy-row%s" data-status="%s">
-                <div class="painting-attrs">%s</div>
-                <div class="painting-action">%s</div>
+                <div class="painting-buy-col painting-buy-left">
+                    %s
+                </div>
+
+                <div class="painting-buy-col painting-buy-right">
+                    <div class="painting-buy-status">
+                        %s
+                    </div>
+                    %s
+                </div>
             </div>',
             esc_attr( $status_class ),
             esc_attr( $status_slug ),
             $attr_list,
-            $button
+            $button,
+            $special_text
         );
+
     }
 
     $product_id = intval( $atts['id'] );
@@ -133,7 +143,7 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
 
 
     $special_text = $show_special
-        ? '<div class="special-discount"> <span style="margin-top:6px;font-size:14px;font-weight:bold;color:#3a3;">Special: Get 3 miniatures for only $69!</span><br><span style="margin-top:6px;font-size:12px;">(Discount applied at checkout.)</span></div>'
+        ? '<div class="special-discount"> <span style="margin-top:6px;font-size:14px;font-weight:bold;color:#3a3;">Special: Get 3 miniatures for only $99!</span><br><span style="margin-top:6px;font-size:12px;">(Discount applied at checkout.)</span></div>'
         : '';
 
 
@@ -141,7 +151,7 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
     $status_class = ' status-' . $status_slug;
 
     return sprintf(
-        '<div class="painting-buy-row%s" data-status="%s">
+        '<hr><div class="painting-buy-row%s" data-status="%s">
             <div class="painting-attrs">%s</div>
             <div class="painting-action">%s%s</div>
         </div>',

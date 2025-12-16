@@ -1,0 +1,168 @@
+/* =========================================
+   WooCommerce Buttons
+   Uses global button variables from buttons.css
+   ========================================= */
+
+/* Primary WooCommerce buttons */
+.woocommerce a.button,
+.woocommerce button.button,
+.woocommerce input.button,
+.woocommerce input[type="submit"],
+.woocommerce #respond input#submit,
+.woocommerce-cart .wc-proceed-to-checkout a.checkout-button {
+    display: inline-block;
+    padding: 10px 20px;
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    line-height: 1.4;
+    color: #ffffff;
+    background-color: var(--button-color);
+    border: none;
+    border-radius: 9999px;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    transition: background-color 0.3s ease, opacity 0.3s ease;
+}
+
+/* Hover */
+.woocommerce a.button:hover,
+.woocommerce button.button:hover,
+.woocommerce input.button:hover,
+.woocommerce input[type="submit"]:hover,
+.woocommerce #respond input#submit:hover,
+.woocommerce-cart .wc-proceed-to-checkout a.checkout-button:hover {
+    background-color: var(--button-color-hover);
+    color: #ffffff;
+}
+
+/* Focus */
+.woocommerce a.button:focus,
+.woocommerce button.button:focus,
+.woocommerce input.button:focus,
+.woocommerce input[type="submit"]:focus,
+.woocommerce #respond input#submit:focus {
+    outline: 2px solid var(--button-color-hover);
+    outline-offset: 2px;
+}
+
+/* Disabled */
+.woocommerce a.button.disabled,
+.woocommerce a.button:disabled,
+.woocommerce button.button:disabled,
+.woocommerce input.button:disabled,
+.woocommerce input[type="submit"]:disabled {
+    background-color: var(--button-color-disabled);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Secondary / alt buttons (keep same visual language) */
+.woocommerce a.button.alt,
+.woocommerce button.button.alt,
+.woocommerce input.button.alt {
+    background-color: var(--button-color);
+}
+
+.woocommerce a.button.alt:hover,
+.woocommerce button.button.alt:hover,
+.woocommerce input.button.alt:hover {
+    background-color: var(--button-color-hover);
+}
+
+.woocommerce #coupon_code{
+    width:120px;
+}
+
+
+
+/* ===============================
+   Painting Buy Row Layout
+   =============================== */
+
+.painting-buy-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1.5rem;
+    align-items: start; /* top-align left & right columns */
+    margin: 1.5rem 0;
+}
+
+/* Left column: attributes */
+.painting-buy-left {
+    font-size: 0.95em;
+}
+
+/* Right column: status + price/cart */
+.painting-buy-right {
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* Keep price + cart button on one line and top-aligned */
+.painting-buy-right .price,
+.painting-buy-right form.cart,
+.painting-buy-right .add_to_cart_inline {
+    display: inline-block;
+    vertical-align: top; /* top-align inline items */
+    margin: 0;
+    padding: 0;
+}
+
+
+/* Status labels spacing */
+.painting-buy-status,
+.special-discount {
+    margin: 0 0 0.5em 0;
+    padding: 0;
+}
+
+/* Product status label in red */
+.painting-buy-status,
+.painting-buy-status .sold-label {
+    color: rgb(164, 24, 24) !important;
+    font-weight: 700;
+}
+
+
+/* Mobile: stack columns */
+@media (max-width: 600px) {
+    .painting-buy-row {
+        grid-template-columns: 1fr;
+    }
+
+    .painting-buy-right {
+        text-align: left;
+        white-space: normal;
+        margin-top: 0.75em;
+    }
+
+    .painting-buy-status,
+    .special-discount {
+        margin-top: 0.5em;
+    }
+}
+
+/* Remove default borders/outlines from inline add-to-cart */
+.add_to_cart_inline {
+    border: 0 !important;
+    padding: 0;
+    box-shadow: none !important;
+}
+
+
+
+/* Price styling: monospace, bold */
+ .price,
+  .amount {
+    font-family: 'Courier Prime', monospace !important;
+    font-weight: 500 !important;
+    font-size: 1.3em;
+    color: #444 !important;
+    padding: 0 0.5em; /* small spacing between price and button */
+}
+.sold-label{
+    font-weight:700;
+    color: #c30
+}

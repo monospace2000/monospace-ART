@@ -104,6 +104,75 @@ if ( apply_filters( 'astra_header_profile_gmpg_link', true ) ) {
     <?php
     astra_header();
     astra_header_after();
+    ?>
+
+
+<style>
+  .ast-hf-mobile-menu{
+    position:fixed;
+  }
+
+</style>
+<style>
+
+    /* -----------------------------------------------------------
+   Header logo aligned to Astra container (content + sidebar)
+----------------------------------------------------------- */
+
+.site-logo-wrapper {
+    width: 100%;
+    max-width: var(--ast-container-width, 1200px);
+    margin: 1.5em auto;
+    padding-inline: var(--ast-container-padding, 20px);
+
+    display: flex;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+/* Logo block */
+.site-logo {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+/* Logo link */
+.site-logo a {
+    width: 100%;
+    display: inline-flex;
+    justify-content: center;
+}
+
+/* Logo image scales with container */
+.site-logo img.custom-logo {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0;
+}
+
+
+</style>
+
+<div class="site-logo-wrapper">
+    <div class="site-logo">
+        <?php
+        $logo_link = esc_url(home_url('/art-feed/'));
+        if (has_custom_logo()) {
+            $logo_id  = get_theme_mod('custom_logo');
+            $logo_img = wp_get_attachment_image($logo_id, 'full', false, array('class' => 'custom-logo'));
+            echo '<a href="' . $logo_link . '">' . $logo_img . '</a>';
+        } else { ?>
+            <a href="<?php echo $logo_link; ?>" class="logo-text"><?php bloginfo('name'); ?></a>
+        <?php } ?>
+    </div>
+</div>
+
+
+
+    <?php
     astra_content_before();
     ?>
     <div id="content" class="site-content">

@@ -122,18 +122,19 @@ class MetaBox
 		if (! $product_id) {
 			// No product linked yet – set your temporary defaults
 			$this->data = [
-				'product_id'    => '',
-				'product_name'  => '',                // optional default name
-				'product_price' => '',             // default price
-				'attributes'    => [
-					'pa_format' => '',       // default format slug
-					'pa_medium' => '',         // default medium slug
+				'product_id'     => '',
+				'product_name'   => '',                // optional default name
+				'product_price'  => '',             // default price
+				'sku'            => '',
+				'attributes'     => [
+					'pa_format'  => '',       // default format slug
+					'pa_medium'  => '',         // default medium slug
 					'pa_surface' => '',          // default surface slug
-					'pa_size'   => '',             // default size slug
+					'pa_size'    => '',             // default size slug
 					'pa_year-created'   => date('Y'),         // default  year
 				],
-				'categories'    => [],                 // default categories handled below
-				'availability'  => 'available',       // default availability
+				'categories'     => [],                 // default categories handled below
+				'availability'   => 'available',       // default availability
 			];
 
 			// Optional: assign default category “Original” if it exists
@@ -147,12 +148,13 @@ class MetaBox
 
 		// If product exists, load real data
 		$this->data = [
-			'product_id'   => $product_id,
-			'product_name' => '',
+			'product_id'    => $product_id,
+			'product_name'  => '',
 			'product_price' => '',
-			'attributes'   => [],
-			'categories'   => [],
-			'availability' => 'available',
+			'sku'           => '',
+			'attributes'    => [],
+			'categories'    => [],
+			'availability'  => 'available',
 		];
 
 		if (function_exists('wc_get_product')) {
@@ -209,6 +211,7 @@ class MetaBox
 		// Update with actual product data
 		$this->data['product_name'] = $product->get_name();
 		$this->data['product_price'] = $product->get_regular_price();
+   		$this->data['sku'] = $product->get_sku();
 
 		// Get product attributes
 		$product_attributes = $product->get_attributes();
@@ -305,6 +308,15 @@ class MetaBox
 				value="<?php echo esc_attr($this->data['product_id']); ?>"
 				placeholder="<?php esc_attr_e('Auto-generated', 'quick-product'); ?>"
 				readonly>
+		</div>
+
+		  <div class="qp-field">
+			<label><?php esc_html_e('SKU', 'quick-product'); ?></label>
+			<input type="text"
+				name="qp_sku"
+				id="qp-sku"
+				value="<?php echo esc_attr($this->data['sku']); ?>"
+				placeholder="<?php esc_attr_e('Auto-generated if blank', 'quick-product'); ?>">
 		</div>
 
 		<div class="qp-field">
@@ -553,6 +565,9 @@ class MetaBox
 									if (d.price !== undefined) {
 										$('#qp-product-price').val(d.price);
 									}
+							        if (d.sku !== undefined) {
+										$('#qp-sku').val(d.sku);
+									}
 									if (d.availability !== undefined) {
 										$('#qp-availability').val(d.availability);
 									}
@@ -625,6 +640,7 @@ class MetaBox
 							product_id: $('#qp-product-id').val(),
 							product_name: $('#qp-product-name').val(),
 							product_price: $('#qp-product-price').val(),
+							sku: $('#qp-sku').val(),
 							attributes: attributes,
 							categories: categories,
 							availability: $('#qp-availability').val()
@@ -732,9 +748,10 @@ class AjaxHandler
 			'product_id'    => intval($_POST['product_id'] ?? 0),
 			'product_name'  => sanitize_text_field(wp_unslash($_POST['product_name'] ?? '')),
 			'product_price' => sanitize_text_field(wp_unslash($_POST['product_price'] ?? '')),
+	        'sku'           => sanitize_text_field(wp_unslash($_POST['sku'] ?? '')),
 			'attributes'    => $this->sanitize_attributes($_POST['attributes'] ?? []),
 			'categories'    => $this->sanitize_categories($_POST['categories'] ?? []),
-			'availability'  => sanitize_text_field(wp_unslash($_POST['availability'] ?? 'available')), // Add this line
+			'availability'  => sanitize_text_field(wp_unslash($_POST['availability'] ?? 'available')),
 
 		];
 	}
@@ -841,8 +858,17 @@ class ProductSyncer
     // Save product
     $product_id = $product->save();
 
-    // Set attributes (must be done after product is saved)
-    $this->set_attributes($product_id, $action);
+	// Generate SKU if it was blank
+	if (!empty($this->data['_needs_sku_generation'])) {
+		$generated_sku = $this->generate_sku($product_id);
+		$product->set_sku($generated_sku);
+		$product->save();
+		// Update our data array so it gets saved to post meta
+		$this->data['sku'] = $generated_sku;
+	}
+
+	// Set attributes (must be done after product is saved)
+	$this->set_attributes($product_id, $action);
 
     // Link product back to post with custom field
     update_post_meta($product_id, '_related_post_id', $this->post_id);
@@ -854,6 +880,7 @@ class ProductSyncer
     update_post_meta($this->post_id, '_qp_product_id', $product_id);
     update_post_meta($this->post_id, '_qp_product_name', $this->data['product_name']);
     update_post_meta($this->post_id, '_qp_product_price', $this->data['product_price']);
+	update_post_meta($this->post_id, '_qp_sku', $this->data['sku']);
     update_post_meta($this->post_id, '_qp_attributes', $this->data['attributes']);
     update_post_meta($this->post_id, '_qp_categories', $this->data['categories']);
     update_post_meta($this->post_id, '_qp_availability', $this->data['availability']);
@@ -878,6 +905,15 @@ class ProductSyncer
 		if (! empty($this->data['product_price'])) {
 			$price = preg_replace('/[^\d\.]/', '', $this->data['product_price']);
 			$product->set_regular_price($price);
+		}
+		    // Set SKU - auto-generate if blank
+		$sku = trim($this->data['sku'] ?? '');
+		if (empty($sku)) {
+			// Will generate after product is saved and has an ID
+			// Store flag to generate SKU
+			$this->data['_needs_sku_generation'] = true;
+		} else {
+			$product->set_sku($sku);
 		}
 	}
 
@@ -931,6 +967,55 @@ class ProductSyncer
 		}
 
 		return 0;
+	}
+
+	private function generate_sku($product_id)
+	{
+		$year = date('Y');
+
+		// Get format from attributes
+		$format_slug = $this->data['attributes']['pa_format'] ?? '';
+		$format_code = 'O'; // default to "Other"
+
+		switch (strtolower($format_slug)) {
+			case 'painting':
+				$format_code = 'P';
+				break;
+			case 'drawing':
+				$format_code = 'D';
+				break;
+			case 'miniature':
+				$format_code = 'M';
+				break;
+		}
+
+		// Find next available number
+		global $wpdb;
+		$pattern = $wpdb->esc_like('HENS-' . $year . '-' . $format_code . '-') . '%';
+
+		$existing_skus = $wpdb->get_col($wpdb->prepare(
+			"SELECT meta_value FROM {$wpdb->postmeta}
+			WHERE meta_key = '_sku'
+			AND meta_value LIKE %s
+			ORDER BY meta_value DESC",
+			$pattern
+		));
+
+		$next_number = 1;
+
+		if (!empty($existing_skus)) {
+			// Extract the highest number
+			foreach ($existing_skus as $sku) {
+				if (preg_match('/HENS-\d{4}-[A-Z]-(\d{4})$/', $sku, $matches)) {
+					$number = intval($matches[1]);
+					if ($number >= $next_number) {
+						$next_number = $number + 1;
+					}
+				}
+			}
+		}
+
+		return sprintf('HENS-%s-%s-%04d', $year, $format_code, $next_number);
 	}
 
 	private function set_attributes($product_id)
@@ -1027,6 +1112,7 @@ class MetaSaver
 			'qp_product_id'    => '_qp_product_id',
 			'qp_product_name'  => '_qp_product_name',
 			'qp_product_price' => '_qp_product_price',
+			'qp_sku'           => '_qp_sku',
 		];
 
 		foreach ($fields as $input => $meta_key) {
@@ -1083,17 +1169,21 @@ add_action('wp_ajax_qp_find_product', function () {
 		wp_send_json_error('Missing title');
 	}
 
-	// Exact title match
-	$product = get_page_by_title($title, OBJECT, 'product');
+	// Slug-based exact match
+	$slug = sanitize_title($title);
+
+	$product = get_page_by_path($slug, OBJECT, 'product');
 
 	if (! $product) {
 		wp_send_json_error('No product matched');
 	}
 
+
 	// Build response: id, title, price, availability, attributes (taxonomy => slug), categories (ids)
 	$product_id = $product->ID;
 	$wc_product = function_exists('wc_get_product') ? wc_get_product($product_id) : null;
 	$price = $wc_product ? $wc_product->get_regular_price() : get_post_meta($product_id, '_regular_price', true);
+	$sku = $wc_product ? $wc_product->get_sku() : get_post_meta($product_id, '_sku', true);  // ADD THIS LINE
 
 	// availability from post meta (ACF or stored meta)
 	$availability = get_post_meta($product_id, 'painting_availability_status', true) ?: '';
@@ -1132,6 +1222,7 @@ add_action('wp_ajax_qp_find_product', function () {
 		'id' => $product_id,
 		'title' => get_the_title($product_id),
 		'price' => $price,
+	    'sku' => $sku,  // ADD THIS LINE
 		'availability' => $availability,
 		'attributes' => $attributes,
 		'categories' => $categories,

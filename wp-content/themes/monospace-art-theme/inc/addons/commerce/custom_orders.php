@@ -168,11 +168,16 @@ add_action('woocommerce_before_add_to_cart_button', function(){
     echo '<p style="margin-bottom: 1em !important"><strong>Size:</strong> '.(!empty($allowed_sizes)?implode(', ',array_map(fn($k)=>$options['sizes'][$k] ?? $k,$allowed_sizes)):'N/A').'</p>';
 
     // Textareas for customer
-    echo '<p><label>Comments/Notes/Special Requests<br/><textarea name="commission_special_request" rows="3" style="width:100%"></textarea></label></p>';
+    echo '<p><label>Comments/Notes/Special Requests<br/>
+    <textarea name="commission_special_request"
+            rows="3"
+            style="width:100%"
+            placeholder="Describe the scene: season, time of day, angle or viewpoint, mood, important features to include or avoid (trees, garden, sky, architectural details), preferred colors or atmosphere."></textarea>
+    </label></p>';
 
     // Reference image upload
-    echo '<p style="margin-bottom: 1em !important"><label>Reference Image <span style="color:red">(required)</span><br/>
-          <input type="file" name="commission_reference_upload" accept="image/*" required />
+    echo '<p style="margin-bottom: 1em !important"><label>Reference Image(s) <span style="color:red">(required)</span><br/>
+          <input type="file" name="commission_reference_upload[]" accept="image/*" multiple required />
           </label></p>';
 
     echo '</div>';
@@ -206,7 +211,10 @@ add_filter('woocommerce_add_cart_item_data', function($cart_item_data, $product_
     $data['unique_commission_key'] = uniqid('commission_',true);
 
     // Handle file upload
-    if (!empty($_FILES['commission_reference_upload']['name'])) {
+    if (!empty($_FILES['commission_reference_upload']['name'][0])) {
+        $files = $_FILES['commission_reference_upload'];
+        $uploaded_urls = [];
+
         add_filter('upload_dir', function($dirs) {
             $subdir = '/custom-orders';
             $dirs['subdir'] = $subdir;
@@ -215,14 +223,29 @@ add_filter('woocommerce_add_cart_item_data', function($cart_item_data, $product_
             return $dirs;
         });
 
-        $upload = wp_handle_upload($_FILES['commission_reference_upload'], ['test_form' => false]);
+        foreach ($files['name'] as $i => $name) {
+            if ($name) {
+                $file_array = [
+                    'name'     => $files['name'][$i],
+                    'type'     => $files['type'][$i],
+                    'tmp_name' => $files['tmp_name'][$i],
+                    'error'    => $files['error'][$i],
+                    'size'     => $files['size'][$i]
+                ];
+                $upload = wp_handle_upload($file_array, ['test_form' => false]);
+                if (!empty($upload['url'])) {
+                    $uploaded_urls[] = $upload['url'];
+                }
+            }
+        }
 
         remove_all_filters('upload_dir');
 
-        if (!empty($upload['url'])) {
-            $data['commission_reference_upload'] = $upload['url'];
+        if ($uploaded_urls) {
+            $data['commission_reference_upload'] = $uploaded_urls; // save as array
         }
     }
+
 
     $cart_item_data['commission_data'] = $data;
     return $cart_item_data;
@@ -256,21 +279,39 @@ function ms_get_commission_meta_html($data, $as_array = false){
         if(empty($data[$key])) continue;
 
         if($key === 'commission_reference_upload'){
-            $value = '<a href="'.esc_url($data[$key]).'" target="_blank">View Image</a>';
+
+            // Single or multiple images
+            $urls = $data[$key];
+            if (!is_array($urls)) {
+                $urls = [$urls];
+            }
+
+            $links = [];
+            foreach ($urls as $url) {
+                if (!empty($url)) {
+                    $links[] = '<a href="'.esc_url($url).'" target="_blank">View Image</a>';
+                }
+            }
+
+            $value = implode('<br/>', $links);
+
         } else {
-            $value = esc_html($data[$key]);
+
+            // All normal text fields
+            $value = $data[$key];
         }
 
         if($as_array){
-            $output[] = ['key'=>$label,'value'=>$value];
+            $output[] = ['key'=>$label, 'value'=>$value];
         } else {
             $output[] = $label . ': ' . $value;
         }
     }
 
     if($as_array) return $output;
-    return '<br/><small class="commission-details">'.implode('<br/>',$output).'</small>';
+    return '<br/><small class="commission-details">'.implode('<br/>', $output).'</small>';
 }
+
 
 /**
  * ===========================

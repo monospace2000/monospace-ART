@@ -5,6 +5,66 @@
  */
 ?>
 
+<?php
+/**
+ * Get background image for Art Feed box:
+ * latest post NOT in blog or miniature
+ */
+function ms_get_latest_artwork_image_url() {
+    $query = new WP_Query([
+        'posts_per_page' => 1,
+        'post_status'    => 'publish',
+
+        'tax_query' => [
+            'relation' => 'AND',
+
+            // Must have a category
+            [
+                'taxonomy' => 'category',
+                'operator' => 'EXISTS',
+            ],
+
+            // Must not be ONLY excluded categories
+            [
+                'taxonomy' => 'category',
+                'field'    => 'slug',
+                'operator' => 'NOT IN',
+                'terms'    => ['uncategorized', 'blog', 'miniature'],
+            ],
+        ],
+    ]);
+
+    if (!$query->have_posts()) {
+        return '';
+    }
+
+    $query->the_post();
+    $post_id = get_the_ID();
+    $stamp   = get_post_modified_time('U', false, $post_id);
+
+    // Featured image first
+    if (has_post_thumbnail($post_id)) {
+        $url = get_the_post_thumbnail_url($post_id, 'full');
+        wp_reset_postdata();
+        return $url . '?v=' . $stamp;
+    }
+
+    // First inline image
+    $content = get_the_content();
+    if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $content, $matches)) {
+        wp_reset_postdata();
+        return esc_url_raw($matches[1]) . '?v=' . $stamp;
+    }
+
+    wp_reset_postdata();
+    return '';
+}
+
+$feed_bg_image = ms_get_latest_artwork_image_url();
+//echo $feed_bg_image; // for testing
+?>
+
+
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
 <head>
@@ -354,11 +414,20 @@ a, a:hover{
     --bg: url('<?php echo get_stylesheet_directory_uri(); ?>/assets/images/backgrounds/custom_paint.jpg');
     flex: 2;
 }
-#feed.box {
+/* #feed.box {
     --bg: url('<?php echo get_stylesheet_directory_uri(); ?>/assets/images/backgrounds/bigbrook1.jpg');
     flex: 3
 }
-
+ */
+#feed.box {
+    --bg: url('<?php
+        echo esc_url(
+            $feed_bg_image
+            ?: get_stylesheet_directory_uri() . '/assets/images/backgrounds/bigbrook1.jpg'
+        );
+    ?>');
+    flex: 3;
+}
 
 
 
@@ -402,7 +471,7 @@ a, a:hover{
 
             <div class="box" id="welcome">
                 <div class="box-title">Welcome!</div>
-                <div class="box-content" style="padding-top: 0.5em">I’m <!-- Hens Breet, --> a painter, illustrator, and educator based in Hudson County, New Jersey. Much of my work is inspired by my local surroundings — from city streets and river views to nearby parks and wooded trails. I work in gouache, casein, acrylic, and pen and ink to capture landscapes, cityscapes, and the quiet details of the natural world. <br><br>Alongside painting and sketching, I create illustrations and interactive projects that bring stories and ideas to life. On this website you can explore my latest works, purchase originals directly, learn about upcoming exhibitions, events, and markets, and find information on commissions and art classes.
+                <div class="box-content" style="padding-top: 0.5em">I’m Hens Breet, a painter and illustrator based in Hudson County, New Jersey. Much of my work is inspired by my local surroundings — from city streets and river views to nearby parks and wooded trails. I work in gouache, casein, acrylic, and pen and ink to capture landscapes, cityscapes, and the quiet details of the natural world. <br><br>Alongside painting and sketching, I create illustrations and interactive projects that bring stories and ideas to life. On this website you can explore my latest works, purchase originals directly, learn about upcoming exhibitions, events, and markets, and find information on commissions and art classes.
 
                 </div>
             </div>
@@ -411,7 +480,7 @@ a, a:hover{
                 <div class="box-title">News</div>
                 <div class="box-content">
 
-                <h3>Miniatures Special</h3><span style="font-weight:bold;color: #d00"><a style="color:#d00" href="category/miniature">Buy 3 miniatures for only $99</a></span> (plus s/h), from now until January 1, 2026. Includes free mini display easels. <a href="https://art.monospace.com/category/miniature/">Browse available scenes here</a>. Discount applied at checkout.
+                <h3>Miniatures Special</h3>Artful stocking stuffers for the holidays. <span style="font-weight:bold;color: #d00"><a style="color:#d00" href="category/miniature">Get 3 miniatures for only $69</a></span> (plus s/h), from now until January 1, 2026. Includes free mini display easels. <a href="https://art.monospace.com/category/miniature/">Browse available scenes here</a>. Discount applied at checkout.
 
                   <h3>2025 Holiday Markets</h3>I am selling my original art at select local Holiday Markets throughout the North New Jersey area. Check the <u><a href='market-dates'>Markets & Events Page</a></u> for dates and locations. Here's a tip: buying art from me in person is cheaper than buying online!
 
@@ -463,7 +532,6 @@ a, a:hover{
                 <div class="box-content bottom-align">Request a personalized piece of art tailored to your vision.</div>
             </div>
             <div class="box link" id="feed" onclick="document.location.href='art-feed'">
-<!--             <div class="box link" id="uploads" onclick="document.location.href='blog/'" style="background-image: url('/art/blog/wp-content/uploads/IMG_7647.heic');"> -->
                 <div class="box-title">The Art Feed</div>
                 <div class="box-content bottom-align">A chronological feed of all recently added artwork and blog posts.</div>
             </div>
@@ -507,7 +575,7 @@ a, a:hover{
     </div>
 
 
-<div class="footer">Website designed and developed by <a href="https://monospace.com">monospace</a>.<br>Copyright &copy;<?php echo date('Y');?> Hens Breet | monospace ART | <strong>I ♥️ NJ</strong></div>
+<div class="footer">Copyright &copy;<?php echo date('Y');?> Hens Breet | monospace ART</div>
 
 <?php //get_footer(); ?>
 

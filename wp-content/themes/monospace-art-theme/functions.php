@@ -103,7 +103,7 @@ add_action( 'init', function() use ( $priority_addon_files ) {
 
 // Include About page only in admin
 if ( is_admin() ) {
-    require_once get_stylesheet_directory() . '/inc/admin/about.php';
+   // require_once get_stylesheet_directory() . '/inc/admin/about.php';
 }
 
 add_action( 'admin_menu', function() {
@@ -188,5 +188,10 @@ function ms_show_date_on_blog_posts_everywhere( $content ) {
     return $content;
 }
 
+
+
+add_filter( 'woocommerce_return_to_shop_redirect', function () {
+    return home_url( '/art-feed/' ); // change to your desired URL
+} );
 
 

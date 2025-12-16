@@ -134,7 +134,7 @@ figcaption{
 /* Box shadow for images (except author photo) */
 .wp-block-image img:not(.wp-image-1491), .woocommerce-product-gallery__image, .woocommerce-product-gallery__wrapper {
   box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.6);
-  _border-radius: 8px;
+  border-radius: 5px;
   _border: solid 4px white;
 }
 
@@ -280,9 +280,9 @@ RELATED POSTS STYLING
 --------------------------------------------------------------*/
 
 .related-items {
-  margin: 3rem 0;
-  padding: 1rem 0;
-  border-top: 1px solid black;
+  margin: 1em 0;
+  padding: 0;
+  _border-top: 1px solid black;
 
   display: flex;
   flex-wrap: wrap;
@@ -346,8 +346,8 @@ POST NAVIGATION
 --------------------------------------------------------------*/
 
 .post-navigation {
-  margin: 3rem 0 !important;
-  padding: 1rem 0 !important;
+  margin: 1em 2.5em !important;
+  padding: 1em 0 !important;
   border-top: 1px solid #000 !important;
   border-bottom: 1px solid #000;
 }
@@ -375,15 +375,14 @@ POST NAVIGATION
 .post-navigation .nav-links a {
   font-weight: bold;
   font-size: 1em;
-  color: inherit;
   text-decoration: none;
 }
 
 /* Small screens: stack vertically */
 @media (max-width:  560px) {
-  .post-navigation .nav-links a {
-  font-size: 1em;
-}
+    .post-navigation .nav-links a {
+        font-size: 1em;
+    }
 
 }
 
@@ -501,105 +500,12 @@ input[type="search"]{
 
 
 
-@media (min-width:  560px) {
-
-/* Fix ONLY the above-header (primary menu) to the top */
-.ast-above-header-wrap {
-    position: fixed !important;
-    top: 0px;
-    left: 0;
-    width: 100%;
-    z-index: 99998; /* Below admin bar but above other content */
-    _background-color: #fff; /* Add background color so content doesn't show through */
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3); /* Optional: adds subtle shadow */
-}
-
-/* Automatically account for WordPress admin bar when logged in */
-.admin-bar .ast-above-header-wrap {
-    top: 32px; /* WordPress admin bar height on desktop */
-}
-
-/* Push site content down by the header height */
-#page {
-    padding-top: 80px; /* Adjust this value to match your actual header height */
-}
-
-/* Alternative: If #page doesn't work, try this */
-.ast-header-break-point #page,
-.ast-desktop #page {
-    padding-top: 80px; /* Adjust to match header height */
-}
-
-}
-
-/* Mobile: fix header */
-@media (max-width: 560px) {
-    .ast-above-header-wrap {
-        position: relative !important;  /* keep it in flow */
-        top: 0 !important;              /* remove extra offset */
-        width: 100%;
-        z-index: 9999;                  /* above content */
-        pointer-events: auto;           /* ensure clickable */
-        background-color: #fff;         /* avoid transparency issues */
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* optional shadow */
-    }
-
-    #page {
-        padding-top: 0 !important;      /* remove extra spacing */
-    }
-
-    /* Admin bar adjustment on mobile */
-    .admin-bar .ast-above-header-wrap {
-        top: 0 !important;              /* already relative, avoid offset */
-    }
-
-    /* Ensure all menu items are clickable */
-    .ast-above-header-wrap,
-    .ast-above-header-wrap * {
-        pointer-events: auto !important;
-    }
-}
-
-
-
-
-
 /* top margin fortag cloud */
 .wp-block-tag-cloud{
   margin-top: 2em;
 }
 
 
-:root{
-      --menu-bg: rgba(0, 0, 0, 0.85);
-}
-/* transparent menu */
-.ast-above-header.ast-above-header-bar{
-    background: linear-gradient(
-        180deg,
-        rgba(255,255,255,0.6) 0%,
-        rgba(255,255,255,0) 15%
-    ), var(--menu-bg);
-    border-top: solid 1px var(--menu-bg);
-    border-bottom: solid 1px rgb(72, 72, 72);
-}
-
-/* Make top-level menu items transparent - targeting the li elements */
-.ast-above-header-bar .menu-item,
-.ast-above-header-bar .menu-item > a {
-    background: transparent !important;
-    background-color: transparent !important;
-}
-
-
-
-/* Ensure submenu container also has solid background */
-.ast-above-header-bar .sub-menu {
-    background: var(--menu-bg) !important;
-    background-color: var(--menu-bg) !important;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-    padding-left:0 !important;
-}
 
 
 
@@ -658,6 +564,14 @@ input[type="search"]{
   font-size:1.5em !important;
   line-height: unset;
 }
+
+.woocommerce .product-name{
+  font-size: 0.8em !important;
+  font-weight:500;
+}
+
+
+
 /* ==========================================================================
    WOOCOMMERCE TABLES - UNIFIED BORDER SYSTEM
    All cart, checkout, and order review tables
@@ -745,7 +659,8 @@ input[type="search"]{
   padding-top: 1em !important;
 }
 
-/* ==========================================================================
+
+   /* ==========================================================================
    PRODUCT NAME & COMMISSION DETAILS
    ========================================================================== */
 
@@ -800,6 +715,10 @@ dl.variation dd p {
   white-space: nowrap;
 }
 
+
+.ast-stock-detail{
+  display: none;
+}
 /* ==========================================================================
    CART SPECIFIC STYLING
    ========================================================================== */
@@ -870,7 +789,7 @@ td.product-name {
 }
 
 th.product-quantity{
-  opacity:0;
+  _opacity:0;
 }
 button.button[name="update_cart"] {
   display:none !important;
@@ -1014,4 +933,71 @@ button.button[name="update_cart"] {
   .woocommerce-Price-amount {
     font-size: 1em;
   }
+}
+
+
+
+:root{
+      --menu-bg: rgba(0, 0, 0, 0.85);
+}
+/* transparent menu */
+.ast-above-header.ast-above-header-bar{
+    background: linear-gradient(
+        180deg,
+        rgba(255,255,255,0.6) 0%,
+        rgba(255,255,255,0) 15%
+    ), var(--menu-bg);
+    border-top: solid 1px var(--menu-bg);
+    border-bottom: solid 1px rgb(72, 72, 72);
+}
+
+/* Make top-level menu items transparent - targeting the li elements */
+.ast-above-header-bar .menu-item,
+.ast-above-header-bar .menu-item > a {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+
+
+/* Ensure submenu container also has solid background */
+.ast-above-header-bar .sub-menu {
+    background: var(--menu-bg) !important;
+    background-color: var(--menu-bg) !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    padding-left:0 !important;
+}
+
+
+@media (min-width:  920px) {
+
+/* Fix ONLY the above-header (primary menu) to the top */
+.ast-above-header-wrap {
+    position: fixed !important;
+    top: 0px;
+    left: 0;
+    width: 100%;
+    z-index: 99998; /* Below admin bar but above other content */
+    _background-color: #fff; /* Add background color so content doesn't show through */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3); /* Optional: adds subtle shadow */
+}
+
+/* Automatically account for WordPress admin bar when logged in */
+.admin-bar .ast-above-header-wrap {
+    top: 32px; /* WordPress admin bar height on desktop */
+}
+
+/* Push site content down by the header height */
+#page {
+    padding-top: 80px; /* Adjust this value to match your actual header height */
+}
+}
+
+
+/* hide paypal admin prompt  */
+.payment_box.payment_method_ppcp-gateway{
+	display: none !important;
+}
+form #order_review{
+  padding-bottom: 2em !important;
 }

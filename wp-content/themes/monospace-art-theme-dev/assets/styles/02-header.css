@@ -1,0 +1,49 @@
+/* -----------------------------------------------------------
+   Site Logo
+----------------------------------------------------------- */
+.site-logo-wrapper {
+    display: flex;
+    flex-direction: column; /* stack items vertically */
+    align-items: center;    /* center horizontally */
+    margin: 4em auto 6em auto;         /* spacing above/below logo+tagline */
+    width: var(--column-center-width); /* adjust or override as needed */
+
+}
+
+
+.site-logo {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.site-logo a {
+    display: inline-block;
+    width: 100%;
+    text-align: center;
+}
+
+.site-logo img.custom-logo {
+    max-width: 92%; /* scale to container */
+    height: auto;
+    display: block;
+    cursor: pointer;
+    margin: 0 auto;
+}
+
+
+.site-tagline {
+    text-align: center;
+    font-family: 'Roboto', sans-serif; /* or any other */
+    font-size: 1.9rem;
+    font-weight:100;
+    color: var(--body-text-color-light);
+
+    width: 100%;
+    max-width: 100%;
+    white-space: nowrap;
+
+
+    letter-spacing: 0.015em;
+
+}
