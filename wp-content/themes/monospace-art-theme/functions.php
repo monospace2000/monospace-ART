@@ -33,8 +33,8 @@ function monospace_log( $message ) {
 	}
 }
 $priority_addon_files = [
-    'inc/addons/astra_site_identity.php',
-    'inc/addons/enqueue_styles.php',
+    'inc/addons/site-identity.php',
+    'inc/addons/enqueue-styles.php',
 ];
 
 function monospace_art_theme_load_priority_addons( $files ) {
@@ -193,5 +193,9 @@ function ms_show_date_on_blog_posts_everywhere( $content ) {
 add_filter( 'woocommerce_return_to_shop_redirect', function () {
     return home_url( '/art-feed/' ); // change to your desired URL
 } );
+
+
+
+
 
 

@@ -105,17 +105,19 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-
-<style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Oswald:wght@200..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet"><style>
 
 /* -----------------------------------------------------------
    BASE TYPOGRAPHY
 ----------------------------------------------------------- */
 body {
-    font-family: "Open Sans", sans-serif;
+    font-family: "Merriweather", serif !important;
     font-size: 1.2em;
-    font-weight: 500 !important;
+    font-weight: 400 !important;
     margin: 0 24px !important;
 }
 @media (min-width: 960px) {
@@ -221,26 +223,22 @@ a, a:hover{
 /* Auto-scaling single-line titles */
 .box-title {
     display: block;
-    white-space: nowrap;      /* force one line */
+    position: relative;
     width: 100%;
     overflow: hidden;
-    text-overflow: ellipsis;  /* keeps it pretty if it REALLY can’t fit */
+    border-radius: 10px 10px 0 0;
+    background: rgba(0,0,0,0.75);
 
+    text-overflow: ellipsis;  /* keeps it pretty if it REALLY can’t fit */
+    white-space: nowrap;      /* force one line */
+    font-family: "Oswald", sans-serif;
     font-size: clamp(1rem, 1.4vw, 1.6rem);
     /* ↓ smaller screens reduce font size to stay on one line */
     line-height: 1.2;
-
     color: white;
     font-weight: 700;
-    padding: 5px 20px;
-    border-radius: 10px 10px 0 0;
-    background: rgba(0,0,0,0.75);
-}
-.box-title {
-    position: relative;
-    border-radius: 10px 10px 0 0;
-    overflow: hidden;
-}
+    padding: 3px 20px 9px 20px;
+ }
 
 .box-title:not(#welcome .box-title)::before {
     content: "";
@@ -268,7 +266,7 @@ a, a:hover{
     background: rgba(255,255,255,0.5);
     border-radius: 0 0 10px 10px;
     min-height: clamp(220px, 20vw, 400px);
-    font-size: clamp(0.8rem, 1.1vw, 1.3rem);
+    font-size: clamp(0.8rem, 1.0vw, 1.3rem);
     /* ↓ smaller screens reduce font size to stay on one line */
     line-height: 1.2;
 }
@@ -309,9 +307,9 @@ a, a:hover{
 
 
 
-#news h3{
+#news h4{
     margin-top:20px;
-    margin-bottom: 0;
+    margin-bottom: 2px;
 }
 
 #welcome.box {
@@ -326,11 +324,11 @@ a, a:hover{
 }
 
 #welcome .box-title{
-    font-size: clamp(1rem, 1.5vw, 1.7rem);
+    font-size: clamp(1rem, 1.4vw, 1.6rem);
     line-height: 1.4;
 }
 #welcome .box-content{
-        font-size: clamp(0.9rem, 1.3vw, 1.5rem);
+    font-size: clamp(0.8rem, 1.1vw, 1.4rem);
     line-height: 1.4;
 
 }
@@ -341,6 +339,7 @@ a, a:hover{
 .footer {
     margin: 50px;
     text-align: center;
+    font-size: 0.8em;
 }
 
 
@@ -374,7 +373,7 @@ a, a:hover{
 
 #news:hover {
     transform: none !important;
-        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
 
 
@@ -480,23 +479,26 @@ a, a:hover{
                 <div class="box-title">News</div>
                 <div class="box-content">
 
-                <h3>Miniatures Special</h3>Artful stocking stuffers for the holidays. <span style="font-weight:bold;color: #d00"><a style="color:#d00" href="category/miniature">Get 3 miniatures for only $69</a></span> (plus s/h), from now until January 1, 2026. Includes free mini display easels. <a href="https://art.monospace.com/category/miniature/">Browse available scenes here</a>. Discount applied at checkout.
+                    <h4>Upcoming Solo Exhibition</h4>I’m pleased to announce my upcoming solo exhibition, R<i>eflected Lowlands: Wetlands on the Urban Edge</i>, on view at the <strong>Hoboken Historical Museum</strong>’s Upper Gallery from January 25 through March 8. More details to follow.
 
-                  <h3>2025 Holiday Markets</h3>I am selling my original art at select local Holiday Markets throughout the North New Jersey area. Check the <u><a href='market-dates'>Markets & Events Page</a></u> for dates and locations. Here's a tip: buying art from me in person is cheaper than buying online!
+                    <h4>Miniatures Special</h4>Artful stocking stuffers for the holidays. <span style="font-weight:bold;color: #d00"><a style="color:#d00" href="category/miniature">Get 3 miniatures for only $69</a></span> (plus s/h), from now until January 1, 2026. Includes free mini display easels. <a href="https://art.monospace.com/category/miniature/">Browse available scenes here</a>. Discount applied at checkout.
 
-                    <h3>Upcoming Solo Exhibition</h3>I'm excited to announce that my work will be featured in a solo exhibition at the <strong>Hoboken Historical Museum</strong>’s Upper Gallery, January 25 through March 8, 2026. More details to follow.
+                    <h4>2025 Holiday Markets</h4>I am selling my original art at select local Holiday Markets throughout the North New Jersey area. Check the <u><a href='market-dates'>Markets & Events Page</a></u> for dates and locations. Here's a tip: buying art from me in person is cheaper than buying online!
 
-                   <h3>The Collective Hoboken</h3>Select pieces are currently on display and available for purchase at <strong><a href="https://thecollectivehoboken.com"></strong>The Collective Hoboken</a>, a new gallery on Washington Street highlighting local artists. Check out their custom hat bar and curated vintage vinyl collection/
+                    <h4>Art House Gallery</h4>Two of my works are on view as part of <strong><a href="https://www.arthouseproductions.org/collections/upcomingevents/products/the-affordable-art-show-december-5-2025-january-24-2026"></strong>The Affordable Art Show</a> at Art House Gallery in Jersey City, through January 24.
 
-                    <h3>Online store now open</h3>You can now purchase available artworks directly from this site, with secure payments and fast shipping, powered by WooCommerce. I have discontinued my Etsy store.
+                    <h4>The Collective Hoboken</h4>Select pieces are currently on display and available for purchase at <strong><a href="https://thecollectivehoboken.com"></strong>The Collective Hoboken</a>, a new gallery on Washington Street highlighting local artists. Check out their custom hat bar and curated vintage vinyl collection/
+
+                    <h4>Online store now open</h4>You can now purchase available artworks directly from this site, with secure payments and fast shipping, powered by WooCommerce. I have discontinued my Etsy store.
 
                     <div style="font-size:60%; border-top: solid 1px #333; margin-top: 50px; padding-top: 5px;">ARCHIVE</div>
+
                     <div style="opacity: 0.5">
-                    <h3>Hoboken Artists’ Studio Tour</h3>On November 2, some of my work will be on view and available for purchase at the Hoboken Historic Museum as part of the <a href="https://www.visithudson.org/things-to-do/artsandculture/hoboken-artists-studio-tours/">Hoboken Artists’ Studio Tour</a>.
+                        <h4>Hoboken Artists’ Studio Tour</h4>On November 2, some of my work will be on view and available for purchase at the Hoboken Historic Museum as part of the <a href="https://www.visithudson.org/things-to-do/artsandculture/hoboken-artists-studio-tours/">Hoboken Artists’ Studio Tour</a>.
 
-                        <h3>Hoboken Art Month</h3>This October, two of my favorite pieces are on display at <b>Louise And Jerry's Tavern</b>, a beloved Hoboken institution, as part of <em><a href="https://mainstreetpops.com/?event=hoboken-art-month-storefront-art-walk">Hoboken Art Month Storefront Walk</a></em>, a citywide celebration of creativity and community.
+                        <h4>Hoboken Art Month</h4>This October, two of my favorite pieces are on display at <b>Louise And Jerry's Tavern</b>, a beloved Hoboken institution, as part of <em><a href="https://mainstreetpops.com/?event=hoboken-art-month-storefront-art-walk">Hoboken Art Month Storefront Walk</a></em>, a citywide celebration of creativity and community.
 
-                        <h3>One Mile Gallery</h3>My work was included in <em>Phantasma</em>, a group exhibition at <em><a href="https://onemilegallery.com/">One Mile Gallery</a></em> in Kingston, NY, that ran from mid-August through September.
+                        <h4>One Mile Gallery</h4>My work was included in <em>Phantasma</em>, a group exhibition at <em><a href="https://onemilegallery.com/">One Mile Gallery</a></em> in Kingston, NY, that ran from mid-August through September.
                     </div>
 
                 </div>
@@ -575,7 +577,7 @@ a, a:hover{
     </div>
 
 
-<div class="footer">Copyright &copy;<?php echo date('Y');?> Hens Breet | monospace ART</div>
+<div class="footer">Copyright &copy;<?php echo date('Y');?> Hens Breet | monospace ART LLC</div>
 
 <?php //get_footer(); ?>
 

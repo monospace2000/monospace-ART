@@ -662,6 +662,11 @@ class MetaBox
 									if (response.data.product_id) {
 										$('#qp-product-id').val(response.data.product_id);
 									}
+
+									if (response.data.sku) {
+										$('#qp-sku').val(response.data.sku);
+									}
+
 								} else {
 									$status
 										.addClass('error')
@@ -865,6 +870,16 @@ class ProductSyncer
 		$product->save();
 		// Update our data array so it gets saved to post meta
 		$this->data['sku'] = $generated_sku;
+
+		// Also send back via AJAX so the field updates
+		if (isset($_POST['ajax'])) {
+			wp_send_json_success([
+				'product_id' => $product_id,
+				'sku' => $generated_sku,
+				'action' => $action,
+				'message' => __('Product created with SKU: ' . $generated_sku, 'quick-product')
+			]);
+		}
 	}
 
 	// Set attributes (must be done after product is saved)
@@ -971,28 +986,10 @@ class ProductSyncer
 
 	private function generate_sku($product_id)
 	{
-		$year = date('Y');
-
-		// Get format from attributes
-		$format_slug = $this->data['attributes']['pa_format'] ?? '';
-		$format_code = 'O'; // default to "Other"
-
-		switch (strtolower($format_slug)) {
-			case 'painting':
-				$format_code = 'P';
-				break;
-			case 'drawing':
-				$format_code = 'D';
-				break;
-			case 'miniature':
-				$format_code = 'M';
-				break;
-		}
-
-		// Find next available number
 		global $wpdb;
-		$pattern = $wpdb->esc_like('HENS-' . $year . '-' . $format_code . '-') . '%';
 
+		// Find all existing HENS SKUs
+		$pattern = $wpdb->esc_like('MNSPC-') . '%';
 		$existing_skus = $wpdb->get_col($wpdb->prepare(
 			"SELECT meta_value FROM {$wpdb->postmeta}
 			WHERE meta_key = '_sku'
@@ -1004,9 +1001,8 @@ class ProductSyncer
 		$next_number = 1;
 
 		if (!empty($existing_skus)) {
-			// Extract the highest number
 			foreach ($existing_skus as $sku) {
-				if (preg_match('/HENS-\d{4}-[A-Z]-(\d{4})$/', $sku, $matches)) {
+				if (preg_match('/(\d{4})$/', $sku, $matches)) {
 					$number = intval($matches[1]);
 					if ($number >= $next_number) {
 						$next_number = $number + 1;
@@ -1015,8 +1011,10 @@ class ProductSyncer
 			}
 		}
 
-		return sprintf('HENS-%s-%s-%04d', $year, $format_code, $next_number);
+		return sprintf('MNSPC-%04d', $next_number);
 	}
+
+
 
 	private function set_attributes($product_id)
 	{

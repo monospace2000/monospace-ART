@@ -199,6 +199,7 @@ function ms_product_filter_shortcode(){
     aspect-ratio: 1 / 1;       /* force square */
     object-fit: cover;          /* crop to fill square */
     box-shadow: 0 0px 8px rgba(0, 0, 0, 0.3);
+    border-radius:5px;
 }
 
 .ms-availability-dot {

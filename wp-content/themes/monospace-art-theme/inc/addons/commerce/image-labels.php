@@ -183,7 +183,7 @@ function monospace_add_image_label($content) {
             background:rgba(0,0,0,0.6);
             color:white;
             border-radius:4px;
-            font-family:inherit;
+            font-family: \'Roboto\',sans-serif;
             z-index:5;
         ">
             ' . esc_html($label_text) . '
@@ -275,7 +275,7 @@ function monospace_add_availability_badge($content) {
             background:rgba(0,0,0,0.6);
             color:' . esc_attr($badge_color) . ';
             border-radius:4px;
-            font-family:inherit;
+            font-family: \'Roboto\',sans-serif;
             z-index:5;
         ">' . esc_html($status) . '</div>
     ';

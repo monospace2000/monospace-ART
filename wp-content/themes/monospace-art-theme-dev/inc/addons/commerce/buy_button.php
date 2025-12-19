@@ -299,23 +299,3 @@ function monospace_render_buy_button( $product, $status, $gallery_url, $gallery_
 
 
 
-/**
- * Show a disabled quantity field for "sold individually" products in the cart
- */
-add_filter('woocommerce_cart_item_quantity', function($product_quantity, $cart_item_key, $cart_item) {
-
-    $product = $cart_item['data'];
-
-    if ($product->is_sold_individually()) {
-        // Output a disabled input with value 1
-        $product_quantity = '<div style="width: 100%;text-align:center;font-size: 1.1em;"><code>1</code></div>';
-    }
-
-    return $product_quantity;
-
-}, 20, 3);
-
-
-
-
-

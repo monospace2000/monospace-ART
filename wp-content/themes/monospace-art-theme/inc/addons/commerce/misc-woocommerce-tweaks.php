@@ -68,3 +68,49 @@ function hide_shipping_options_css() {
     </style>
     <?php
 }
+
+
+
+/**
+ * Show a disabled quantity field for "sold individually" products in the cart
+ */
+add_filter('woocommerce_cart_item_quantity', function($product_quantity, $cart_item_key, $cart_item) {
+
+    $product = $cart_item['data'];
+
+    if ($product->is_sold_individually()) {
+        // Output a disabled input with value 1
+        $product_quantity = '<div style="width: 100%;font-size: 1.1em;"><code>1</code></div>';
+    }
+
+    return $product_quantity;
+
+}, 20, 3);
+
+
+
+/* add_filter( 'woocommerce_cart_item_name', function( $name, $cart_item ) {
+    return $name . '<br><small>Extra info</small>';
+}, 10, 2 ); */
+
+// replace"Product" with "Item" on client facing pages
+add_filter( 'gettext', 'monospace_frontend_replace_product_label', 20, 3 );
+function monospace_frontend_replace_product_label( $translated, $text, $domain ) {
+
+    // Do NOT affect admin
+    if ( is_admin() ) {
+        return $translated;
+    }
+
+    // Only WooCommerce strings
+    if ( $domain !== 'woocommerce' ) {
+        return $translated;
+    }
+
+    // Exact replacement
+    if ( $text === 'Product' ) {
+        return 'Item';
+    }
+
+    return $translated;
+}

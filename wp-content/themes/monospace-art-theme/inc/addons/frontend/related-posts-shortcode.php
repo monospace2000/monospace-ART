@@ -37,7 +37,7 @@ function monospace_related_posts_simple() {
     // Check cache first
     $cache_key = 'monospace_related_' . $post_id;
     $cached_output = get_transient( $cache_key );
-    
+
     if ( false !== $cached_output ) {
         return $cached_output;
     }
@@ -55,10 +55,10 @@ function monospace_related_posts_simple() {
     $related_posts = monospace_get_related_posts( $post_id, $settings );
 
     if ( empty( $related_posts ) ) {
-        $output = apply_filters( 
-            'monospace_related_posts_empty', 
-            '<p>No related items found.</p>', 
-            $post_id 
+        $output = apply_filters(
+            'monospace_related_posts_empty',
+            '<p>No related items found.</p>',
+            $post_id
         );
         set_transient( $cache_key, $output, $settings['cache_time'] );
         return $output;
@@ -95,7 +95,7 @@ function monospace_get_related_posts( $post_id, $settings ) {
     $min_tags = absint( $settings['min_tags'] );
 
     $tags = wp_get_post_terms( $post_id, 'post_tag', array( 'fields' => 'ids' ) );
-    
+
     if ( empty( $tags ) ) {
         return monospace_get_fallback_posts( $post_id, $settings, $limit );
     }
@@ -103,8 +103,8 @@ function monospace_get_related_posts( $post_id, $settings ) {
     $exclude_cat_ids = monospace_get_excluded_category_ids( $settings['exclude_categories'] );
 
     $tag_ids_str = implode( ',', array_map( 'absint', $tags ) );
-    $exclude_cats_str = ! empty( $exclude_cat_ids ) 
-        ? implode( ',', array_map( 'absint', $exclude_cat_ids ) ) 
+    $exclude_cats_str = ! empty( $exclude_cat_ids )
+        ? implode( ',', array_map( 'absint', $exclude_cat_ids ) )
         : '0';
 
     $sql = "
@@ -136,20 +136,20 @@ function monospace_get_related_posts( $post_id, $settings ) {
         LIMIT %d
     ";
 
-    $results = $wpdb->get_results( 
+    $results = $wpdb->get_results(
         $wpdb->prepare( $sql, $post_id, $min_tags, $limit ),
-        ARRAY_A 
+        ARRAY_A
     );
 
     $related_ids = $results ? wp_list_pluck( $results, 'ID' ) : array();
 
     $remaining = $limit - count( $related_ids );
     if ( $remaining > 0 ) {
-        $fallback_ids = monospace_get_fallback_posts( 
-            $post_id, 
-            $settings, 
-            $remaining, 
-            $related_ids 
+        $fallback_ids = monospace_get_fallback_posts(
+            $post_id,
+            $settings,
+            $remaining,
+            $related_ids
         );
         $related_ids = array_merge( $related_ids, $fallback_ids );
     }
@@ -234,7 +234,7 @@ function monospace_build_related_posts_html( $related_ids, $settings ) {
         $thumb = monospace_get_post_thumbnail( $related_id, $title, $settings['fallback_image_url'] );
 
         $output .= '<div class="related-item">';
-        $output .= sprintf( 
+        $output .= sprintf(
             '<a href="%s">%s<span class="related-title">%s</span></a>',
             esc_url( $link ),
             $thumb,
@@ -267,7 +267,7 @@ function monospace_get_post_thumbnail( $post_id, $title, $fallback_url ) {
     $content_image = monospace_get_first_content_image( $post_id );
     if ( $content_image ) {
         return sprintf(
-            '<img src="%s" alt="%s" loading="lazy" />',
+            '<img src="%s" alt="%s" loading="lazy" style="box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);border-radius: 5px;" />',
             esc_url( $content_image ),
             esc_attr( $title )
         );
@@ -275,7 +275,7 @@ function monospace_get_post_thumbnail( $post_id, $title, $fallback_url ) {
 
     if ( file_exists( str_replace( get_stylesheet_directory_uri(), get_stylesheet_directory(), $fallback_url ) ) ) {
         return sprintf(
-            '<img src="%s" alt="No image" loading="lazy" />',
+            '<img src="%s" alt="No image" loading="lazy" style="box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);border-radius: 5px;" />',
             esc_url( $fallback_url )
         );
     }
@@ -342,9 +342,9 @@ function monospace_clear_related_posts_cache( $post_id ) {
 
     // Clear all related posts transients
     global $wpdb;
-    $wpdb->query( 
-        "DELETE FROM {$wpdb->options} 
-         WHERE option_name LIKE '_transient_monospace_related_%' 
+    $wpdb->query(
+        "DELETE FROM {$wpdb->options}
+         WHERE option_name LIKE '_transient_monospace_related_%'
          OR option_name LIKE '_transient_timeout_monospace_related_%'"
     );
 }

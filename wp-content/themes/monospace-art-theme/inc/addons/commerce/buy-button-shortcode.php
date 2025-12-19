@@ -140,18 +140,47 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
     $status_slug  = $status ? sanitize_title( $status ) : 'default';
     $status_class = ' status-' . $status_slug;
 
+    // Generate SKU HTML for real products
+    $sku = $product->get_sku();
+    $sku_html = $sku
+    ? '<div class="painting-sku" style="font-size:12px;color:#000;text-align:right;margin:4px;">' . esc_html( $sku ) . '</div>'
+    : '';
+
+    // Generate price HTML with add to cart button next to it
+    $price_html = '';
+    if ( $product->get_price() ) {
+        $price_display = $product->get_price_html();
+        $add_to_cart_btn = do_shortcode( '[add_to_cart id="' . $product->get_id() . '" show_price="false"]' );
+
+        $price_html = '<div class="painting-price-row" style="display:flex;align-items:center;gap:15px;margin-bottom:4px;">';
+        $price_html .= '<div class="painting-price" style="font-size:1.2em;color:#333;">' . $price_display . '</div>';
+        $price_html .= '<div class="painting-cart-button">' . $add_to_cart_btn . '</div>';
+        $price_html .= '</div>';
+    }
+
     return sprintf(
         '<div class="painting-buy-row%s" data-status="%s">
             <div class="painting-attrs">%s</div>
-            <div class="painting-action">%s%s</div>
+            <div class="painting-action">
+                %s  <!-- Price -->
+                %s  <!-- SKU -->
+                %s  <!-- Button or status label -->
+                %s  <!-- Special text -->
+            </div>
         </div>',
         esc_attr( $status_class ),
         esc_attr( $status_slug ),
         $attr_list,
+        $price_html,
+        $sku_html,
         $button,
         $special_text
     );
+
+
 }
+
+
 add_shortcode( 'painting_buy_button', 'monospace_custom_add_to_cart_shortcode' );
 
 
@@ -283,7 +312,7 @@ function monospace_render_buy_button( $product, $status, $gallery_url, $gallery_
                 return '<button class="button disabled status-in-cart" disabled>Already in Cart</button>';
             }
 
-            return do_shortcode( '[add_to_cart id="' . $product->get_id() . '"]' );
+            return do_shortcode( '[add_to_cart id="' . $product->get_id() . ']' );
     }
 }
 

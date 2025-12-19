@@ -67,6 +67,8 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
         </p>
     </div>
 
+
+
     <script>
     jQuery(function($){
         $('.create-final-payment-btn').on('click', function(e){
@@ -76,33 +78,75 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
             var itemId = $btn.data('item-id');
             var commissionKey = $btn.data('commission-key');
 
-            if(!confirm('Create final payment order for this commission?\n\nThis will:\n• Calculate remaining balance\n• Add shipping costs\n• Create new order\n• Email invoice to customer')) return;
+            $btn.prop('disabled', true).html('⏳ Calculating...');
 
-            $btn.prop('disabled', true).html('⏳ Creating order...');
-
+            // Step 1: Get calculation preview
             $.post(ajaxurl, {
-                action: 'create_final_payment_order',
+                action: 'preview_final_payment',
                 order_id: orderId,
                 item_id: itemId,
                 commission_key: commissionKey,
                 nonce: '<?php echo wp_create_nonce('create_final_payment'); ?>'
             }, function(response){
                 if(response.success){
-                    alert('✅ Final payment order created successfully!\n\nOrder #' + response.data.order_id + '\n\nAn invoice email has been sent to the customer.');
-                    // Redirect to the newly created order page
-                    window.location.href = '<?php echo admin_url("post.php?post="); ?>' + response.data.order_id + '&action=edit';
+                    var data = response.data;
+
+                    // Show confirmation dialog with amounts
+                    var message = '⚠️ CONFIRM FINAL PAYMENT CALCULATION\n\n';
+                    message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+                    message += 'Full Commission Price: $' + data.full_price.toFixed(2) + '\n';
+                    message += 'Deposit Paid (' + data.deposit_percent + '%): $' + data.deposit_paid.toFixed(2) + '\n';
+                    message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+                    message += 'REMAINING BALANCE: $' + data.remaining_balance.toFixed(2) + '\n';
+                    message += 'Shipping: $' + data.shipping_total.toFixed(2) + '\n';
+                    message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+                    message += 'TOTAL DUE: $' + data.final_total.toFixed(2) + '\n';
+                    message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+                    message += 'Does this look correct?\n\n';
+                    message += 'This will:\n';
+                    message += '• Create new order for $' + data.remaining_balance.toFixed(2) + '\n';
+                    message += '• Calculate and add shipping\n';
+                    message += '• Email invoice to customer';
+
+                    if(confirm(message)){
+                        // Step 2: Create the order
+                        $btn.html('⏳ Creating order...');
+
+                        $.post(ajaxurl, {
+                            action: 'create_final_payment_order',
+                            order_id: orderId,
+                            item_id: itemId,
+                            commission_key: commissionKey,
+                            confirmed: 'yes',
+                            nonce: '<?php echo wp_create_nonce('create_final_payment'); ?>'
+                        }, function(createResponse){
+                            if(createResponse.success){
+                                alert('✅ Final payment order created successfully!\n\nOrder #' + createResponse.data.order_id + '\n\nAn invoice email has been sent to the customer.');
+                                window.location.href = '<?php echo admin_url("post.php?post="); ?>' + createResponse.data.order_id + '&action=edit';
+                            } else {
+                                alert('❌ Error: ' + createResponse.data.message);
+                                $btn.prop('disabled', false).html('Create Final Payment Invoice');
+                            }
+                        }).fail(function(){
+                            alert('❌ Connection error. Please try again.');
+                            $btn.prop('disabled', false).html('Create Final Payment Invoice');
+                        });
+                    } else {
+                        $btn.prop('disabled', false).html('Create Final Payment Invoice');
+                    }
                 } else {
                     alert('❌ Error: ' + response.data.message);
-                    $btn.prop('disabled', false).html('🎨 Create Final Payment Invoice');
+                    $btn.prop('disabled', false).html('Create Final Payment Invoice');
                 }
             }).fail(function(){
                 alert('❌ Connection error. Please try again.');
-                $btn.prop('disabled', false).html('🎨 Create Final Payment Invoice');
+                $btn.prop('disabled', false).html('Create Final Payment Invoice');
             });
         });
     });
     </script>
     <?php
+
 }, 10);
 
 /**
@@ -110,6 +154,164 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
  * AJAX: Create Final Payment Order
  * ================================
  */
+
+
+
+add_action('wp_ajax_preview_final_payment', function(){
+    check_ajax_referer('create_final_payment', 'nonce');
+
+    if(!current_user_can('edit_shop_orders')){
+        wp_send_json_error(['message' => 'Insufficient permissions']);
+    }
+
+    $original_order_id = intval($_POST['order_id']);
+    $item_id = intval($_POST['item_id']);
+
+    $original_order = wc_get_order($original_order_id);
+    if(!$original_order){
+        wp_send_json_error(['message' => 'Original order not found']);
+    }
+
+    $original_item = $original_order->get_item($item_id);
+    if(!$original_item){
+        wp_send_json_error(['message' => 'Order item not found']);
+    }
+
+
+    // Get full price - check title case first (your actual format)
+    $full_price = floatval(
+        $original_item->get_meta('Commission Full Price', true)
+        ?: $original_item->get_meta('commission_full_price', true)
+        ?: $original_item->get_meta('_commission_full_price', true)
+    );
+
+    if($full_price <= 0){
+        wp_send_json_error(['message' => 'Cannot determine full commission price']);
+    }
+
+    // Get deposit amount - check title case first (your actual format)
+    $deposit_price = floatval(
+        $original_item->get_meta('Applied Deposit Price', true)
+        ?: $original_item->get_meta('applied_deposit_price', true)
+        ?: $original_item->get_meta('_applied_deposit_price', true)
+        ?: $original_item->get_meta('Commission Deposit', true)
+    );
+
+    if($deposit_price <= 0){
+        wp_send_json_error(['message' => 'Cannot determine deposit amount']);
+    }
+
+    // Calculate remaining balance
+    $remaining_balance = $full_price - $deposit_price;
+
+    if($remaining_balance <= 0){
+        wp_send_json_error(['message' => 'Remaining balance is invalid']);
+    }
+
+    // Calculate deposit percentage
+    $deposit_percent = round(($deposit_price / $full_price) * 100);
+
+    // Calculate remaining balance
+    $remaining_balance = $full_price - $deposit_price;
+
+    if($remaining_balance <= 0){
+        wp_send_json_error([
+            'message' => 'Remaining balance is zero or negative. Full price: $' . $full_price . ', Deposit: $' . $deposit_price
+        ]);
+    }
+
+
+
+
+// Calculate estimated shipping with full error handling
+    $shipping_total = 0;
+
+    try {
+        // Get shipping address
+        $shipping_address = $original_order->get_address('shipping');
+
+        if (empty($shipping_address['country'])) {
+            wp_send_json_error(['message' => 'No shipping address found on original order']);
+        }
+
+        // Get product
+        $product = wc_get_product($original_item->get_product_id());
+        if (!$product) {
+            wp_send_json_error(['message' => 'Product not found']);
+        }
+
+        // Build package for shipping calculation
+        $package = array(
+            'contents' => array(
+                'item_1' => array(
+                    'data' => $product,
+                    'quantity' => 1,
+                    'line_subtotal' => $remaining_balance,
+                    'line_total' => $remaining_balance,
+                )
+            ),
+            'contents_cost' => $remaining_balance,
+            'applied_coupons' => array(),
+            'user' => array(
+                'ID' => $original_order->get_customer_id(),
+            ),
+            'destination' => array(
+                'country' => $shipping_address['country'],
+                'state' => $shipping_address['state'],
+                'postcode' => $shipping_address['postcode'],
+                'city' => $shipping_address['city'],
+                'address' => $shipping_address['address_1'],
+                'address_2' => $shipping_address['address_2'],
+            ),
+        );
+
+        // Calculate shipping
+        WC()->shipping()->calculate_shipping(array($package));
+        $packages = WC()->shipping()->get_packages();
+
+        error_log('=== SHIPPING DEBUG ===');
+        error_log('Destination: ' . $shipping_address['city'] . ', ' . $shipping_address['state'] . ' ' . $shipping_address['postcode']);
+        error_log('Packages count: ' . count($packages));
+
+        if (!empty($packages)) {
+            $pkg = reset($packages);
+            error_log('Rates available: ' . count($pkg['rates']));
+
+            if (!empty($pkg['rates'])) {
+                $rate = reset($pkg['rates']);
+                $shipping_total = floatval($rate->cost);
+                error_log('Shipping rate: ' . $rate->label . ' = $' . $shipping_total);
+            } else {
+                error_log('No rates found for this package');
+            }
+        }
+        error_log('==================================');
+
+    } catch (Exception $e) {
+        error_log('Shipping calculation exception: ' . $e->getMessage());
+        error_log('Stack trace: ' . $e->getTraceAsString());
+    }
+
+    $final_total = $remaining_balance + $shipping_total;
+
+
+
+
+    // Return calculation for confirmation
+    wp_send_json_success([
+        'full_price' => $full_price,
+        'deposit_paid' => $deposit_price,
+        'deposit_percent' => $deposit_percent,
+        'remaining_balance' => $remaining_balance,
+        'shipping_total' => $shipping_total,
+        'final_total' => $final_total
+    ]);
+
+
+});
+
+
+
 add_action('wp_ajax_create_final_payment_order', function(){
     check_ajax_referer('create_final_payment', 'nonce');
 
@@ -154,34 +356,40 @@ add_action('wp_ajax_create_final_payment_order', function(){
     }
 
 
+ // Require confirmation
+    if(empty($_POST['confirmed']) || $_POST['confirmed'] !== 'yes'){
+        wp_send_json_error(['message' => 'Confirmation required']);
+    }
 
-    // Get full price
+    // Get full price - check title case first (your actual format)
     $full_price = floatval(
-        $original_item->get_meta('commission_full_price', true)
+        $original_item->get_meta('Commission Full Price', true)
+        ?: $original_item->get_meta('commission_full_price', true)
         ?: $original_item->get_meta('_commission_full_price', true)
-        ?: $original_item->get_total()  // fallback to line total
     );
 
-    // Get applied deposit
+    if($full_price <= 0){
+        wp_send_json_error(['message' => 'Cannot determine full commission price']);
+    }
+
+    // Get deposit amount - check title case first (your actual format)
     $deposit_price = floatval(
-        $original_item->get_meta('applied_deposit_price', true)
+        $original_item->get_meta('Applied Deposit Price', true)
+        ?: $original_item->get_meta('applied_deposit_price', true)
         ?: $original_item->get_meta('_applied_deposit_price', true)
+        ?: $original_item->get_meta('Commission Deposit', true)
     );
 
-    // Fallback: assume 30% if still missing
     if($deposit_price <= 0){
-        $deposit_price = round(0.3 * $full_price, wc_get_price_decimals());
+        wp_send_json_error(['message' => 'Cannot determine deposit amount']);
     }
 
     // Calculate remaining balance
-    $remaining_balance = max(0, $full_price - $deposit_price);
+    $remaining_balance = $full_price - $deposit_price;
 
     if($remaining_balance <= 0){
-        wp_send_json_error([
-            'message' => 'Error: Remaining balance is zero or negative. Please verify deposit amount.'
-        ]);
+        wp_send_json_error(['message' => 'Remaining balance is invalid']);
     }
-
 
     // Create new order for final payment
     $final_order = wc_create_order([
@@ -199,20 +407,27 @@ add_action('wp_ajax_create_final_payment_order', function(){
         'quantity' => 1,
         'subtotal' => $remaining_balance,
         'total' => $remaining_balance,
-        'name' => 'Final Payment: ' . $product->get_name()
+        'name' => 'Remaining Balance – ' . $product->get_name()
     ]);
 
     // Copy commission metadata
     $item->add_meta_data('_is_final_payment', 'yes', true);
     $item->add_meta_data('_original_order_id', $original_order_id, true);
     $item->add_meta_data('_original_item_id', $item_id, true);
-    $item->add_meta_data('_commission_key', $commission_key, true);
+    //$item->add_meta_data('_commission_key', $commission_key, true);
+    //$item->add_meta_data('_source_order_id', $original_order_id, true);
 
-    $display_keys = ['_commission_medium', '_commission_size', '_commission_surface', '_commission_special_request', '_commission_reference_upload'];
-    foreach($display_keys as $key){
+    $display_keys = [
+        '_commission_medium',
+        '_commission_size',
+        '_commission_surface',
+        '_commission_special_request'
+    ];
+
+    foreach ($display_keys as $key) {
         $value = $original_item->get_meta($key, true);
-        if(!empty($value)){
-            $item->add_meta_data($key, $value, true);
+        if (!empty($value)) {
+            $item->add_meta_data('_reference_' . ltrim($key, '_'), $value, true);
         }
     }
 
@@ -222,8 +437,50 @@ add_action('wp_ajax_create_final_payment_order', function(){
     $final_order->set_address($original_order->get_address('billing'), 'billing');
     $final_order->set_address($original_order->get_address('shipping'), 'shipping');
 
-    // Calculate shipping
-    $final_order->calculate_shipping();
+
+    // --- Build shipping package ---
+    $shipping_address = $final_order->get_address('shipping');
+
+    $package = [
+        'contents' => [
+            'item_1' => [
+                'data' => $product,
+                'quantity' => 1,
+                'line_subtotal' => $remaining_balance,
+                'line_total' => $remaining_balance,
+            ],
+        ],
+        'contents_cost' => $remaining_balance,
+        'applied_coupons' => [],
+        'destination' => [
+            'country'  => $shipping_address['country'],
+            'state'    => $shipping_address['state'],
+            'postcode' => $shipping_address['postcode'],
+            'city'     => $shipping_address['city'],
+            'address'  => $shipping_address['address_1'],
+            'address_2'=> $shipping_address['address_2'],
+        ],
+    ];
+
+    // Calculate rates
+    WC()->shipping()->calculate_shipping([$package]);
+    $packages = WC()->shipping()->get_packages();
+
+    if (!empty($packages)) {
+        $pkg = reset($packages);
+
+        if (!empty($pkg['rates'])) {
+            $rate = reset($pkg['rates']);
+
+            $shipping_item = new WC_Order_Item_Shipping();
+            $shipping_item->set_method_title($rate->label);
+            $shipping_item->set_method_id($rate->method_id);
+            $shipping_item->set_total($rate->cost);
+
+            $final_order->add_item($shipping_item);
+        }
+    }
+
 
     // Calculate totals
     $final_order->calculate_totals();
@@ -256,7 +513,8 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order){
             $original_order_id = $item->get_meta('_original_order_id', true);
             echo '<div style="margin-top:15px; padding:12px; border-left:4px solid white;">';
             echo '<strong>⚠️ This is a Final Payment Order</strong><br/>';
-            echo 'Original deposit order: <a href="'.admin_url('post.php?post='.$original_order_id.'&action=edit').'">Order #'.$original_order_id.'</a>';
+            echo 'Original deposit order: <a href="'.admin_url('post.php?post='.$original_order_id.'&action=edit').'">Order #'.$original_order_id.'</a><br/>';
+            echo 'Your order will ship as soon as payment is received.';
             echo '</div>';
             break;
         }
@@ -286,10 +544,10 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order){
 add_filter('woocommerce_order_item_name', function($item_name, $item){
     if($item->get_meta('_is_final_payment', true)){
         $original_order_id = $item->get_meta('_original_order_id', true);
-       // $item_name = '<strong style="color:#d4a017;">🎨 Final Payment</strong><br/>' . $item_name;
         $item_name .= '<br/><small>Completing commission from Order #'.$original_order_id.'</small>';
     }
 
+    /*
     $commission_key = $item->get_meta('_commission_key', true)
                    ?: $item->get_meta('_unique_commission_key', true)
                    ?: $item->get_meta('commission_key', true)
@@ -331,6 +589,6 @@ add_filter('woocommerce_order_item_name', function($item_name, $item){
             $item_name .= '<br/><small class="commission-details" style="display:block; margin-top:8px; line-height:1.6;">'.implode('<br/>',$meta_lines).'</small>';
         }
     }
-
+ */
     return $item_name;
 }, 10, 2);
