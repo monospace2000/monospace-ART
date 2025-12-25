@@ -129,26 +129,15 @@ add_action( 'admin_init', function() {
     }
 });
 
-// Remove related products from single product pages
-remove_action( 'woocommerce_after_single_product_summary', 'woocommerce_output_related_products', 20 );
 
 
 
-// Usage: [product_price id="123"]
-function ms_product_price_shortcode( $atts ) {
-    $atts = shortcode_atts([ 'id' => null ], $atts);
-    if ( ! $atts['id'] ) return '';
 
-    $product = wc_get_product( intval($atts['id']) );
-    if ( ! $product ) return '';
 
-    $price_html = $product->get_price_html();
-    if ( ! $price_html ) return '';
 
-    // return inline element (no CSS) so it won't cause block margin collapse
-    return '<span class="ms-product-price">' . wp_kses_post( $price_html ) . '</span>';
-}
-add_shortcode( 'product_price', 'ms_product_price_shortcode' );
+
+
+
 
 
 /**
@@ -190,12 +179,111 @@ function ms_show_date_on_blog_posts_everywhere( $content ) {
 
 
 
-add_filter( 'woocommerce_return_to_shop_redirect', function () {
-    return home_url( '/art-feed/' ); // change to your desired URL
-} );
 
 
 
 
 
 
+
+
+// Index only the last 4 digits of the SKU for search, allowing partial matches
+add_filter('relevanssi_content_to_index', function ($content, $post) {
+    $sku = get_post_meta($post->ID, '_sku', true);
+    if ($sku) {
+        // Extract last 4 digits
+        if (preg_match('/(\d{4})$/', $sku, $matches)) {
+            $last4 = $matches[1];
+            // Add full last 4 digits and each partial substring
+            for ($i = 1; $i <= 4; $i++) {
+                $content .= ' ' . substr($last4, -$i);
+            }
+        }
+    }
+    return $content;
+}, 10, 2);
+
+// Boost relevance for exact or partial last-4 matches
+add_filter('relevanssi_hits_filter', function ($hits, $query) {
+    $q = $query->query_vars['s'];
+    foreach ($hits as $id => $hit) {
+        $sku = get_post_meta($hit->ID, '_sku', true);
+        if ($sku && preg_match('/(\d{4})$/', $sku, $matches)) {
+            $last4 = $matches[1];
+            if (strpos($last4, $q) !== false) {
+                // Boost relevance
+                $hits[$id]->relevance += 10;
+            }
+        }
+    }
+    return $hits;
+}, 10, 2);
+
+
+
+
+
+
+
+
+
+
+
+
+
+// custom category headers
+
+/**
+ * Add custom headers to specific category archives
+ */
+add_action( 'astra_primary_content_top', 'monospace_category_custom_header' );
+
+function monospace_category_custom_header() {
+
+	if ( is_category() ) {
+
+		$category = get_queried_object();
+
+		if ( ! $category || empty( $category->slug ) ) {
+			return;
+		}
+
+		switch ( $category->slug ) {
+
+			case 'drawing':
+				$title = 'Drawings';
+				$description = 'Works in pen & ink, with added watercolor or markers';
+				$description .= '<small><br><br>&bullet; Click any image for details</small>';
+				$description .= '<small><br>&bullet; Order a custom drawing <a href="/services/custom-work">here</a></small>';
+				break;
+
+			case 'painting':
+				$title = 'Paintings';
+				$description = 'Paintings made with casein, gouache, or acrylics';
+				$description .= '<small><br><br>&bullet; Click any image for details</small>';
+				$description .= '<small><br>&bullet; Order a custom painting <a href="/services/custom-work">here</a></small>';
+				break;
+
+			case 'miniature':
+				$title = 'Miniatures';
+				$description = 'Miniature acrylic paintings on 4" &times; 4" canvas panels';
+				$description .= '<small><br><br>&bullet; Click any image for details</small>';
+				$description .= '<small><br>&bullet; Order a custom miniature painting <a href="/services/custom-work">here</a></small>';
+				break;
+
+
+
+			default:
+				return; // Do nothing for other categories
+		}
+
+		echo '<header class="archive-custom-header">';
+		echo '<h2 class="archive-title">' . esc_html( $title ) . '</h2>';
+
+		if ( ! empty( $description ) ) {
+			echo '<p class="archive-description">' . $description . '</p>';
+		}
+
+		echo '</header>';
+	}
+}

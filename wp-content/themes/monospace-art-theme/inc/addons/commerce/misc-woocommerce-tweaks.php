@@ -114,3 +114,55 @@ function monospace_frontend_replace_product_label( $translated, $text, $domain )
 
     return $translated;
 }
+
+
+/**
+ * Show a disabled quantity field for "sold individually" products in the cart
+ */
+add_filter('woocommerce_cart_item_quantity', function($product_quantity, $cart_item_key, $cart_item) {
+
+    $product = $cart_item['data'];
+
+    if ($product->is_sold_individually()) {
+        // Output a disabled input with value 1
+        $product_quantity = '<div style="width: 100%;text-align:center;font-size: 1.1em;"><code>1</code></div>';
+    }
+
+    return $product_quantity;
+
+}, 20, 3);
+
+
+// Remove related products from single product pages
+remove_action( 'woocommerce_after_single_product_summary', 'woocommerce_output_related_products', 20 );
+
+
+
+
+
+
+
+// Usage: [product_price id="123"]
+function ms_product_price_shortcode( $atts ) {
+    $atts = shortcode_atts([ 'id' => null ], $atts);
+    if ( ! $atts['id'] ) return '';
+
+    $product = wc_get_product( intval($atts['id']) );
+    if ( ! $product ) return '';
+
+    $price_html = $product->get_price_html();
+    if ( ! $price_html ) return '';
+
+    // return inline element (no CSS) so it won't cause block margin collapse
+    return '<span class="ms-product-price">' . wp_kses_post( $price_html ) . '</span>';
+}
+add_shortcode( 'product_price', 'ms_product_price_shortcode' );
+
+
+
+
+
+
+add_filter( 'woocommerce_return_to_shop_redirect', function () {
+    return home_url( '/art-feed/' ); // change to your desired URL
+} );

@@ -4,6 +4,10 @@
 ----------------------------------------------------------- */
 /* Global menu height */
 :root {
+    --bp-mobile: 640px;
+    --bp-tablet: 920px;
+    --bp-desktop: 1024px;
+
     --menu-bar-height: 64px;
     --menulink-color: #CCC;
     --menulink-hover: #FFF;
@@ -29,7 +33,7 @@
 
 }
 /* --- Mobile Variables --- */
-@media (max-width: 560px) {
+@media (max-width: var(--bp-mobile)) {
     :root {
     --gradient-center-x: 50vw;
     --gradient-center-y: 30vh;
@@ -197,7 +201,7 @@ POST NAVIGATION
 }
 
 /* Small screens: stack vertically */
-@media (max-width:  560px) {
+@media (max-width:  var(--bp-mobile)) {
   .post-navigation .nav-links a {
   font-size: 1em;
 }

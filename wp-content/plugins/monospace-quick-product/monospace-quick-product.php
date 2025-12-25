@@ -616,6 +616,29 @@ class MetaBox
 						var $button = $(this);
 						var $status = $('#qp-status');
 
+						// CLIENT-SIDE VALIDATION
+						var errors = [];
+
+						if (!$('#qp-product-name').val().trim()) {
+							errors.push('Product Name');
+						}
+
+						if (!$('#qp-product-price').val().trim()) {
+							errors.push('Product Price');
+						}
+
+						if ($('input[name="qp_categories[]"]:checked').length === 0) {
+							errors.push('At least one Category');
+						}
+
+						if (errors.length > 0) {
+							$status
+								.addClass('error')
+								.html('<strong>Missing required fields:</strong> ' + errors.join(', '))
+								.show();
+							return; // Stop here, don't send AJAX
+						}
+
 						// Collect attribute data
 						var attributes = {};
 						$('.qp-attribute-select').each(function() {
@@ -719,33 +742,48 @@ class AjaxHandler
 		// Sanitize input
 		$data = $this->sanitize_input();
 
-		// Create or update product
+		// Validate required fields
+		$errors = $this->validate_required_fields($data);
+		if (!empty($errors)) {
+			wp_send_json_error(
+				sprintf(
+					__('Missing required fields: %s', 'quick-product'),
+					implode(', ', $errors)
+				)
+			);
+		}
+
+
+		// Create syncer and sync product
 		$syncer = new ProductSyncer($post_id, $data);
 		$result = $syncer->sync();
-
 
 		if (is_wp_error($result)) {
 			wp_send_json_error($result->get_error_message());
 		}
 
-		// Success response
-		$product_id = $result['product_id'];
-		$edit_link = get_edit_post_link($product_id);
+		// Get the updated product to fetch fresh SKU
+		$product = wc_get_product($result['product_id']);
+		$sku = $product ? $product->get_sku() : '';
 
-
+		// Edit link in message
+		$edit_link = get_edit_post_link($result['product_id']);
 		$message = sprintf(
 			__('Product #%d %s successfully. <a href="%s" target="_blank">Edit Product →</a>', 'quick-product'),
-			$product_id,
-			$result['action'] === 'created' ? __('created', 'quick-product') : __('updated', 'quick-product'),
+			$result['product_id'],
+			$result['action'],
 			esc_url($edit_link)
 		);
 
 		wp_send_json_success([
-			'message' => $message,
-			'product_id' => $product_id,
-			'action' => $result['action']
+			'message'    => $message,
+			'product_id' => $result['product_id'],
+			'sku'        => $sku,
+			'action'     => $result['action']
 		]);
 	}
+
+
 
 	private function sanitize_input()
 	{
@@ -783,6 +821,60 @@ class AjaxHandler
 
 		return array_map('intval', $categories);
 	}
+
+	private function validate_required_fields($data)
+	{
+		$errors = [];
+
+		// Product name is required
+		if (empty(trim($data['product_name'] ?? ''))) {
+			$errors[] = __('Product Name', 'quick-product');
+		}
+
+		// Product price is required and must be valid
+		if (empty(trim($data['product_price'] ?? ''))) {
+			$errors[] = __('Product Price', 'quick-product');
+		} elseif (!is_numeric(preg_replace('/[^\d\.]/', '', $data['product_price']))) {
+			$errors[] = __('Product Price (must be a valid number)', 'quick-product');
+		}
+
+		// At least one category is required
+		if (empty($data['categories'])) {
+			$errors[] = __('At least one Category', 'quick-product');
+		}
+
+		// Availability is required
+		if (empty($data['availability'])) {
+			$errors[] = __('Availability Status', 'quick-product');
+		}
+
+		// Validate SKU uniqueness if provided
+		if (!empty(trim($data['sku']))) {
+			$existing_id = wc_get_product_id_by_sku($data['sku']);
+			// If SKU exists and belongs to a different product
+			if ($existing_id && $existing_id != $data['product_id']) {
+				$errors[] = sprintf(
+					__('SKU "%s" is already in use by product #%d', 'quick-product'),
+					$data['sku'],
+					$existing_id
+				);
+			}
+		}
+
+		// Validate attributes (optional but recommended)
+		$required_attributes = ['pa_format', 'pa_medium', 'pa_year-created'];
+		foreach ($required_attributes as $attr) {
+			if (empty($data['attributes'][$attr])) {
+				// Get friendly name
+				$tax_obj = get_taxonomy($attr);
+				$label = $tax_obj ? $tax_obj->labels->singular_name : $attr;
+				$errors[] = $label;
+			}
+		}
+
+		return $errors;
+	}
+
 }
 
 /**
@@ -921,20 +1013,29 @@ class ProductSyncer
 			$price = preg_replace('/[^\d\.]/', '', $this->data['product_price']);
 			$product->set_regular_price($price);
 		}
-		    // Set SKU - auto-generate if blank
+		// Set SKU - auto-generate if blank, otherwise use manual
 		$sku = trim($this->data['sku'] ?? '');
+
 		if (empty($sku)) {
-			// Will generate after product is saved and has an ID
-			// Store flag to generate SKU
+			// Flag for later auto-generation
 			$this->data['_needs_sku_generation'] = true;
 		} else {
+			// Check if SKU is unique
+			$existing_id = wc_get_product_id_by_sku($sku);
+			if ($existing_id && $existing_id != $product->get_id()) {
+				return new \WP_Error(
+					'duplicate_sku',
+					sprintf(__('SKU "%s" is already used by another product.', 'quick-product'), $sku)
+				);
+			}
 			$product->set_sku($sku);
 		}
+
 	}
 
 	private function set_featured_image($product)
 	{
-		// First, ensure the post has a featured image
+		// Get post's featured image
 		$thumbnail_id = get_post_thumbnail_id($this->post_id);
 
 		// If no featured image, try to create one from post content
@@ -942,8 +1043,12 @@ class ProductSyncer
 			$thumbnail_id = $this->create_featured_image_from_content();
 		}
 
+		// Always sync the image state - set it if exists, clear it if doesn't
 		if ($thumbnail_id) {
 			$product->set_image_id($thumbnail_id);
+		} else {
+			// Clear product image if post has none
+			$product->set_image_id(0);
 		}
 	}
 
@@ -988,7 +1093,14 @@ class ProductSyncer
 	{
 		global $wpdb;
 
-		// Find all existing HENS SKUs
+		// Year for SKU
+		$year = $this->data['attributes']['pa_year-created'] ?? date('Y');
+
+		// Format for SKU (first letter of format, uppercase)
+		$format = $this->data['attributes']['pa_format'] ?? 'O';
+		$format = strtoupper(substr($format, 0, 1));
+
+		// Find ALL existing SKUs with MNSPC prefix to get the highest number
 		$pattern = $wpdb->esc_like('MNSPC-') . '%';
 		$existing_skus = $wpdb->get_col($wpdb->prepare(
 			"SELECT meta_value FROM {$wpdb->postmeta}
@@ -998,11 +1110,12 @@ class ProductSyncer
 			$pattern
 		));
 
+		// Find the highest 4-digit number across ALL SKUs
 		$next_number = 1;
-
 		if (!empty($existing_skus)) {
 			foreach ($existing_skus as $sku) {
-				if (preg_match('/(\d{4})$/', $sku, $matches)) {
+				// Extract the last 4 digits from any MNSPC SKU
+				if (preg_match('/MNSPC-\d{4}-[A-Z]-(\d{4})$/', $sku, $matches)) {
 					$number = intval($matches[1]);
 					if ($number >= $next_number) {
 						$next_number = $number + 1;
@@ -1011,8 +1124,10 @@ class ProductSyncer
 			}
 		}
 
-		return sprintf('MNSPC-%04d', $next_number);
+		// Build final SKU: MNSPC-YEAR-FORMAT-XXXX
+		return sprintf('MNSPC-%s-%s-%04d', $year, $format, $next_number);
 	}
+
 
 
 
@@ -1131,6 +1246,8 @@ class MetaSaver
 			$categories = array_map('intval', $_POST['qp_categories']);
 			update_post_meta($this->post_id, '_qp_categories', $categories);
 		}
+
+
 	}
 
 	private function should_save()

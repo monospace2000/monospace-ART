@@ -168,11 +168,11 @@ add_action('woocommerce_before_add_to_cart_button', function(){
     echo '<p style="margin-bottom: 1em !important"><strong>Size:</strong> '.(!empty($allowed_sizes)?implode(', ',array_map(fn($k)=>$options['sizes'][$k] ?? $k,$allowed_sizes)):'N/A').'</p>';
 
     // Textareas for customer
-    echo '<p><label>Comments/Notes/Special Requests<br/>
+    echo '<p><label>Notes/Special Requests (optional)<br/>
     <textarea name="commission_special_request"
             rows="3"
             style="width:100%"
-            placeholder="Describe the scene: season, time of day, angle or viewpoint, mood, important features to include or avoid (trees, garden, sky, architectural details), preferred colors or atmosphere."></textarea>
+            placeholder="Describe the scene: season, time of day, features to include or avoid, preferred colors or atmosphere."></textarea>
     </label></p>';
 
     // Reference image upload

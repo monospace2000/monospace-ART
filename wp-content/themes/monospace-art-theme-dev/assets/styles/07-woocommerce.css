@@ -127,7 +127,7 @@
 
 
 /* Mobile: stack columns */
-@media (max-width: 600px) {
+@media (max-width: var(--bp-mobile)) {
     .painting-buy-row {
         grid-template-columns: 1fr;
     }

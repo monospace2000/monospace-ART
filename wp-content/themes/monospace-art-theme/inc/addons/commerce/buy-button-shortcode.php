@@ -140,31 +140,64 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
     $status_slug  = $status ? sanitize_title( $status ) : 'default';
     $status_class = ' status-' . $status_slug;
 
-    // Generate SKU HTML for real products
     $sku = $product->get_sku();
-    $sku_html = $sku
-    ? '<div class="painting-sku" style="font-size:12px;color:#000;text-align:right;margin:4px;">' . esc_html( $sku ) . '</div>'
-    : '';
 
-    // Generate price HTML with add to cart button next to it
+    // Button is present only for purchasable / coming soon / in-cart / gallery statuses
+    $has_button = ! in_array( $status_slug, ['private', 'artist-private-collection'], true );
+
+    if ( $sku ) {
+        if ( $has_button ) {
+            // SKU when a button is present
+            $sku_html = '<div class="painting-sku" style="font-family:sans-serif;font-size:0.7em;color:#999;text-align:right;margin: 5px 2px 0 0;">'
+                . esc_html( $sku ) .
+            '</div>';
+        } else {
+            // SKU when no button is present (label-only states)
+            $sku_html = '<div class="painting-sku" style="font-family:sans-serif;font-size:0.7em;color:#999;text-align:right;margin:0;">'
+                . esc_html( $sku ) .
+            '</div>';
+        }
+    } else {
+        $sku_html = '';
+    }
+
+
+    // Generate price HTML ONLY if purchasable
     $price_html = '';
-    if ( $product->get_price() ) {
+
+    $non_purchasable_statuses = [
+        'gallery',
+        'private',
+        'sold',
+        'coming-soon',
+        'artist-private-collection',
+        'private-collection'
+    ];
+
+    $status_slug = $status ? sanitize_title( $status ) : '';
+
+    if (
+        $product->get_price() &&
+        $product->is_in_stock() &&
+        ! in_array( $status_slug, $non_purchasable_statuses, true )
+    ) {
         $price_display = $product->get_price_html();
         $add_to_cart_btn = do_shortcode( '[add_to_cart id="' . $product->get_id() . '" show_price="false"]' );
 
-        $price_html = '<div class="painting-price-row" style="display:flex;align-items:center;gap:15px;margin-bottom:4px;">';
+        $price_html  = '<div class="painting-price-row" style="width:100%;display:flex;justify-content:flex-end;align-items:center;gap:15px;margin-bottom:4px;">';
         $price_html .= '<div class="painting-price" style="font-size:1.2em;color:#333;">' . $price_display . '</div>';
         $price_html .= '<div class="painting-cart-button">' . $add_to_cart_btn . '</div>';
         $price_html .= '</div>';
     }
 
+
     return sprintf(
         '<div class="painting-buy-row%s" data-status="%s">
             <div class="painting-attrs">%s</div>
             <div class="painting-action">
-                %s  <!-- Price -->
-                %s  <!-- SKU -->
+                %s  <!-- Price (if purchasable) -->
                 %s  <!-- Button or status label -->
+                %s  <!-- SKU (always below status) -->
                 %s  <!-- Special text -->
             </div>
         </div>',
@@ -172,10 +205,11 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
         esc_attr( $status_slug ),
         $attr_list,
         $price_html,
-        $sku_html,
         $button,
+        $sku_html,
         $special_text
     );
+
 
 
 }
@@ -258,16 +292,14 @@ function monospace_render_product_attributes( $product, $product_id ) {
     return implode( '', $output );
 }
 
-
 /**
  * Render the buy button or status label for a product.
  *
  * Handles the following statuses:
- * - 'private'      => Artist’s Private Collection
+ * - 'private'      => Artist's Private Collection
  * - 'gallery'      => Link to gallery if URL available, otherwise a label
  * - 'sold'         => Private Collection
  * - No price       => Coming Soon button
- * - In stock & in cart => Already in Cart button
  * - Otherwise     => Standard WooCommerce add to cart button
  *
  * @since 1.0.0
@@ -280,12 +312,11 @@ function monospace_render_product_attributes( $product, $product_id ) {
  */
 function monospace_render_buy_button( $product, $status, $gallery_url, $gallery_name ) {
 
-
     $gallery_label = $gallery_name ? 'On view at ' . esc_html( $gallery_name ) : 'Available at Gallery';
 
     switch ( $status ) {
         case 'private':
-            return '<span class="sold-label status-private">Artist’s Private Collection</span>';
+            return '<span class="sold-label status-private">Artist\'s Private Collection</span>';
 
         case 'gallery':
             return $gallery_url
@@ -293,48 +324,80 @@ function monospace_render_buy_button( $product, $status, $gallery_url, $gallery_
                 : '<span class="sold-label status-gallery">' . $gallery_label . '</span>';
 
         case 'sold':
-        case !$product->is_in_stock():
             return '<span class="sold-label status-sold">Private Collection</span>';
 
         default:
+            // Check if out of stock
+            if ( ! $product->is_in_stock() ) {
+                return '<span class="sold-label status-sold">Private Collection</span>';
+            }
+
             if ( ! $product->get_price() ) {
                 return '<a class="button no-price status-coming-soon" href="#">Coming Soon</a>';
             }
 
-            // Only check cart on front-end
-            $in_cart = false;
-            if ( ! is_admin() && function_exists( 'WC' ) && WC()->cart ) {
-                $cart_id = WC()->cart->generate_cart_id( $product->get_id() );
-                $in_cart = WC()->cart->find_product_in_cart( $cart_id );
-            }
-
-            if ( $product->get_stock_quantity() === 1 && $in_cart ) {
-                return '<button class="button disabled status-in-cart" disabled>Already in Cart</button>';
-            }
-
-            return do_shortcode( '[add_to_cart id="' . $product->get_id() . ']' );
+            // Return empty string - the button is already rendered in $price_html
+            return '';
     }
 }
 
 
-
 /**
- * Show a disabled quantity field for "sold individually" products in the cart
+ * Change "Read More" button text to "Already in Cart" when product is in cart
  */
-add_filter('woocommerce_cart_item_quantity', function($product_quantity, $cart_item_key, $cart_item) {
+add_filter( 'woocommerce_product_add_to_cart_text', 'monospace_change_in_cart_button_text', 10, 2 );
+function monospace_change_in_cart_button_text( $text, $product ) {
 
-    $product = $cart_item['data'];
+    // Check if product is already in cart
+    if ( function_exists( 'WC' ) && WC()->cart ) {
+        $cart_id = WC()->cart->generate_cart_id( $product->get_id() );
+        $in_cart = WC()->cart->find_product_in_cart( $cart_id );
 
-    if ($product->is_sold_individually()) {
-        // Output a disabled input with value 1
-        $product_quantity = '<div style="width: 100%;text-align:center;font-size: 1.1em;"><code>1</code></div>';
+        // If product is in cart, change text
+        if ( $in_cart ) {
+            return 'Already in Cart';
+        }
     }
 
-    return $product_quantity;
-
-}, 20, 3);
-
+    return $text;
+}
 
 
+/**
+ * Add custom class to "Already in Cart" button for styling
+ */
+add_filter( 'woocommerce_loop_add_to_cart_link', 'monospace_add_in_cart_class', 10, 2 );
+function monospace_add_in_cart_class( $button, $product ) {
+
+    // Check if product is already in cart
+    if ( function_exists( 'WC' ) && WC()->cart ) {
+        $cart_id = WC()->cart->generate_cart_id( $product->get_id() );
+        $in_cart = WC()->cart->find_product_in_cart( $cart_id );
+
+        // If product is in cart, add custom class
+        if ( $in_cart ) {
+            $button = str_replace( 'class="button', 'class="button already-in-cart', $button );
+        }
+    }
+
+    return $button;
+}
 
 
+/**
+ * Enqueue custom styles for "Already in Cart" button
+ */
+add_action( 'wp_head', 'monospace_in_cart_button_styles' );
+function monospace_in_cart_button_styles() {
+    ?>
+    <style>
+        .button.already-in-cart,
+        .button.already-in-cart:hover {
+            background-color: #999 !important;
+            color: #fff !important;
+            cursor: default !important;
+            pointer-events: none !important;
+        }
+    </style>
+    <?php
+}

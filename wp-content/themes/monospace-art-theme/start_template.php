@@ -83,12 +83,12 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
 <meta property="og:locale" content="en_US">
 <meta property="og:type" content="website">
 <meta property="og:url" content="<?php echo esc_url(home_url('/')); ?>">
-<meta property="og:image" content="<?php echo get_stylesheet_directory_uri(); ?>/assets/images/site.preview.jpg">
+<meta property="og:image" content="<?php echo get_stylesheet_directory_uri(); ?>/assets/images/site-preview.png">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="monospace ART | Landscape Paintings & Urban Sketches by Hens Breet">
 <meta name="twitter:description" content="Explore artwork by Hens Breet.">
-<meta name="twitter:image" content="<?php echo get_stylesheet_directory_uri(); ?>/assets/images/site.preview.jpg">
+<meta name="twitter:image" content="<?php echo get_stylesheet_directory_uri(); ?>/assets/images/site-preview.png">
 
 <meta name="theme-color" content="#c8c8c8">
 
@@ -118,12 +118,9 @@ body {
     font-family: "Merriweather", serif !important;
     font-size: 1.2em;
     font-weight: 400 !important;
-    margin: 0 24px !important;
 }
-@media (min-width: 960px) {
-   body{
-    margin: 0 15vw !important;
-   }
+body {
+  position: relative; /* establishes containing block for ::after */
 }
 a, a:hover{
     text-decoration: underline !important;
@@ -136,16 +133,15 @@ a, a:hover{
     overflow: hidden;
     aspect-ratio: 1437/276;
     max-width: calc(100% - 48px); /* same as box margins */
-    margin-left: 24px;
-    margin-right: 24px;
-    margin-top: 24px;
+    max-width:1200px;
+    margin: 0px auto;
 }
 
 .header::before {
     content: "";
     position: absolute;
     top: 0;
-    left: 0;            /* aligns with header left edge */
+    left: 24px;            /* aligns with header left edge */
     right: 0;
     bottom: 0;
     background-image: url('https://art.monospace.com/wp-content/uploads/logo_mobile.png');
@@ -162,6 +158,7 @@ a, a:hover{
     flex-wrap: wrap;
     margin: 0 auto;
     align-items:stretch;
+    max-width:1200px;
 }
 
 .flex-break {
@@ -171,12 +168,13 @@ a, a:hover{
 
 
 /* Mobile adjustments */
-@media (max-width: 550px) {
+@media (max-width: 768px) {
     .container { flex-direction: column; }
-    .box { margin: 8px; }
+    .box { margin: 0; }
     .flex-break { display: none; }
+    .header{ margin-right:20px; margin-top:20px;}
     body { font-size: 1.1em;
-        margin: 0 8px;
+        margin: 0 !important;
     }
     #news .box-content{
         min-height: 220px !important;
@@ -279,10 +277,18 @@ a, a:hover{
     color: white;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
     background: linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.75) 80%);
-        _border-bottom: solid 1px white;
+    filter: url('#noise');
 
 }
-
+/* .bottom-align::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+    pointer-events: none;
+    mix-blend-mode: overlay;
+}
+ */
 
 
 /* -----------------------------------------------------------
@@ -445,7 +451,8 @@ a, a:hover{
 
 
 #about.box {
-    --bg: url('<?php echo get_stylesheet_directory_uri(); ?>/assets/images/self_portrait_clean.png');
+    /* --bg: url('<?php echo get_stylesheet_directory_uri(); ?>/assets/images/self_portrait_clean.png'); */
+    --bg: url('https://art.monospace.com/wp-content/uploads/img_2325.jpg');
     flex: 2;
 }
 
@@ -462,6 +469,17 @@ a, a:hover{
 
 <body class="start-page">
 
+<svg style="position: absolute; width: 0; height: 0;">
+  <filter id="noise">
+    <feTurbulence baseFrequency="0.8" numOctaves="8" result="noise" />
+    <feColorMatrix in="noise" type="saturate" values="0" result="desaturated" />
+    <feComponentTransfer in="desaturated" result="contrast">
+      <feFuncA type="linear" slope="0.1" intercept="0" />
+    </feComponentTransfer>
+    <feBlend in="SourceGraphic" in2="contrast" mode="multiply" />
+  </filter>
+</svg>
+
 <div class="header"></div>
 
 <div class="container" style="margin-top:2em">
@@ -470,8 +488,14 @@ a, a:hover{
 
             <div class="box" id="welcome">
                 <div class="box-title">Welcome!</div>
-                <div class="box-content" style="padding-top: 0.5em">I’m Hens Breet, a painter and illustrator based in Hudson County, New Jersey. Much of my work is inspired by my local surroundings — from city streets and river views to nearby parks and wooded trails. I work in gouache, casein, acrylic, and pen and ink to capture landscapes, cityscapes, and the quiet details of the natural world. <br><br>Alongside painting and sketching, I create illustrations and interactive projects that bring stories and ideas to life. On this website you can explore my latest works, purchase originals directly, learn about upcoming exhibitions, events, and markets, and find information on commissions and art classes.
+                <div class="box-content" style="padding-top: 0.5em">
+                    <?php
+                    $page = get_page_by_path( 'welcome' );
 
+                    if ( $page ) {
+                        echo apply_filters( 'the_content', $page->post_content );
+                    }
+                    ?>
                 </div>
             </div>
 
@@ -479,27 +503,13 @@ a, a:hover{
                 <div class="box-title">News</div>
                 <div class="box-content">
 
-                    <h4>Upcoming Solo Exhibition</h4>I’m pleased to announce my upcoming solo exhibition, R<i>eflected Lowlands: Wetlands on the Urban Edge</i>, on view at the <strong>Hoboken Historical Museum</strong>’s Upper Gallery from January 25 through March 8. More details to follow.
+                    <?php
+                    $page = get_page_by_path( 'news' );
 
-                    <h4>Miniatures Special</h4>Artful stocking stuffers for the holidays. <span style="font-weight:bold;color: #d00"><a style="color:#d00" href="category/miniature">Get 3 miniatures for only $69</a></span> (plus s/h), from now until January 1, 2026. Includes free mini display easels. <a href="https://art.monospace.com/category/miniature/">Browse available scenes here</a>. Discount applied at checkout.
-
-                    <h4>2025 Holiday Markets</h4>I am selling my original art at select local Holiday Markets throughout the North New Jersey area. Check the <u><a href='market-dates'>Markets & Events Page</a></u> for dates and locations. Here's a tip: buying art from me in person is cheaper than buying online!
-
-                    <h4>Art House Gallery</h4>Two of my works are on view as part of <strong><a href="https://www.arthouseproductions.org/collections/upcomingevents/products/the-affordable-art-show-december-5-2025-january-24-2026"></strong>The Affordable Art Show</a> at Art House Gallery in Jersey City, through January 24.
-
-                    <h4>The Collective Hoboken</h4>Select pieces are currently on display and available for purchase at <strong><a href="https://thecollectivehoboken.com"></strong>The Collective Hoboken</a>, a new gallery on Washington Street highlighting local artists. Check out their custom hat bar and curated vintage vinyl collection/
-
-                    <h4>Online store now open</h4>You can now purchase available artworks directly from this site, with secure payments and fast shipping, powered by WooCommerce. I have discontinued my Etsy store.
-
-                    <div style="font-size:60%; border-top: solid 1px #333; margin-top: 50px; padding-top: 5px;">ARCHIVE</div>
-
-                    <div style="opacity: 0.5">
-                        <h4>Hoboken Artists’ Studio Tour</h4>On November 2, some of my work will be on view and available for purchase at the Hoboken Historic Museum as part of the <a href="https://www.visithudson.org/things-to-do/artsandculture/hoboken-artists-studio-tours/">Hoboken Artists’ Studio Tour</a>.
-
-                        <h4>Hoboken Art Month</h4>This October, two of my favorite pieces are on display at <b>Louise And Jerry's Tavern</b>, a beloved Hoboken institution, as part of <em><a href="https://mainstreetpops.com/?event=hoboken-art-month-storefront-art-walk">Hoboken Art Month Storefront Walk</a></em>, a citywide celebration of creativity and community.
-
-                        <h4>One Mile Gallery</h4>My work was included in <em>Phantasma</em>, a group exhibition at <em><a href="https://onemilegallery.com/">One Mile Gallery</a></em> in Kingston, NY, that ran from mid-August through September.
-                    </div>
+                    if ( $page ) {
+                        echo apply_filters( 'the_content', $page->post_content );
+                    }
+                    ?>
 
                 </div>
             </div>
@@ -535,7 +545,7 @@ a, a:hover{
             </div>
             <div class="box link" id="feed" onclick="document.location.href='art-feed'">
                 <div class="box-title">The Art Feed</div>
-                <div class="box-content bottom-align">A chronological feed of all recently added artwork and blog posts.</div>
+                <div class="box-content bottom-align">A raw, unfiltered, chronological listing of all recently added artworks and blog posts.</div>
             </div>
 
 
@@ -577,7 +587,7 @@ a, a:hover{
     </div>
 
 
-<div class="footer">Copyright &copy;<?php echo date('Y');?> Hens Breet | monospace ART LLC</div>
+<div class="footer">Copyright &copy;<?php echo date('Y');?> Hens Breet | monospace ART LLC. All rights reserved.</div>
 
 <?php //get_footer(); ?>
 

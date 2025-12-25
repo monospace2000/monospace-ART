@@ -76,6 +76,7 @@ function ms_product_filter_shortcode(){
    FILTER FORM — GRID BASE
 ----------------------------------------------*/
 .ms-product-filter-form {
+    font-family: 'Open Sans', sans-serif;
     padding: 18px 20px;
     display: grid;
     grid-template-columns: auto 1fr auto;
@@ -83,7 +84,9 @@ function ms_product_filter_shortcode(){
     align-items: center;
     position: relative;
 }
-
+.ms-product-filter-form select{
+    font-family: 'Open Sans', sans-serif;
+}
 /* ---------------------------------------------
    LABELS
 ----------------------------------------------*/
@@ -338,11 +341,13 @@ function ms_product_filter_shortcode(){
     <!-- PRICE RANGE SLIDER -->
      <?php if ($ms_admin_mode): ?>
         <div id="ms-price-range-container" style="display:none; margin-top:0em; padding:18px 20px;">
+
             <label style="display:block; font-weight:700; font-size:15px; margin-bottom:0.75em;">Price Range:</label>
             <label style="display:block; font-size:14px; margin-bottom:1em;">Min: <span id="ms-price-min-display" style="font-weight:600;">$<?= $min_price ?></span>
                 <input type="range" id="ms-price-min" min="<?= $min_price ?>" max="<?= $max_price ?>" value="<?= $min_price ?>" style="width:100%; display:block; margin-top:0.5em;"></label>
             <label style="display:block; font-size:14px;">Max: <span id="ms-price-max-display" style="font-weight:600;">$<?= $max_price ?></span>
                 <input type="range" id="ms-price-max" min="<?= $min_price ?>" max="<?= $max_price ?>" value="<?= $max_price ?>" style="width:100%; display:block; margin-top:0.5em;"></label>
+
         </div>
     <?php endif; ?>
 
@@ -565,6 +570,8 @@ jQuery(function($){
         $minDisplay.text('$' + min);
         $maxDisplay.text('$' + max);
     }
+
+
 
     function startLoading(){
         $form.css({'opacity':'0.5','pointer-events':'none'});

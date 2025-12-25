@@ -58,7 +58,7 @@ body.tax-product_tag #right-sidebar > * {
 /* -----------------------------------------------------------
    Responsive layout adjustments
 ----------------------------------------------------------- */
-@media (max-width: 1024px) {
+@media (max-width: var(--bp-desktop)) {
     /* Hide both sidebars */
     #left-sidebar,
     #right-sidebar {
