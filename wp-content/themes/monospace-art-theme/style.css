@@ -88,8 +88,8 @@ body::after {
     position: absolute;
     top:-40px;
     left:0;
-width:100%;
-min-height: 104%;
+    width:100%;
+    min-height: 104%;
 
     z-index: -3;
 

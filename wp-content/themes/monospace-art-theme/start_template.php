@@ -105,11 +105,13 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Oswald:wght@200..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet"><style>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Oswald:wght@200..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+
+
+
+
+
+<style>
 
 /* -----------------------------------------------------------
    BASE TYPOGRAPHY
@@ -587,9 +589,9 @@ a, a:hover{
     </div>
 
 
-<div class="footer">Copyright &copy;<?php echo date('Y');?> Hens Breet | monospace ART LLC. All rights reserved.</div>
+<!-- <div class="footer">Copyright &copy;<?php echo date('Y');?> Hens Breet | monospace ART LLC. All rights reserved.</div> -->
 
-<?php //get_footer(); ?>
+<?php get_footer() ?>
 
 </body>
 </html>

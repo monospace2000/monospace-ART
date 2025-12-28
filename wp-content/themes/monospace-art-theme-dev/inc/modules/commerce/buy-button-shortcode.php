@@ -5,40 +5,12 @@
  * @package astra-child-theme-for-monospace-art
  */
 
-
-
-/**
- * Determine if the current request is in an editor, REST API, or admin context.
- *
- * This is used to decide whether to render a placeholder instead of full front-end
- * content, e.g., when rendering shortcodes in the block editor or during REST calls.
- *
- * @since 1.0.0
- *
- * @return bool True if in admin, REST API, or AJAX context; false otherwise.
- */
 function monospace_is_editor_context() {
     if ( is_admin() ) return true;
     if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) return true;
     if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) return true;
     return false;
 }
-
-
-/**
- * Shortcode: [painting_buy_button id="123"]
- *
- * Renders a "Buy Painting" button row for a given WooCommerce product ID.
- * - In editor/REST context, returns a placeholder div so saving works correctly.
- * - On the front-end, fetches product details, attributes, and renders the buy button
- *   or relevant status (sold, gallery, private, coming soon, etc.).
- *
- * @since 1.0.0
- *
- * @param array $atts Shortcode attributes. Expected:
- *                    - id (int) Product ID of the painting.
- * @return string HTML markup for the painting buy button row or a placeholder.
- */
 
 function monospace_custom_add_to_cart_shortcode( $atts ) {
 
@@ -48,53 +20,35 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
         'painting_buy_button'
     );
 
-    // --- Handle placeholder ID "xxxx" ---
     if ( isset( $atts['id'] ) && $atts['id'] === 'xxxx' ) {
 
         $status_slug  = 'coming-soon';
         $status_class = ' status-' . $status_slug;
 
-        // Optional: placeholder attributes (can say "TBA" or leave empty)
         $attr_list = '<div class="painting-attr">Attributes: TBA</div>';
-
-        // Coming Soon button
-        $button = '<a class="button no-price status-coming-soon" href="#">Coming Soon</a>';
+        $button = '<a class="painting-buy-button status-coming-soon" href="#">Coming Soon</a>';
 
         return sprintf(
             '<div class="painting-buy-row%s" data-status="%s">
-                <div class="painting-buy-col painting-buy-left">
-                    %s
-                </div>
-
-                <div class="painting-buy-col painting-buy-right">
-                    <div class="painting-buy-status">
-                        %s
-                    </div>
-                    %s
-                </div>
+                <div class="painting-attrs">%s</div>
+                <div class="painting-action">%s</div>
             </div>',
             esc_attr( $status_class ),
             esc_attr( $status_slug ),
             $attr_list,
-            $button,
-            $special_text
+            $button
         );
-
     }
 
     $product_id = intval( $atts['id'] );
-    if ( ! $product_id ) {
-        return '';
-    }
+    if ( ! $product_id ) return '';
 
-    // --- Editor/REST placeholder ---
     if ( monospace_is_editor_context() ) {
         return '<div class="painting-buy-placeholder" style="padding:6px;border:1px dashed #aaa;background:#f9f9f9;">'
              . 'Painting Buy Button (Product ID ' . esc_html( $product_id ) . ')'
              . '</div>';
     }
 
-    // --- Front-end logic ---
     if ( ! function_exists( 'wc_get_product' ) ) return '';
     $product = wc_get_product( $product_id );
     if ( ! $product ) return '';
@@ -106,12 +60,9 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
     $attr_list = monospace_render_product_attributes( $product, $product_id );
     $button    = monospace_render_buy_button( $product, $status, $gallery_url, $gallery_name );
 
-    // --- Check if product has size 4x4 (by slug) ---
     $show_special = false;
     $attributes = $product->get_attributes();
 
-    // Only show special offer if product is actually available for purchase
-    // Don't show if sold, private, or at gallery
     $is_available = !in_array($status, ['sold', 'private', 'gallery']) && $product->is_in_stock();
 
     if ($is_available) {
@@ -122,13 +73,12 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
                 if ( $attribute->is_taxonomy() ) {
                     $terms = wp_get_post_terms( $product_id, $attribute->get_name() );
                     foreach ( $terms as $term ) {
-                        if ( $term->slug === '4x4' ) { // check slug instead of name
+                        if ( $term->slug === '4x4' ) {
                             $show_special = true;
                             break 2;
                         }
                     }
                 } else {
-                    // Custom attribute (not taxonomy) — optionally check value
                     foreach ( $attribute->get_options() as $value ) {
                         if ( strtolower(str_replace(' ', '', $value)) === '4x4' ) {
                             $show_special = true;
@@ -136,60 +86,106 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
                         }
                     }
                 }
-
             }
         }
     }
 
-
     $special_text = $show_special
-        ? '<div class="special-discount"> <span style="margin-top:6px;font-size:14px;font-weight:bold;color:#3a3;">Special: Get 3 miniatures for only $99!</span><br><span style="margin-top:6px;font-size:12px;">(Discount applied at checkout.)</span></div>'
+        ? '<div class="special-discount"><span style="margin-top:6px;font-size:14px;font-weight:bold;color:#3a3;">Special: Get 3 miniatures for only $69!</span><br><span style="margin-top:6px;font-size:12px;">(Discount applied at checkout.)</span></div>'
         : '';
-
 
     $status_slug  = $status ? sanitize_title( $status ) : 'default';
     $status_class = ' status-' . $status_slug;
 
+    $sku = $product->get_sku();
+    $has_button = ! in_array( $status_slug, ['private', 'artist-private-collection'], true );
+
+    $sku_html = $sku
+        ? '<div class="painting-sku" style="font-family:sans-serif;font-size:0.7em;color:#999;text-align:right;margin:5px 2px 0 0;">'
+            . esc_html( $sku ) .
+          '</div>'
+        : '';
+
+    $price_html = '';
+    $non_purchasable_statuses = [
+        'gallery','private','sold','coming-soon','artist-private-collection','private-collection'
+    ];
+
+    $status_slug = $status ? sanitize_title( $status ) : '';
+
+    /**
+     * CLEAN ADD-TO-CART LINK + CART REDIRECT
+     */
+    if (
+        $product->get_price() &&
+        $product->is_in_stock() &&
+        ! in_array( $status_slug, $non_purchasable_statuses, true )
+    ) {
+
+        $price_display = $product->get_price_html();
+        $already_in_cart = false;
+
+        if ( function_exists( 'WC' ) && WC()->cart ) {
+            $CartId = WC()->cart->generate_cart_id( $product->get_id() );
+            $already_in_cart = WC()->cart->find_product_in_cart( $CartId );
+        }
+
+        if ( $already_in_cart ) {
+
+            $add_to_cart_btn =
+                '<a class="painting-buy-button already-in-cart disabled" aria-disabled="true" tabindex="-1">Already in Cart</a>';
+
+        } else {
+
+            // Add to cart → redirect to cart
+            $add_to_cart_btn =
+                '<a class="painting-buy-button" href="' .
+                esc_url(
+                    add_query_arg(
+                        array(
+                            'add-to-cart'      => $product->get_id(),
+                            'ms_redirect_cart' => 1
+                        )
+                    )
+                ) .
+                '">Add to cart</a>';
+        }
+
+        $price_html  =
+            '<div class="painting-price-row" style="width:100%;display:flex;justify-content:flex-end;align-items:center;gap:15px;margin-bottom:4px;">' .
+                '<div class="painting-price" style="font-size:1.2em;color:#333;">' . $price_display . '</div>' .
+                '<div class="painting-cart-button">' . $add_to_cart_btn . '</div>' .
+            '</div>';
+    }
+
     return sprintf(
-        '<hr><div class="painting-buy-row%s" data-status="%s">
+        '<div class="painting-buy-row%s" data-status="%s">
             <div class="painting-attrs">%s</div>
-            <div class="painting-action">%s%s</div>
+            <div class="painting-action">
+                %s
+                %s
+                %s
+                %s
+            </div>
         </div>',
         esc_attr( $status_class ),
         esc_attr( $status_slug ),
         $attr_list,
+        $price_html,
         $button,
+        $sku_html,
         $special_text
     );
 }
+
 add_shortcode( 'painting_buy_button', 'monospace_custom_add_to_cart_shortcode' );
 
-
-
-/**
- * Render product attributes in a fixed order with fallback to remaining attributes.
- *
- * Attributes are rendered in the order: format, medium, surface, size.
- * Any remaining attributes are appended in no particular order.
- *
- * @since 1.0.0
- *
- * @param WC_Product $product The WooCommerce product object.
- * @param int        $product_id The product ID.
- * @return string HTML markup for all attributes.
- */
 function monospace_render_product_attributes( $product, $product_id ) {
-    // Display order priority
     $order = array( 'format', 'medium', 'surface', 'size' );
-
-    // Attributes to exclude (by label, case-insensitive)
-    $exclude = array( 'year' );
     $exclude = array();
-
     $attributes = $product->get_attributes();
     $output     = array();
 
-    // Helper: render one attribute as HTML
     $render_attr = function( $attribute, $product_id ) {
         $label = wc_attribute_label( $attribute->get_name() );
 
@@ -205,15 +201,10 @@ function monospace_render_product_attributes( $product, $product_id ) {
             : '';
     };
 
-    // Normalize exclude list to lowercase
-    $exclude = array_map( 'strtolower', $exclude );
-
-    // 1️⃣ Render attributes in preferred order
     foreach ( $order as $attr_name ) {
         foreach ( $attributes as $key => $attribute ) {
             $label = strtolower( wc_attribute_label( $attribute->get_name() ) );
 
-            // Skip excluded attributes
             if ( in_array( $label, $exclude, true ) ) {
                 unset( $attributes[ $key ] );
                 continue;
@@ -227,75 +218,76 @@ function monospace_render_product_attributes( $product, $product_id ) {
         }
     }
 
-    // 2️⃣ Render remaining attributes (excluding those listed)
     foreach ( $attributes as $attribute ) {
         $label = strtolower( wc_attribute_label( $attribute->get_name() ) );
-        if ( in_array( $label, $exclude, true ) ) {
-            continue;
-        }
+        if ( in_array( $label, $exclude, true ) ) continue;
         $output[] = $render_attr( $attribute, $product_id );
     }
 
     return implode( '', $output );
 }
 
-
-/**
- * Render the buy button or status label for a product.
- *
- * Handles the following statuses:
- * - 'private'      => Artist’s Private Collection
- * - 'gallery'      => Link to gallery if URL available, otherwise a label
- * - 'sold'         => Private Collection
- * - No price       => Coming Soon button
- * - In stock & in cart => Already in Cart button
- * - Otherwise     => Standard WooCommerce add to cart button
- *
- * @since 1.0.0
- *
- * @param WC_Product $product      WooCommerce product object.
- * @param string     $status       Custom availability status ('private', 'gallery', 'sold', etc.).
- * @param string     $gallery_url  URL to the gallery (optional).
- * @param string     $gallery_name Name of the gallery (optional).
- * @return string HTML markup for the buy button or status label.
- */
 function monospace_render_buy_button( $product, $status, $gallery_url, $gallery_name ) {
-
 
     $gallery_label = $gallery_name ? 'On view at ' . esc_html( $gallery_name ) : 'Available at Gallery';
 
     switch ( $status ) {
         case 'private':
-            return '<span class="sold-label status-private">Artist’s Private Collection</span>';
+            return '<span class="sold-label status-private">Artist\'s Private Collection</span>';
 
         case 'gallery':
             return $gallery_url
-                ? '<a class="button gallery-button status-gallery" href="' . esc_url( $gallery_url ) . '" target="_blank" rel="noopener">' . $gallery_label . '</a>'
+                ? '<a class="gallery-button status-gallery" href="' . esc_url( $gallery_url ) . '" target="_blank" rel="noopener">' . $gallery_label . '</a>'
                 : '<span class="sold-label status-gallery">' . $gallery_label . '</span>';
 
         case 'sold':
-        case !$product->is_in_stock():
             return '<span class="sold-label status-sold">Private Collection</span>';
 
         default:
+            if ( ! $product->is_in_stock() ) {
+                return '<span class="sold-label status-sold">Private Collection</span>';
+            }
+
             if ( ! $product->get_price() ) {
-                return '<a class="button no-price status-coming-soon" href="#">Coming Soon</a>';
+                return '<a class="painting-buy-button status-coming-soon" href="#">Coming Soon</a>';
             }
 
-            // Only check cart on front-end
-            $in_cart = false;
-            if ( ! is_admin() && function_exists( 'WC' ) && WC()->cart ) {
-                $cart_id = WC()->cart->generate_cart_id( $product->get_id() );
-                $in_cart = WC()->cart->find_product_in_cart( $cart_id );
-            }
-
-            if ( $product->get_stock_quantity() === 1 && $in_cart ) {
-                return '<button class="button disabled status-in-cart" disabled>Already in Cart</button>';
-            }
-
-            return do_shortcode( '[add_to_cart id="' . $product->get_id() . '"]' );
+            return '';
     }
 }
 
 
 
+
+
+/**
+ * Redirect to cart for our custom add-to-cart links
+ */
+add_filter( 'woocommerce_add_to_cart_redirect', function( $url ) {
+    if ( isset( $_REQUEST['ms_redirect_cart'] ) ) {
+        return wc_get_cart_url();
+    }
+    return $url;
+}, 99 );
+
+/**
+ * Ensure our custom parameter persists through WooCommerce processing
+ */
+add_filter( 'woocommerce_add_to_cart_validation', function( $passed, $product_id, $quantity ) {
+    if ( isset( $_REQUEST['ms_redirect_cart'] ) ) {
+        // Store in session so redirect filter can see it
+        WC()->session->set( 'ms_redirect_cart', true );
+    }
+    return $passed;
+}, 10, 3 );
+
+/**
+ * Check session for redirect flag
+ */
+add_filter( 'woocommerce_add_to_cart_redirect', function( $url ) {
+    if ( WC()->session->get( 'ms_redirect_cart' ) ) {
+        WC()->session->__unset( 'ms_redirect_cart' );
+        return wc_get_cart_url();
+    }
+    return $url;
+}, 100 );

@@ -1,18 +1,128 @@
-/* =========================================
-   WooCommerce Buttons
-   Uses global button variables from buttons.css
-   ========================================= */
+/* ==========================================================================
+   TABLES
+   ========================================================================== */
 
-/* Primary WooCommerce buttons */
-.woocommerce a.button,
+
+.woocommerce-cart table ,
+.woocommerce-page table ,
+.woocommerce table {
+    background-color: #fff !important;
+    overflow: hidden;
+    border-collapse: collapse;
+}
+
+
+
+/* ==========================================================================
+   CUSTOM ORDER STYLING
+   ========================================================================== */
+
+
+.product_meta{
+  display: none;
+}
+.custom-order-options{
+  border-radius: 8px;
+  border: solid 1px #ccc !important;
+  margin-top: 0 !important;
+}
+.custom-order-options textarea{
+  width: 75% !important;
+}
+.custom-order-options label{
+  font-size: 0.9em;
+}
+  .woocommerce:where(body:not(.woocommerce-uses-block-theme)) div.product p.price{
+  display: none;
+}
+
+
+
+/* ==========================================================================
+   CHECKOUT STYLING
+   ========================================================================== */
+
+/* Commission deposit info on product page */
+.commission-deposit-info {
+  display: inline-block;
+  padding: 0.5em 0.75em;
+  background: #fff;
+  border-left: 3px solid #2271b1;
+  font-size: 0.9em;
+  margin-bottom: 1em;
+}
+
+/* Commission shipping notice on checkout */
+.commission-shipping-note {
+  background: #fff;
+  border-left: 3px solid #2271b1;
+  padding: 1em;
+  margin: 1em 0;
+  font-size: 0.95em;
+}
+
+/* Custom order options styling */
+.custom-order-options {
+  margin: 1.5em 0;
+  padding: 1em;
+  background: #fff;
+  border: var(--ms-border-width) var(--ms-border-style) var(--ms-border-color);
+}
+
+.custom-order-options p {
+  margin-bottom: 1em;
+}
+
+.custom-order-options label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.25em;
+}
+
+.custom-order-options textarea,
+.custom-order-options input[type="file"] {
+  width: 100%;
+  padding: 0.5em;
+  font-family: inherit;
+}
+
+
+/* ==========================================
+   WooCommerce – Buttons (Classic + Blocks)
+========================================== */
+
+/* ---------- BASE STATE ---------- */
 .woocommerce button.button,
+.woocommerce a.button,
 .woocommerce input.button,
-.woocommerce input[type="submit"],
 .woocommerce #respond input#submit,
-.woocommerce-cart .wc-proceed-to-checkout a.checkout-button {
+
+.woocommerce a.add_to_cart_button,
+.woocommerce a.product_type_simple,
+.woocommerce a.product_type_variable,
+.woocommerce a.product_type_external,
+.woocommerce a.product_type_grouped,
+.woocommerce button.single_add_to_cart_button,
+
+.woocommerce a.checkout-button,
+.woocommerce button[name="update_cart"],
+.woocommerce button[name="apply_coupon"],
+
+.woocommerce button.woocommerce-button,
+.woocommerce a.woocommerce-button,
+
+.woocommerce a.button.wc-forward,
+
+.wc-block-components-button,
+.wc-block-cart__submit-button,
+.wc-block-checkout__actions_row .wc-block-components-button,
+
+.woocommerce button.single_add_to_cart_button.button.alt,
+.woocommerce button#place_order.button.alt
+{
     display: inline-block;
-    padding: 10px 20px;
-    font-family: 'Open Sans', sans-serif;
+    padding: 7px 16px;
+    font-family: var(--component-font);
     font-weight: 600;
     font-size: 1rem;
     line-height: 1.4;
@@ -23,146 +133,126 @@
     cursor: pointer;
     text-decoration: none;
     text-align: center;
-    transition: background-color 0.3s ease, opacity 0.3s ease;
+    transition: background-color 0.25s ease, opacity 0.25s ease;
 }
 
-/* Hover */
-.woocommerce a.button:hover,
+/* ---------- HOVER ---------- */
 .woocommerce button.button:hover,
+.woocommerce a.button:hover,
 .woocommerce input.button:hover,
-.woocommerce input[type="submit"]:hover,
 .woocommerce #respond input#submit:hover,
-.woocommerce-cart .wc-proceed-to-checkout a.checkout-button:hover {
+
+.woocommerce a.add_to_cart_button:hover,
+.woocommerce a.product_type_simple:hover,
+.woocommerce a.product_type_variable:hover,
+.woocommerce a.product_type_external:hover,
+.woocommerce a.product_type_grouped:hover,
+.woocommerce button.single_add_to_cart_button:hover,
+
+.woocommerce a.checkout-button:hover,
+.woocommerce button[name="update_cart"]:hover,
+.woocommerce button[name="apply_coupon"]:hover,
+
+.woocommerce button.woocommerce-button:hover,
+.woocommerce a.woocommerce-button:hover,
+
+.woocommerce a.button.wc-forward:hover,
+
+.wc-block-components-button:hover,
+.woocommerce button#place_order.button.alt:hover,
+.woocommerce button.single_add_to_cart_button.button.alt:hover
+ {
     background-color: var(--button-color-hover);
-    color: #ffffff;
+    color: #ffffff !important;
 }
 
-/* Focus */
-.woocommerce a.button:focus,
+/* ---------- FOCUS ---------- */
 .woocommerce button.button:focus,
+.woocommerce a.button:focus,
 .woocommerce input.button:focus,
-.woocommerce input[type="submit"]:focus,
-.woocommerce #respond input#submit:focus {
+.wc-block-components-button:focus,
+.woocommerce button#place_order.button.alt:focus,
+.woocommerce button.single_add_to_cart_button.button.alt:focus
+ {
     outline: 2px solid var(--button-color-hover);
     outline-offset: 2px;
 }
 
-/* Disabled */
-.woocommerce a.button.disabled,
-.woocommerce a.button:disabled,
+
+/* ---------- DISABLED ---------- */
 .woocommerce button.button:disabled,
+.woocommerce button.button[disabled],
 .woocommerce input.button:disabled,
-.woocommerce input[type="submit"]:disabled {
+
+.woocommerce a.button.disabled,
+.woocommerce a.add_to_cart_button.disabled,
+.woocommerce button.single_add_to_cart_button.disabled,
+
+.woocommerce button[name="update_cart"]:disabled,
+.woocommerce button[name="apply_coupon"]:disabled,
+
+.woocommerce button.woocommerce-button:disabled,
+.woocommerce a.woocommerce-button.disabled,
+
+.wc-block-components-button:disabled,
+.woocommerce button#place_order.button.alt:disabled,
+.woocommerce button.single_add_to_cart_button.button.alt:disabled
+
+ {
     background-color: var(--button-color-disabled);
     cursor: not-allowed;
     opacity: 0.6;
+    pointer-events: none;
 }
 
-/* Secondary / alt buttons (keep same visual language) */
-.woocommerce a.button.alt,
-.woocommerce button.button.alt,
-.woocommerce input.button.alt {
-    background-color: var(--button-color);
-}
+/* ---------- LOADING ---------- */
+.woocommerce a.add_to_cart_button.loading,
+.woocommerce button.single_add_to_cart_button.loading,
+.wc-block-components-button.is-loading,
+.woocommerce button#place_order.button.alt
 
-.woocommerce a.button.alt:hover,
-.woocommerce button.button.alt:hover,
-.woocommerce input.button.alt:hover {
-    background-color: var(--button-color-hover);
-}
-
-.woocommerce #coupon_code{
-    width:120px;
+{
+    /* placeholder */
 }
 
 
 
-/* ===============================
-   Painting Buy Row Layout
-   =============================== */
+/*coupon code input */
 
-.painting-buy-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 1.5rem;
-    align-items: start; /* top-align left & right columns */
-    margin: 1.5rem 0;
-}
-
-/* Left column: attributes */
-.painting-buy-left {
-    font-size: 0.95em;
-}
-
-/* Right column: status + price/cart */
-.painting-buy-right {
-    text-align: right;
-    white-space: nowrap;
-}
-
-/* Keep price + cart button on one line and top-aligned */
-.painting-buy-right .price,
-.painting-buy-right form.cart,
-.painting-buy-right .add_to_cart_inline {
-    display: inline-block;
-    vertical-align: top; /* top-align inline items */
-    margin: 0;
-    padding: 0;
+#coupon_code.input-text{
+  width:200px !important;
+  }
+button[name="update_cart"] {
+    display: none !important;
 }
 
 
-/* Status labels spacing */
-.painting-buy-status,
-.special-discount {
-    margin: 0 0 0.5em 0;
-    padding: 0;
+/* checkout box */
+.woocommerce-checkout #payment {
+  background-color: #FFF !important;
+  border:solid 1px #ddd;
 }
 
-/* Product status label in red */
-.painting-buy-status,
-.painting-buy-status .sold-label {
-    color: rgb(164, 24, 24) !important;
-    font-weight: 700;
+.woocommerce-checkout #payment div.payment_box {
+  background-color: #DDD !important;
+}
+.woocommerce-checkout #payment div.payment_box::before {
+  display: none;
 }
 
+.woocommerce-message, .woocommerce-info{
+  background-color: #FFF !important;
+  border-bottom-left-radius: 5px;
+  border-bottom-right-radius: 5px;
 
-/* Mobile: stack columns */
-@media (max-width: var(--bp-mobile)) {
-    .painting-buy-row {
-        grid-template-columns: 1fr;
-    }
-
-    .painting-buy-right {
-        text-align: left;
-        white-space: normal;
-        margin-top: 0.75em;
-    }
-
-    .painting-buy-status,
-    .special-discount {
-        margin-top: 0.5em;
-    }
-}
-
-/* Remove default borders/outlines from inline add-to-cart */
-.add_to_cart_inline {
-    border: 0 !important;
-    padding: 0;
-    box-shadow: none !important;
 }
 
 
 
-/* Price styling: monospace, bold */
- .price,
-  .amount {
-    font-family: 'Courier Prime', monospace !important;
-    font-weight: 500 !important;
-    font-size: 1.3em;
-    color: #444 !important;
-    padding: 0 0.5em; /* small spacing between price and button */
+.woocommerce-checkout #payment div.payment_box{
+
 }
-.sold-label{
-    font-weight:700;
-    color: #c30
+
+.payment_box.payment_method_ppcp-gateway p::before{
+
 }

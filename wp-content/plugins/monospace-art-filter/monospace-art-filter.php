@@ -188,21 +188,33 @@ function ms_product_filter_shortcode(){
     flex-wrap: wrap;
     margin: -1em;
 }
+
+
 .ms-product-item {
     width: calc(33.333% - 2em);
     margin: 1em;
     position: relative;
+    aspect-ratio: 1 / 1;       /* force square container */
+    overflow: hidden;          /* Add this to clip overflowing content */
+    border-radius: 5px;
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3) !important;
+}
+.ms-product-item a {
+    display: block;
+    height: 100%;
 }
 
-
-/* Make product thumbnails square and cropped */
-.ms-product-item img {
-    display: block;
+.ms-product-item > a > div:first-child {
     width: 100%;
-    aspect-ratio: 1 / 1;       /* force square */
-    object-fit: cover;          /* crop to fill square */
-    box-shadow: 0 0px 8px rgba(0, 0, 0, 0.3);
-    border-radius:5px;
+    height: 100%;
+    position: relative;
+}
+
+.ms-product-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .ms-availability-dot {
@@ -812,9 +824,8 @@ function ms_filter_products_callback() {
         $is_available_dot = $is_gallery_status || (!$is_private_status && $is_instock);
 
 
-        $thumb    = get_the_post_thumbnail($p_id, 'medium', [
-            'style' => 'width:100%;display:block;'
-        ]);
+        $thumb = get_the_post_thumbnail($p_id, 'medium');
+
         $title    = get_the_title($p_id);
         $post_url = get_permalink($related_post_id);
 

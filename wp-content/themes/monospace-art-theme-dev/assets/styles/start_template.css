@@ -1,0 +1,221 @@
+
+
+/* -----------------------------------------------------------
+   GRID LAYOUT
+----------------------------------------------------------- */
+.container {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 auto;
+    align-items: stretch;
+    max-width:var(--global-width);
+    row-gap: calc(var(--global-padding)/2);
+    column-gap: var(--global-padding);
+}
+
+.flex-break {
+    flex-basis: 100%;
+    height: 0;
+}
+
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+    .container {
+        flex-direction: column;
+    }
+    .box {
+        margin: 0;
+    }
+    .flex-break {
+        display: none;
+    }
+    body {
+        font-size: 1em;
+    }
+    #news .box-content{
+        min-height: 260px !important;
+    }
+}
+
+/* -----------------------------------------------------------
+   BOXES (PSEUDO-BACKGROUND SYSTEM)
+----------------------------------------------------------- */
+.box {
+    position: relative;
+    overflow: hidden;
+    flex: 1;
+    border-radius: 10px;
+    margin: 0px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+
+    display: flex;
+    flex-direction: column;  /* so inner content can shrink or scroll */
+    min-height: 0;           /* IMPORTANT */
+}
+
+/* The magic: stretch background to match content height */
+.box::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: 0;
+    background-image: var(--bg); /* each box sets its own */
+}
+
+.box > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* -----------------------------------------------------------
+   BOX CONTENT
+----------------------------------------------------------- */
+
+/* Auto-scaling single-line titles */
+.box-title {
+    display: block;
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 10px 10px 0 0;
+    background: rgba(0,0,0,0.75);
+
+    text-overflow: ellipsis;  /* keeps it pretty if it REALLY can’t fit */
+    white-space: nowrap;      /* force one line */
+    font-family: "Oswald", sans-serif;
+    font-size: 1.3em;
+    /* ↓ smaller screens reduce font size to stay on one line */
+    line-height: 1.2;
+    color: white;
+    font-weight: 700;
+    padding: 3px 20px 9px 20px;
+ }
+
+.box-title:not(#welcome .box-title)::before {
+    content: "";
+    position: absolute;
+    top: 2px;       /* slightly inset from top */
+    left: 2px;      /* slightly inset from left */
+    width: 240px;   /* longer horizontally */
+    height: 40px;   /* much shorter vertically */
+    border-top-left-radius: 8px; /* match box radius */
+
+    /* angled gradient to simulate the corner highlight */
+    background: linear-gradient(
+        160deg,
+        rgba(255,255,255,0.8) 0%,
+        rgba(255,255,255,0) 25%
+    );
+
+    pointer-events: none;
+}
+
+
+
+.box-content {
+    padding: 10px 20px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 0 0 10px 10px;
+    min-height: 260px;
+    font-size: 0.9em;
+    /* ↓ smaller screens reduce font size to stay on one line */
+    line-height: 1.2;
+}
+
+
+.bottom-align {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    background: linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.75) 80%);
+    filter: url('#noise');
+
+}
+
+
+/* -----------------------------------------------------------
+   SPECIAL CASES
+----------------------------------------------------------- */
+
+#news .box-content {
+    font-size: 1em;
+    line-height: 1.2;
+    flex: 1 1 0;
+    min-height: 0;      /* critical: allows flex child to respect overflow */
+    overflow-y: auto;   /* scroll internally if content exceeds height */
+}
+
+
+
+#news .box-content h2{
+    margin-bottom:2px !important;
+    font-size: 1.2em;
+}
+#news .box-content p{
+    margin-top:2px !important;
+}
+
+
+#welcome.box {
+    box-shadow: none;
+}
+
+#welcome .box-title,
+#welcome .box-content {
+    background: none;
+    color: black;
+    padding: 0;
+}
+
+#welcome .box-title{
+    font-size: 1.3em;
+    line-height: 1.4;
+}
+#welcome .box-content{
+    font-size: 1.1em;
+    line-height: 1.4;
+
+}
+
+
+/* -----------------------------------------------------------
+   INTERACTION: make all boxes unselectable except News + Welcome
+----------------------------------------------------------- */
+
+/* All boxes default: unselectable + pointer + hover zoom */
+.box {
+    user-select: none;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.box:hover {
+    transform: scale(1.03);
+    box-shadow: 0 0 18px rgba(0,0,0,0.55);
+}
+
+/* EXCEPTIONS — Welcome and News stay normal */
+#welcome,
+#news {
+    user-select: text;      /* selectable again */
+    cursor: default;        /* no finger cursor */
+    transform: none !important;
+}
+
+#welcome:hover{
+    transform: none !important;
+}
+
+#news:hover {
+    transform: none !important;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+
+

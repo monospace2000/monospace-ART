@@ -1,18 +1,19 @@
 /* -----------------------------------------------------------
-   Site Logo
+   Base Site Logo (all pages except start page)
 ----------------------------------------------------------- */
 .site-logo-wrapper {
     display: flex;
-    flex-direction: column; /* stack items vertically */
-    align-items: center;    /* center horizontally */
-    margin: 4em auto 6em auto;         /* spacing above/below logo+tagline */
-    width: var(--column-center-width); /* adjust or override as needed */
-
+    flex-direction: column;
+    align-items: center;
+    max-width: var(--global-width);
+    margin-top: calc(var(--menu-bar-height) + var(--global-padding));
+    margin-bottom: var(--global-padding);
+    margin-left:auto;
+    margin-right: auto;
 }
 
-
 .site-logo {
-    width: 100%;
+    max-width: var(--global-width);
     display: flex;
     justify-content: center;
 }
@@ -24,26 +25,30 @@
 }
 
 .site-logo img.custom-logo {
-    max-width: 92%; /* scale to container */
+    width: 100%;          /* scale proportionally */
+    max-width: 100%;
     height: auto;
     display: block;
     cursor: pointer;
-    margin: 0 auto;
+    aspect-ratio: 1437/203;
+    mix-blend-mode: multiply;
+    opacity: 0.9;
 }
 
-
 .site-tagline {
+    font-family: Roboto, sans-serif;
+    font-weight: 300;
+    font-size: 3vw;
     text-align: center;
-    font-family: 'Roboto', sans-serif; /* or any other */
-    font-size: 1.9rem;
-    font-weight:100;
-    color: var(--body-text-color-light);
+    white-space: normal;
+    color:#999;
+}
 
-    width: 100%;
-    max-width: 100%;
-    white-space: nowrap;
-
-
-    letter-spacing: 0.015em;
-
+@media (max-width: 1024px){
+.logo-wrapper{
+        margin-top: 80px;
+    }
+    .site-tagline {
+            _font-weight: 300;
+    }
 }
