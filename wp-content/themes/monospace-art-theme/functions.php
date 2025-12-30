@@ -1,56 +1,47 @@
 <?php
-/**
- * monospace ART
- * --------------------------------------
- * Theme setup and addon loader
- *
- * @package monospace-art-theme
- */
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
+/*
+Theme Name: monospace ART
+Theme URI: https://art.monospace.com
+Author: Hens Breet
+Description: Custom top-level theme for monospace ART.
+Version: 1.0.0
+Text Domain: monospace-art-theme
+*/
 
-/**
- * ------------------------------
- * Theme Constants (define first)
- * ------------------------------
- */
 define( 'MONOSPACE_ART_THEME_VERSION', '1.0.0' );
-define( 'MONOSPACE_ART_THEME_DIR', get_stylesheet_directory() );
-define( 'MONOSPACE_ART_THEME_URI', get_stylesheet_directory_uri() );
+define( 'MONOSPACE_ART_THEME_DIR', get_template_directory() );
+define( 'MONOSPACE_ART_THEME_URI', get_template_directory_uri() );
+
+require_once MONOSPACE_ART_THEME_DIR . '/inc/core/enqueue.php';
+require_once MONOSPACE_ART_THEME_DIR . '/inc/core/setup.php';
+require_once MONOSPACE_ART_THEME_DIR . '/inc/core/sidebars.php';
+require_once MONOSPACE_ART_THEME_DIR . '/inc/core/editor.php';
+
 
 /**
  * ------------------------------
  * Global Debug Settings
  * ------------------------------
  */
-define( 'MONOSPACE_ADDON_DEBUG', false ); // Set to false to disable loader logging
+define( 'MONOSPACE_MODULE_DEBUG', true ); // Set to false to disable loader logging
 
 function monospace_log( $message ) {
-	if ( defined( 'MONOSPACE_ADDON_DEBUG' ) && MONOSPACE_ADDON_DEBUG ) {
-		error_log( '[monospace-addon] ' . $message ); // goes to SiteGround php_errorlog
-	}
-}
-$priority_addon_files = [
-    'inc/addons/site-identity.php',
-    'inc/addons/enqueue-styles.php',
-];
-
-function monospace_art_theme_load_priority_addons( $files ) {
-    foreach ( $files as $relative_path ) {
-        $file = get_stylesheet_directory() . '/' . $relative_path;
-        if ( file_exists( $file ) ) {
-            require_once $file;
-            monospace_log( "Loaded priority file: $file" );
-        } else {
-            monospace_log( "Priority file missing: $file" );
-        }
+    if ( defined( 'MONOSPACE_MODULE_DEBUG' ) && MONOSPACE_MODULE_DEBUG ) {
+        error_log( '[monospace-module] ' . $message ); // goes to SiteGround php_errorlog
     }
 }
 
-function monospace_art_theme_load_remaining_addons( $base_dir, $priority_files, $exclude_dirs = ['disabled'] ) {
+/**
+ * ------------------------------
+ * Module Loaders
+ * ------------------------------
+ */
+function monospace_art_load_modules() {
+    $base_dir = MONOSPACE_ART_THEME_DIR . '/inc/modules';
     if ( ! is_dir( $base_dir ) ) return;
+
+    $exclude_dirs = ['disabled'];
 
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator( $base_dir, RecursiveDirectoryIterator::SKIP_DOTS ),
@@ -68,19 +59,10 @@ function monospace_art_theme_load_remaining_addons( $base_dir, $priority_files, 
     sort($files);
 
     foreach ( $files as $file_path ) {
-
         // Skip disabled dirs
         foreach ( $exclude_dirs as $dir ) {
             if ( strpos( $file_path, DIRECTORY_SEPARATOR . $dir . DIRECTORY_SEPARATOR ) !== false ) {
                 monospace_log( "Skipped (disabled dir): $file_path" );
-                continue 2;
-            }
-        }
-
-        // Skip priority files
-        foreach ( $priority_files as $priority ) {
-            if ( realpath($file_path) === realpath( get_stylesheet_directory() . '/' . $priority ) ) {
-                monospace_log( "Skipped (priority file already loaded): $file_path" );
                 continue 2;
             }
         }
@@ -90,15 +72,21 @@ function monospace_art_theme_load_remaining_addons( $base_dir, $priority_files, 
         monospace_log( "Loaded: $file_path" );
     }
 }
+// module bootstrap
+add_action( 'init', 'monospace_art_load_modules');
 
-// Hook on init (slightly later)
-add_action( 'init', function() use ( $priority_addon_files ) {
-    monospace_art_theme_load_priority_addons( $priority_addon_files );
-    monospace_art_theme_load_remaining_addons(
-        get_stylesheet_directory() . '/inc/addons',
-        $priority_addon_files
-    );
-}, 5 );
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // Include About page only in admin
@@ -287,3 +275,30 @@ function monospace_category_custom_header() {
 		echo '</header>';
 	}
 }
+
+
+
+
+// Usage: [external_html url="https://example.com/content.html" class="my-custom-class"]
+add_shortcode('external_html', function($atts) {
+    $url   = $atts['url'] ?? '';
+    $class = $atts['class'] ?? 'external-html-container'; // default class
+
+    if (empty($url)) {
+        return 'No URL provided';
+    }
+
+    $response = wp_remote_get($url);
+
+    if (is_wp_error($response)) {
+        return 'Error loading content';
+    }
+
+    $html = wp_remote_retrieve_body($response);
+
+    // Optionally sanitize/filter the HTML
+   // $html = wp_kses_post($html);
+
+    // Wrap in a div with a class for styling
+    return sprintf('<div class="%s">%s</div>', esc_attr($class), $html);
+});

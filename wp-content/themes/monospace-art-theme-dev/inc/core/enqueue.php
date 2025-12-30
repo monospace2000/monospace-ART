@@ -59,6 +59,27 @@ function monospace_art_enqueue_assets() {
 }
 add_action('wp_enqueue_scripts', 'monospace_art_enqueue_assets');
 
+
+// -----------------------------------------------------------
+// Enqueue Infinite Scroll on feed/index pages
+// -----------------------------------------------------------
+function monospace_art_enqueue_infinite_scroll() {
+    // Only load on home/front page and archive pages (category, tag, date, author, etc.)
+    if (is_home() || is_front_page() || is_archive()) {
+        $theme_version = wp_get_theme()->get('Version');
+
+        wp_enqueue_script(
+            'monospace-infinite-scroll',
+            get_template_directory_uri() . '/assets/scripts/infinite-scroll.js',
+            array(),
+            time(), // Use time() during development to always get fresh version
+            true
+        );
+    }
+}
+add_action('wp_enqueue_scripts', 'monospace_art_enqueue_infinite_scroll');
+
+
 // -----------------------------------------------------------
 // Add preconnect for Google Fonts in head (performance optimization)
 // -----------------------------------------------------------

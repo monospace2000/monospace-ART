@@ -166,3 +166,5 @@ add_shortcode( 'product_price', 'ms_product_price_shortcode' );
 add_filter( 'woocommerce_return_to_shop_redirect', function () {
     return home_url( '/art-feed/' ); // change to your desired URL
 } );
+
+

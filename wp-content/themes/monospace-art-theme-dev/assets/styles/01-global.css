@@ -185,7 +185,7 @@ a, a:hover{
     text-decoration: underline;
 }
 .wp-block-tag-cloud{
-    line-height: 1.8;
+    line-height: 2;
 }
 
 .ms-product-price{
@@ -244,4 +244,6 @@ border:solid 1px #ccc !important;
 
 
 
-
+#main-content > div {
+    transition: opacity 0.5s ease-in-out;
+}

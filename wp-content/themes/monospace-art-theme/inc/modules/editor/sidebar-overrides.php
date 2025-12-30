@@ -125,15 +125,34 @@ add_action('save_post', 'monospace_art_save_sidebar_override');
 
 
 // ---------------------------------------------------------------------------
-// Add body class if sidebar hidden
+// Add body classes for sidebar behavior
 // ---------------------------------------------------------------------------
 function monospace_art_add_body_class_hide_sidebar($classes) {
-    if (is_singular(['post','page','product'])) {
+
+    /*
+     * 1. Per-post / page / product override
+     */
+    if (is_singular(['post', 'page', 'product'])) {
         $hide_sidebar = get_post_meta(get_the_ID(), '_monospace_hide_sidebar', true);
         if ($hide_sidebar) {
             $classes[] = 'hide-sidebar';
         }
     }
+
+    /*
+     * 2. Force full-width layout on ALL WooCommerce pages
+     */
+    if (function_exists('is_woocommerce') && is_woocommerce()) {
+        $classes[] = 'hide-sidebar';
+        $classes[] = 'wc-fullwidth';
+    }
+
     return $classes;
 }
 add_filter('body_class', 'monospace_art_add_body_class_hide_sidebar');
+
+
+
+
+
+

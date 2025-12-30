@@ -1,10 +1,11 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
-?><!DOCTYPE html>
-<?php astra_html_before(); ?>
+?>
+
+<!DOCTYPE html>
 <html <?php language_attributes(); ?>>
 <head>
-<?php astra_head_top(); ?>
+
 
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -74,22 +75,13 @@ $og_image = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(),'full
 }
 </script>
 
-
-<?php
-if ( apply_filters( 'astra_header_profile_gmpg_link', true ) ) {
-	?><link rel="profile" href="https://gmpg.org/xfn/11"><?php
-}
-?>
-
 <?php wp_head(); ?>
-<?php astra_head_bottom(); ?>
 </head>
 
-<body <?php astra_schema_body(); ?> <?php body_class(); ?>>
-<?php astra_body_top(); ?>
-<?php wp_body_open(); ?>
+<body <?php body_class(); ?>>
 
 
+<!-- noise link -->
 <svg style="position: absolute; width: 0; height: 0;">
   <filter id="noise">
     <feTurbulence baseFrequency="0.8" numOctaves="8" result="noise" />
@@ -101,80 +93,70 @@ if ( apply_filters( 'astra_header_profile_gmpg_link', true ) ) {
   </filter>
 </svg>
 
-<a class="skip-link screen-reader-text" href="#content" title="<?php echo esc_attr( astra_default_strings( 'string-header-skip-link', false ) ); ?>">
-    <?php echo esc_html( astra_default_strings( 'string-header-skip-link', false ) ); ?>
-</a>
+<!-- Primary Menu Bar -->
+<nav class="primary-menu-bar">
 
-<div <?php echo wp_kses_post( astra_attr( 'site', array( 'id' => 'page', 'class' => 'hfeed site' ) ) ); ?>>
-    <?php
-    astra_header_before();
-    ?>
-    <!-- <div id="spacer" style="height: 100px;"></div> -->
-    <?php
-    astra_header();
-    astra_header_after();
-    ?>
+    <div class="primary-menu-container">
 
 
-<style>
-  .ast-hf-mobile-menu{
-    position:fixed;
-  }
-
-</style>
-<style>
-
-/* -----------------------------------------------------------
-   Logo aligned to Astra main content width (no sidebars)
------------------------------------------------------------ */
-
-.site-logo-wrapper {
-    max-width:1200px;
-    margin: 0 auto -70px auto;
-}
-
-.site-logo-inner {
-    margin: 0 auto;
-    padding-top:40px;
-    padding-left: 25px;
-    padding-right: 40px;
-}
 
 
-@media (max-width: 768px) {
-    .site-logo-inner {
-        margin: 0 auto;
-        padding-top:20px;
-        padding-left: 25px;
-        padding-right: 25px;
-    }
-}
 
-</style>
+        <div class="menu-bar-home">
+            <?php echo do_shortcode('[monospace_home]'); ?>
+        </div>
+
+
+        <div class="mobile-menu-toggle" aria-label="Open Menu">Menu ☰</div>
+
+        <?php
+        wp_nav_menu(array(
+            'theme_location' => 'primary',
+            'container' => false,
+            'menu_class' => 'primary-menu',
+            'fallback_cb' => false,
+        ));
+        ?>
+
+
+        <div class="menu-bar-cart">
+            <?php echo do_shortcode('[monospace_cart]'); ?>
+        </div>
+
+
+    </div>
+
+</nav>
+
+
 
 <div class="site-logo-wrapper">
-    <div class="site-logo-inner">
+    <div class="site-logo">
         <?php
-        $logo_link = esc_url( home_url( '/art-feed/' ) );
-        if ( has_custom_logo() ) {
-            $logo_id = get_theme_mod( 'custom_logo' );
-            echo '<a href="' . $logo_link . '">' .
-                 wp_get_attachment_image( $logo_id, 'full', false, array(
-                     'class' => 'custom-logo'
-                 ) ) .
-                 '</a>';
-        } else {
-            echo '<a href="' . $logo_link . '" class="logo-text">' . get_bloginfo( 'name' ) . '</a>';
-        }
-        ?>
+        $logo_link = esc_url(home_url('/art-feed/'));
+        if (has_custom_logo()) {
+            $logo_id  = get_theme_mod('custom_logo');
+            $logo_img = wp_get_attachment_image($logo_id, 'full', false, array('class' => 'custom-logo'));
+            echo '<a href="' . $logo_link . '">' . $logo_img . '</a>';
+        } else { ?>
+            <a href="<?php echo $logo_link; ?>" class="logo-text"><?php bloginfo('name'); ?></a>
+        <?php } ?>
     </div>
+
+    <?php if ( get_bloginfo('description') ) : ?>
+      <div
+            class="site-tagline"
+            data-fit-text
+            data-fit-width="100"
+            data-fit-font="Roboto"
+            data-fit-weight="300"
+            data-fit-padding="0"
+            data-fit-max-width="1000"
+            >
+            <?php  echo esc_html( get_bloginfo('description') );  ?>
+
+
+        </div>
+    <?php endif; ?>
 </div>
 
-
-
-    <?php
-    astra_content_before();
-    ?>
-    <div id="content" class="site-content" style="margin-top: 0 !important; padding-top: 0 !important;">
-        <div class="ast-container" style="margin-top: 0 !important; padding-top: 0 !important;">
-        <?php astra_content_top(); ?>

@@ -25,7 +25,7 @@
                         // Get the post content
                         $content = get_the_content();
 
-                        // Wrap all <img> tags in links to the post without breaking block structure
+/*                         // Wrap all <img> tags in links to the post without breaking block structure
                         $content = preg_replace_callback(
                             '/<img([^>]+)>/i',
                             function ($matches) {
@@ -38,7 +38,7 @@
                             },
                             $content
                         );
-
+ */
                         echo apply_filters('the_content', $content);
                     } else {
                         // Single post: normal content

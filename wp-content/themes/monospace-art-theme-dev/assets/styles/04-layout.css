@@ -106,3 +106,12 @@ NAV BUTTONS
     display: flex;
     justify-content: space-between;
 }
+
+
+
+
+
+/* Outer group that contains a nested group, which in turn contains exactly two post-terms blocks */
+.wp-block-group:has(.wp-block-group) {
+  margin: 0 10px;
+}

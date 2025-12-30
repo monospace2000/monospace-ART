@@ -4,43 +4,23 @@ add_shortcode('mailpoet_archive', function () {
         return '<p>MailPoet is not available.</p>';
     }
 
-    try {
-        $api = \MailPoet\API\API::MP('v1');
-    } catch (\Throwable $e) {
-        return '<p>MailPoet API init failed: ' . esc_html($e->getMessage()) . '</p>';
-    }
+    // Get sent newsletters with their queue IDs
+    global $wpdb;
+    $newsletters_table = $wpdb->prefix . 'mailpoet_newsletters';
+    $queues_table = $wpdb->prefix . 'mailpoet_sending_queues';
 
-    try {
-        // Use getListing instead
-        $newsletters = $api->getListing([
-            'filter' => ['status' => 'sent'],
-            'limit' => 1000,
-            'sort_by' => 'sent_at',
-            'sort_order' => 'desc'
-        ]);
-
-        // getListing returns items in a 'items' key
-        if (isset($newsletters['items'])) {
-            $newsletters = $newsletters['items'];
-        }
-    } catch (\Throwable $e) {
-        // Try direct database query as fallback
-        global $wpdb;
-        $table = $wpdb->prefix . 'mailpoet_newsletters';
-
-        $newsletters = $wpdb->get_results(
-            "SELECT * FROM {$table}
-             WHERE status = 'sent'
-             AND type = 'standard'
-             ORDER BY sent_at DESC
-             LIMIT 1000",
-            ARRAY_A
-        );
-
-        if ($wpdb->last_error) {
-            return '<p>Unable to load newsletters: ' . esc_html($e->getMessage()) . '</p>';
-        }
-    }
+    $newsletters = $wpdb->get_results(
+        "SELECT n.id, n.subject, n.hash, n.sent_at, q.id as queue_id
+         FROM {$newsletters_table} n
+         LEFT JOIN {$queues_table} q ON n.id = q.newsletter_id
+         WHERE n.status = 'sent'
+         AND n.type = 'standard'
+         AND n.hash IS NOT NULL
+         AND n.hash != ''
+         ORDER BY n.sent_at DESC
+         LIMIT 1000",
+        ARRAY_A
+    );
 
     if (empty($newsletters)) {
         return '<p>No newsletters found.</p>';
@@ -48,15 +28,20 @@ add_shortcode('mailpoet_archive', function () {
 
     $out = '<ul class="mailpoet-archive">';
     foreach ($newsletters as $nl) {
-        $subject = $nl['subject'] ?? '';
-        $hash = $nl['hash'] ?? '';
+        $subject = $nl['subject'];
+        $newsletter_id = (int)$nl['id'];
+        $hash = $nl['hash'];
+        $queue_id = (int)($nl['queue_id'] ?? 0);
 
-        if (empty($subject) || empty($hash)) {
+        if (empty($subject) || empty($newsletter_id) || empty($hash)) {
             continue;
         }
 
-        // Construct preview URL manually
-        $url = home_url('?mailpoet_router&endpoint=view_in_browser&action=view&data=') . $hash;
+        // Create the data array with the correct queue_id
+        $data = [$newsletter_id, $hash, 0, 0, $queue_id, 1];
+        $encoded_data = rtrim(base64_encode(json_encode($data)), '=');
+
+        $url = home_url('/?mailpoet_router&endpoint=view_in_browser&action=view&data=' . $encoded_data);
 
         $out .= sprintf(
             '<li><a href="%s" target="_blank">%s</a></li>',

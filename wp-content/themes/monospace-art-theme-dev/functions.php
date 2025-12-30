@@ -278,19 +278,27 @@ function monospace_category_custom_header() {
 
 
 
-function mytheme_jetpack_setup() {
-    add_theme_support( 'infinite-scroll', array(
-        'container' => 'main',           // The main content wrapper ID or class
-        'render'    => 'mytheme_infinite_render', // Function to render posts
-        'footer'    => 'page',           // Optional: selector for the footer
-    ) );
-}
-add_action( 'after_setup_theme', 'mytheme_jetpack_setup' );
 
+// Usage: [external_html url="https://example.com/content.html" class="my-custom-class"]
+add_shortcode('external_html', function($atts) {
+    $url   = $atts['url'] ?? '';
+    $class = $atts['class'] ?? 'external-html-container'; // default class
 
-function mytheme_infinite_render() {
-    while ( have_posts() ) {
-        the_post();
-        get_template_part( 'template-parts/content', get_post_format() );
+    if (empty($url)) {
+        return 'No URL provided';
     }
-}
+
+    $response = wp_remote_get($url);
+
+    if (is_wp_error($response)) {
+        return 'Error loading content';
+    }
+
+    $html = wp_remote_retrieve_body($response);
+
+    // Optionally sanitize/filter the HTML
+   // $html = wp_kses_post($html);
+
+    // Wrap in a div with a class for styling
+    return sprintf('<div class="%s">%s</div>', esc_attr($class), $html);
+});
