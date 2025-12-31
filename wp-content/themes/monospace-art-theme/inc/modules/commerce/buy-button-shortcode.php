@@ -1,6 +1,7 @@
 <?php
 /**
- * Enqueue scripts and styles
+ * Painting Buy Button Shortcode
+ * Integrated with monospace Sales Dashboard
  *
  * @package astra-child-theme-for-monospace-art
  */
@@ -60,45 +61,16 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
     $attr_list = monospace_render_product_attributes( $product, $product_id );
     $button    = monospace_render_buy_button( $product, $status, $gallery_url, $gallery_name );
 
-    $show_special = false;
-    $attributes = $product->get_attributes();
-
-    $is_available = !in_array($status, ['sold', 'private', 'gallery']) && $product->is_in_stock();
-
-    if ($is_available) {
-        foreach ( $attributes as $attribute ) {
-            $label = wc_attribute_label( $attribute->get_name() );
-            if ( strtolower($label) === 'size' ) {
-
-                if ( $attribute->is_taxonomy() ) {
-                    $terms = wp_get_post_terms( $product_id, $attribute->get_name() );
-                    foreach ( $terms as $term ) {
-                        if ( $term->slug === '4x4' ) {
-                            $show_special = true;
-                            break 2;
-                        }
-                    }
-                } else {
-                    foreach ( $attribute->get_options() as $value ) {
-                        if ( strtolower(str_replace(' ', '', $value)) === '4x4' ) {
-                            $show_special = true;
-                            break 2;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    $special_text = $show_special
-        ? '<div class="special-discount"><span style="margin-top:6px;font-size:14px;font-weight:bold;color:#3a3;">Special: Get 3 miniatures for only $69!</span><br><span style="margin-top:6px;font-size:12px;">(Discount applied at checkout.)</span></div>'
-        : '';
+    // ==========================================
+    // SALES DASHBOARD INTEGRATION
+    // Get dynamic discount hint from Sales Dashboard
+    // ==========================================
+    $discount_hint = monospace_get_volume_discount_hint( $product, $product_id, $status );
 
     $status_slug  = $status ? sanitize_title( $status ) : 'default';
     $status_class = ' status-' . $status_slug;
 
     $sku = $product->get_sku();
-    $has_button = ! in_array( $status_slug, ['private', 'artist-private-collection'], true );
 
     $sku_html = $sku
         ? '<div class="painting-sku" style="font-family:sans-serif;font-size:0.7em;color:#999;text-align:right;margin:5px 2px 0 0;">'
@@ -137,7 +109,7 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
 
         } else {
 
-            // Add to cart → redirect to cart
+            // Add to cart â†’ redirect to cart
             $add_to_cart_btn =
                 '<a class="painting-buy-button" href="' .
                 esc_url(
@@ -158,6 +130,7 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
             '</div>';
     }
 
+
     return sprintf(
         '<div class="painting-buy-row%s" data-status="%s">
             <div class="painting-attrs">%s</div>
@@ -174,11 +147,266 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
         $price_html,
         $button,
         $sku_html,
-        $special_text
+        $discount_hint  // Dynamic hint from Sales Dashboard
     );
 }
 
 add_shortcode( 'painting_buy_button', 'monospace_custom_add_to_cart_shortcode' );
+
+/**
+ * Get volume discount hint from Sales Dashboard
+ * Returns formatted HTML if product qualifies for volume discount
+ */
+function monospace_get_volume_discount_hint( $product, $product_id, $status ) {
+
+    // Only show for available products
+    $is_available = !in_array($status, ['sold', 'private', 'gallery']) && $product->is_in_stock();
+    if ( ! $is_available ) {
+        return '';
+    }
+
+    // Check if Sales Dashboard volume discounts are enabled
+    if ( get_option('msd_volume_enable') !== 'yes' ) {
+        return '';
+    }
+
+    // Get volume rules from Sales Dashboard
+    $rules_json = get_option('msd_volume_rules', '');
+    if ( empty( $rules_json ) ) {
+        return '';
+    }
+
+    $volume_rules = json_decode( $rules_json, true );
+    if ( ! is_array( $volume_rules ) ) {
+        return '';
+    }
+
+    // Check if this product matches any volume discount rules
+    foreach ( $volume_rules as $rule_key => $rules ) {
+
+        if ( ! monospace_product_matches_volume_rule( $product_id, $rule_key ) ) {
+            continue;
+        }
+
+        // Found a matching rule - get the best offer to display
+        $hint = monospace_format_volume_hint( $rules, $rule_key, $product_id );
+        if ( $hint ) {
+            return '<div class="special-discount">' . $hint . '</div>';
+        }
+    }
+
+
+
+    return '';
+}
+
+/**
+ * Check if product matches a volume discount rule key
+ */
+function monospace_product_matches_volume_rule( $product_id, $rule_key ) {
+
+    // Check if it's a product category
+    if (has_term($rule_key, 'product_cat', $product_id)) {
+        return true;
+    }
+
+    // Check if it's a product tag
+    if (has_term($rule_key, 'product_tag', $product_id)) {
+        return true;
+    }
+
+    // Attribute format: attr:pa_taxonomy=slug (advanced)
+    if ( strpos( $rule_key, 'attr:' ) === 0 ) {
+        $payload = substr( $rule_key, 5 );
+        if ( strpos( $payload, '=' ) !== false ) {
+            list( $tax, $slug ) = explode( '=', $payload, 2 );
+            $tax = sanitize_text_field( trim( $tax ) );
+            $slug = sanitize_text_field( trim( $slug ) );
+            if ( $tax && $slug ) {
+                return monospace_product_has_attribute( $product_id, $tax, $slug );
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Check if product has specific attribute term
+ */
+function monospace_product_has_attribute( $product_id, $taxonomy, $term_slug ) {
+    $terms = wp_get_post_terms( $product_id, $taxonomy, ['fields' => 'slugs'] );
+    if ( is_wp_error( $terms ) || empty( $terms ) ) {
+        return false;
+    }
+    return in_array( $term_slug, (array) $terms, true );
+}
+
+/**
+ * Format volume discount hint for display
+ */
+function monospace_format_volume_hint( $rules, $rule_key, $product_id ) {
+
+    // Check if hints are enabled
+    if ( get_option('msd_hints_enable') !== 'yes' ) {
+        return '';
+    }
+
+    // Find the most attractive offer (typically the largest bundle)
+    $best_offer = null;
+
+    foreach ( $rules as $rule ) {
+        if ( empty( $rule['type'] ) ) continue;
+
+        switch ( $rule['type'] ) {
+            case 'fixed_bundle':
+                if ( isset( $rule['qty'], $rule['total'] ) ) {
+                    // Prefer larger bundles
+                    if ( ! $best_offer || $rule['qty'] > $best_offer['qty'] ) {
+                        $best_offer = $rule;
+                    }
+                }
+                break;
+
+            case 'buy_x_get_y':
+                if ( isset( $rule['buy'], $rule['get'] ) ) {
+                    $best_offer = $best_offer ?: $rule;
+                }
+                break;
+
+            case 'percent_discount':
+                if ( isset( $rule['percent'] ) ) {
+                    $best_offer = $best_offer ?: $rule;
+                }
+                break;
+        }
+    }
+
+    if ( ! $best_offer ) {
+        return '';
+    }
+
+    // Get styling from Sales Dashboard
+    $styles = monospace_get_hint_styles();
+
+    // Get templates from Sales Dashboard
+    $secondary_text = get_option('msd_hint_secondary_text', '(Discount applied at checkout.)');
+
+    // Format based on rule type
+    $main_text = '';
+
+    switch ( $best_offer['type'] ) {
+        case 'fixed_bundle':
+            $template = get_option('msd_hint_template_bundle', 'Special: Get {qty} for only ${total}!');
+            $main_text = str_replace(
+                ['{qty}', '{total}'],
+                [$best_offer['qty'], number_format($best_offer['total'], 0)],
+                $template
+            );
+            break;
+
+        case 'buy_x_get_y':
+            $template = get_option('msd_hint_template_bxgy', 'Buy {buy}, get {get} free!');
+            $main_text = str_replace(
+                ['{buy}', '{get}'],
+                [$best_offer['buy'], $best_offer['get']],
+                $template
+            );
+            break;
+
+        case 'percent_discount':
+            $template = get_option('msd_hint_template_percent', 'Save {percent}% on qualifying purchases!');
+            $percent = rtrim(rtrim(number_format($best_offer['percent'], 1, '.', ''), '0'), '.');
+            $main_text = str_replace('{percent}', $percent, $template);
+            break;
+    }
+
+    if ( ! $main_text ) {
+        return '';
+    }
+
+    // Make product-specific by inserting product type after quantity
+    $main_text = monospace_make_hint_product_specific($main_text, $product_id, $best_offer);
+
+    // Build HTML with inline styles
+    return sprintf(
+        '<span class="msd-hint-main" style="%s">%s</span><br><span class="msd-hint-secondary" style="%s;display:block;margin-top:4px;">%s</span>',
+        esc_attr($styles['main']),
+        esc_html($main_text),
+        esc_attr($styles['secondary']),
+        esc_html($secondary_text)
+    );
+}
+
+/**
+ * Get hint styling from Sales Dashboard settings
+ */
+function monospace_get_hint_styles() {
+
+    // Container styles
+    $bg_color = get_option('msd_hint_bg_color', '#f0f9f0');
+    $border_color = get_option('msd_hint_border_color', '#33aa33');
+    $border_width = get_option('msd_hint_border_width', '1');
+    $border_radius = get_option('msd_hint_border_radius', '4');
+    $padding = get_option('msd_hint_padding', '10px 12px');
+    $margin = get_option('msd_hint_margin', '6px 0');
+    $text_align = get_option('msd_hint_text_align', 'left');
+
+    $container = sprintf(
+        'background-color:%s;border:%spx solid %s;padding:%s;margin:%s;border-radius:%spx;text-align:%s;display:block;',
+        esc_attr($bg_color),
+        esc_attr($border_width),
+        esc_attr($border_color),
+        esc_attr($padding),
+        esc_attr($margin),
+        esc_attr($border_radius),
+        esc_attr($text_align)
+    );
+
+    // Main text styles
+    $main_color = get_option('msd_hint_text_color', '#33aa33');
+    $main_size = get_option('msd_hint_text_size', '14');
+    $font_weight = get_option('msd_hint_font_weight', 'bold');
+
+    $main = sprintf(
+        'color:%s;font-size:%spx;font-weight:%s;margin-top:0;',
+        esc_attr($main_color),
+        esc_attr($main_size),
+        esc_attr($font_weight)
+    );
+
+    // Secondary text styles
+    $secondary_color = get_option('msd_hint_secondary_color', '#666666');
+    $secondary_size = get_option('msd_hint_secondary_size', '12');
+
+    $secondary = sprintf(
+        'color:%s;font-size:%spx;margin-top:6px;',
+        esc_attr($secondary_color),
+        esc_attr($secondary_size)
+    );
+
+    return [
+        'container' => $container,
+        'main' => $main,
+        'secondary' => $secondary,
+    ];
+}
+
+/**
+ * Output hint styles as inline CSS
+ */
+function monospace_output_hint_styles() {
+    if ( get_option('msd_hints_enable') !== 'yes' ) {
+        return;
+    }
+
+    $styles = monospace_get_hint_styles();
+
+    echo '<style type="text/css">';
+    echo '.special-discount { ' . $styles['container'] . ' }';
+    echo '</style>';
+}
+add_action('wp_head', 'monospace_output_hint_styles');
 
 function monospace_render_product_attributes( $product, $product_id ) {
     $order = array( 'format', 'medium', 'surface', 'size' );
@@ -256,9 +484,69 @@ function monospace_render_buy_button( $product, $status, $gallery_url, $gallery_
     }
 }
 
+/**
+ * Make hint text product-specific
+ * Inserts product type after quantity (e.g., "Get 3 miniatures for...")
+ */
+function monospace_make_hint_product_specific($text, $product_id, $offer) {
+    // Get product type name
+    $type_name = monospace_get_product_type_name($product_id);
 
+    if (!$type_name) {
+        return $text; // No specific type, keep as is
+    }
 
+    // Determine quantity for pluralization
+    $qty = 1;
+    if (isset($offer['qty'])) {
+        $qty = $offer['qty'];
+    } elseif (isset($offer['buy'])) {
+        $qty = $offer['buy'];
+    } elseif (isset($offer['get'])) {
+        $qty = $offer['get'];
+    }
 
+    $term = ($qty == 1) ? $type_name['singular'] : $type_name['plural'];
+
+    // Pattern matching for different templates
+    // "Get 3 for" -> "Get 3 miniatures for"
+    $text = preg_replace('/\b(\d+)\s+(for|at|@)\b/i', '$1 ' . $term . ' $2', $text);
+
+    // "Buy 2, get" -> "Buy 2 miniatures, get"
+    $text = preg_replace('/\bBuy\s+(\d+),/i', 'Buy $1 ' . $term . ',', $text);
+
+    // "get 1 free" -> "get 1 miniature free"
+    $text = preg_replace('/\bget\s+(\d+)\s+free\b/i', 'get $1 ' . $term . ' free', $text);
+
+    return $text;
+}
+
+/**
+ * Get product type name (singular and plural)
+ */
+function monospace_get_product_type_name($product_id) {
+    // Check product tags first (more specific)
+    $tags = wp_get_post_terms($product_id, 'product_tag', ['fields' => 'all']);
+    if (!is_wp_error($tags) && !empty($tags)) {
+        $tag = $tags[0];
+        $name = strtolower($tag->name);
+        $singular = (substr($name, -1) === 's') ? substr($name, 0, -1) : $name;
+        $plural = (substr($name, -1) === 's') ? $name : $name . 's';
+        return ['singular' => $singular, 'plural' => $plural];
+    }
+
+    // Check categories
+    $categories = wp_get_post_terms($product_id, 'product_cat', ['fields' => 'all']);
+    if (!is_wp_error($categories) && !empty($categories)) {
+        $cat = $categories[0];
+        $name = strtolower($cat->name);
+        $singular = (substr($name, -1) === 's') ? substr($name, 0, -1) : $name;
+        $plural = (substr($name, -1) === 's') ? $name : $name . 's';
+        return ['singular' => $singular, 'plural' => $plural];
+    }
+
+    return null;
+}
 
 /**
  * Redirect to cart for our custom add-to-cart links
@@ -275,7 +563,6 @@ add_filter( 'woocommerce_add_to_cart_redirect', function( $url ) {
  */
 add_filter( 'woocommerce_add_to_cart_validation', function( $passed, $product_id, $quantity ) {
     if ( isset( $_REQUEST['ms_redirect_cart'] ) ) {
-        // Store in session so redirect filter can see it
         WC()->session->set( 'ms_redirect_cart', true );
     }
     return $passed;

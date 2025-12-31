@@ -1,7 +1,7 @@
 <?php
 /*
-Plugin Name: monospace ART - Product Filter Page (Attributes + Availability + Price)
-Description: Filter WooCommerce products by attributes (medium, surface, size, year, format), availability, and price, with NOT logic, custom availability logic, and loading spinner.
+Plugin Name: monospace ART - Product Filter
+Description: Filter WooCommerce products by custom attributes (medium, surface, size, year, format), availability, and price, with NOT logic, custom availability logic.
 Version: 2.2.0
 Author: Hens Breet
 */
@@ -22,7 +22,7 @@ function ms_product_filter_shortcode(){
 
     $ms_admin_mode = (
         $ms_admin_filter_access_enabled &&
-        isset($_GET['admin'])
+        isset($_REQUEST['admin'])
     );
     $ms_admin_mode = true;
 
@@ -623,7 +623,7 @@ jQuery(function($){
             url: '<?= admin_url("admin-ajax.php") ?>',
             data: data,
             dataType: 'json',
-            method: 'GET',
+            method: 'POST',
             success: function(resp){
                 $grid.html(resp.html);
                 $('#ms-filter-count').text(`Found ${resp.count} items`);
@@ -669,6 +669,7 @@ jQuery(function($){
 // AJAX handler
 // ----------------------------
 function ms_filter_products_callback() {
+
     $attributes = ['pa_medium','pa_surface','pa_size','pa_year','pa_format'];
 
     $all_products = get_posts([
@@ -678,6 +679,9 @@ function ms_filter_products_callback() {
     ]);
 
     $total_count = count($all_products);
+
+
+
 
     $normal_products = array_filter($all_products, function($p_id){
         $product_categories = wp_get_post_terms($p_id, 'product_cat', ['fields'=>'slugs']);
@@ -689,29 +693,29 @@ function ms_filter_products_callback() {
 
     $tax_query = [];
     foreach($attributes as $tax){
-        if(!empty($_GET[$tax])){
-            $is_not = !empty($_GET[$tax . '_not']);
+        if(!empty($_REQUEST[$tax])){
+            $is_not = !empty($_REQUEST[$tax . '_not']);
             $tax_query[] = [
                 'taxonomy' => $tax,
                 'field' => 'slug',
-                'terms' => sanitize_text_field($_GET[$tax]),
+                'terms' => sanitize_text_field($_REQUEST[$tax]),
                 'operator' => $is_not ? 'NOT IN' : 'IN'
             ];
         }
     }
 
-    $avail = !empty($_GET['availability']) ? sanitize_text_field($_GET['availability']) : '';
-    $is_not_availability = !empty($_GET['availability_not']);
+    $avail = !empty($_REQUEST['availability']) ? sanitize_text_field($_REQUEST['availability']) : '';
+    $is_not_availability = !empty($_REQUEST['availability_not']);
 
     // Apply price filter ONLY when:
     // 1. availability is 'available'
     // 2. AND NOT excluded
     // 3. AND price params are provided
     $meta_query = [];
-    if ($avail === 'available' && !$is_not_availability && !empty($_GET['price_min']) && !empty($_GET['price_max'])) {
+    if ($avail === 'available' && !$is_not_availability && !empty($_REQUEST['price_min']) && !empty($_REQUEST['price_max'])) {
         $meta_query[] = [
             'key' => '_price',
-            'value' => [floatval($_GET['price_min']), floatval($_GET['price_max'])],
+            'value' => [floatval($_REQUEST['price_min']), floatval($_REQUEST['price_max'])],
             'type' => 'NUMERIC',
             'compare' => 'BETWEEN'
         ];
@@ -724,7 +728,7 @@ function ms_filter_products_callback() {
         'tax_query'      => $tax_query ?: [],
         'meta_query'     => $meta_query ?: [],
         'orderby'        => 'date',
-        'order'          => (!empty($_GET['order']) && $_GET['order'] === 'ASC') ? 'ASC' : 'DESC',
+        'order'          => (!empty($_REQUEST['order']) && $_REQUEST['order'] === 'ASC') ? 'ASC' : 'DESC',
         'fields'         => 'ids',
         'post__in'       => $normal_products,
     ];

@@ -1,0 +1,263 @@
+/* monospace Sales Dashboard Admin Styles */
+
+.msd-settings-wrap {
+    margin-top: 20px;
+}
+
+.msd-tabs {
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.msd-tabs li a {
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 4px 4px 0 0;
+}
+
+.msd-tabs li a.current {
+    background: #f0f0f1;
+    font-weight: 600;
+}
+
+/* Section headers */
+.msd-settings-wrap h2,
+.msd-settings-wrap h3 {
+    margin-top: 0;
+    padding-top: 10px;
+}
+
+/* Helper text */
+.msd-settings-wrap .description {
+    font-style: italic;
+    color: #646970;
+}
+
+/* Conflict resolution priority */
+.msd-priority-notice {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 12px;
+    margin: 15px 0;
+}
+
+.msd-priority-notice p {
+    margin: 0;
+}
+
+/* Product editor overrides */
+.msd-product-overrides {
+    border-top: 1px solid #eee;
+    padding-top: 12px !important;
+    margin-top: 12px;
+}
+
+.msd-product-overrides p:first-child {
+    color: #2271b1;
+    margin-bottom: 8px;
+}
+
+/* Products list column indicators */
+.column-msd_overrides {
+    width: 120px;
+}
+
+.column-msd_overrides span {
+    display: inline-block;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+/* ========================================
+   HINT STYLING PREVIEW
+   ======================================== */
+
+.msd-hint-preview-wrap {
+    margin: 20px 0;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.msd-hint-preview-wrap h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+#msd-hint-preview {
+    display: block;
+}
+
+/* Color picker fields */
+input[type="color"] {
+    width: 60px;
+    height: 30px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+/* Style form fields in badges section */
+.msd-settings-wrap input[type="text"].regular-text {
+    width: 400px;
+}
+
+.msd-settings-wrap input[type="number"] {
+    width: 80px;
+}
+
+/* ========================================
+   VISUAL RULE BUILDER
+   ======================================== */
+
+.msd-rule-builder {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    padding: 20px;
+    margin: 20px 0;
+    border-radius: 4px;
+}
+
+.msd-rule-group {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+.msd-rule-group-header {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    align-items: center;
+}
+
+.msd-rule-key {
+    flex: 1;
+    padding: 8px;
+    font-family: monospace;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+.msd-rules-list {
+    margin-bottom: 10px;
+}
+
+.msd-rule {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 3px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.msd-rule-type {
+    min-width: 200px;
+}
+
+.msd-rule-fields {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.msd-rule-fields input {
+    width: 80px;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+.msd-remove-rule {
+    color: #dc3232;
+    padding: 4px 8px !important;
+    min-height: auto !important;
+}
+
+.msd-remove-rule:hover {
+    background: #dc3232 !important;
+    color: #fff !important;
+}
+
+/* ========================================
+   BULK EDITOR
+   ======================================== */
+
+.msd-bulk-editor-wrap {
+    background: #fff;
+    padding: 20px;
+}
+
+.msd-bulk-filter,
+.msd-bulk-actions {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 20px;
+    margin: 20px 0;
+    border-radius: 4px;
+}
+
+.msd-product-list {
+    margin-top: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.msd-product-list table {
+    margin: 0;
+}
+
+.msd-product-list td,
+.msd-product-list th {
+    padding: 8px 10px;
+}
+
+.msd-search-results {
+    margin-top: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    background: #fff;
+    display: none;
+}
+
+.msd-search-results.active {
+    display: block;
+}
+
+.msd-search-result-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.msd-search-result-item:hover {
+    background: #f0f0f1;
+}
+
+/* ========================================
+   IMPORT/EXPORT
+   ======================================== */
+
+.msd-import-export-wrap {
+    background: #fff;
+    padding: 20px;
+}
+
+.msd-import-export-wrap form {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 20px;
+    margin: 20px 0;
+    border-radius: 4px;
+}

@@ -175,130 +175,44 @@ function ms_show_date_on_blog_posts_everywhere( $content ) {
 
 
 
-// Index only the last 4 digits of the SKU for search, allowing partial matches
-add_filter('relevanssi_content_to_index', function ($content, $post) {
-    $sku = get_post_meta($post->ID, '_sku', true);
-    if ($sku) {
-        // Extract last 4 digits
-        if (preg_match('/(\d{4})$/', $sku, $matches)) {
-            $last4 = $matches[1];
-            // Add full last 4 digits and each partial substring
-            for ($i = 1; $i <= 4; $i++) {
-                $content .= ' ' . substr($last4, -$i);
-            }
-        }
-    }
-    return $content;
-}, 10, 2);
 
-// Boost relevance for exact or partial last-4 matches
-add_filter('relevanssi_hits_filter', function ($hits, $query) {
-    $q = $query->query_vars['s'];
-    foreach ($hits as $id => $hit) {
-        $sku = get_post_meta($hit->ID, '_sku', true);
-        if ($sku && preg_match('/(\d{4})$/', $sku, $matches)) {
-            $last4 = $matches[1];
-            if (strpos($last4, $q) !== false) {
-                // Boost relevance
-                $hits[$id]->relevance += 10;
-            }
-        }
-    }
-    return $hits;
-}, 10, 2);
+// TEMPORARY DEBUG - Remove after troubleshooting
+add_action('wp_footer', function() {
+    if (!current_user_can('manage_options')) return;
 
+    global $post;
+    if (!$post) return;
 
+    $product = wc_get_product($post->ID);
+    if (!$product) return;
 
+    echo '<div style="position:fixed;bottom:0;left:0;background:#000;color:#0f0;padding:10px;font-family:monospace;font-size:11px;max-width:400px;z-index:9999;">';
+    echo '<strong>DEBUG INFO:</strong><br>';
 
+    // Check settings
+    echo 'Volume enabled: ' . (get_option('msd_volume_enable') === 'yes' ? 'YES' : 'NO') . '<br>';
+    echo 'Hints enabled: ' . (get_option('msd_hints_enable') === 'yes' ? 'YES' : 'NO') . '<br>';
 
+    // Check JSON
+    $json = get_option('msd_volume_rules', '');
+    echo 'JSON exists: ' . (!empty($json) ? 'YES' : 'NO') . '<br>';
 
+    // Check product attributes
+    $terms = wp_get_post_terms($post->ID, 'pa_size', ['fields' => 'slugs']);
+    echo 'pa_size terms: ' . print_r($terms, true) . '<br>';
+    echo 'Has 4x4: ' . (in_array('4x4', (array)$terms) ? 'YES' : 'NO') . '<br>';
 
+    // Check match
+    $matches = monospace_product_matches_volume_rule($post->ID, 'miniature');
+    echo 'Matches miniature rule: ' . ($matches ? 'YES' : 'NO') . '<br>';
 
-
-
-
-
-
-// custom category headers
-
-/**
- * Add custom headers to specific category archives
- */
-add_action( 'astra_primary_content_top', 'monospace_category_custom_header' );
-
-function monospace_category_custom_header() {
-
-	if ( is_category() ) {
-
-		$category = get_queried_object();
-
-		if ( ! $category || empty( $category->slug ) ) {
-			return;
-		}
-
-		switch ( $category->slug ) {
-
-			case 'drawing':
-				$title = 'Drawings';
-				$description = 'Works in pen & ink, with added watercolor or markers';
-				$description .= '<small><br><br>&bullet; Click any image for details</small>';
-				$description .= '<small><br>&bullet; Order a custom drawing <a href="/services/custom-work">here</a></small>';
-				break;
-
-			case 'painting':
-				$title = 'Paintings';
-				$description = 'Paintings made with casein, gouache, or acrylics';
-				$description .= '<small><br><br>&bullet; Click any image for details</small>';
-				$description .= '<small><br>&bullet; Order a custom painting <a href="/services/custom-work">here</a></small>';
-				break;
-
-			case 'miniature':
-				$title = 'Miniatures';
-				$description = 'Miniature acrylic paintings on 4" &times; 4" canvas panels';
-				$description .= '<small><br><br>&bullet; Click any image for details</small>';
-				$description .= '<small><br>&bullet; Order a custom miniature painting <a href="/services/custom-work">here</a></small>';
-				break;
-
-
-
-			default:
-				return; // Do nothing for other categories
-		}
-
-		echo '<header class="archive-custom-header">';
-		echo '<h2 class="archive-title">' . esc_html( $title ) . '</h2>';
-
-		if ( ! empty( $description ) ) {
-			echo '<p class="archive-description">' . $description . '</p>';
-		}
-
-		echo '</header>';
-	}
-}
-
-
-
-
-// Usage: [external_html url="https://example.com/content.html" class="my-custom-class"]
-add_shortcode('external_html', function($atts) {
-    $url   = $atts['url'] ?? '';
-    $class = $atts['class'] ?? 'external-html-container'; // default class
-
-    if (empty($url)) {
-        return 'No URL provided';
-    }
-
-    $response = wp_remote_get($url);
-
-    if (is_wp_error($response)) {
-        return 'Error loading content';
-    }
-
-    $html = wp_remote_retrieve_body($response);
-
-    // Optionally sanitize/filter the HTML
-   // $html = wp_kses_post($html);
-
-    // Wrap in a div with a class for styling
-    return sprintf('<div class="%s">%s</div>', esc_attr($class), $html);
+    echo '</div>';
 });
+
+
+
+
+
+
+
+
