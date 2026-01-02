@@ -76,6 +76,10 @@ $og_image = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(),'full
 </script>
 
 <?php wp_head(); ?>
+
+
+
+
 </head>
 
 <body <?php body_class(); ?>>

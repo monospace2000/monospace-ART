@@ -1,0 +1,99 @@
+<?php
+/**
+ * Block Editor Configuration
+ */
+
+/**
+ * Load theme styles in block editor
+ */
+add_action('after_setup_theme', function() {
+    add_theme_support('editor-styles');
+
+    add_editor_style([
+        'assets/styles/01-global.css',
+        'assets/styles/02-header.css',
+        'assets/styles/03-menu.css',
+        'assets/styles/04-layout.css',
+        'assets/styles/05-archives.css',
+        'assets/styles/06-components.css',
+        'assets/styles/07-woocommerce.css',
+    ]);
+});
+
+
+
+
+/**
+ * Enqueue block editor outlines
+ */
+add_action('enqueue_block_editor_assets', function() {
+    wp_add_inline_style(
+        'wp-edit-blocks',
+        '
+        /* Match your front-end max-width */
+        .editor-styles-wrapper {
+            max-width: var(--column-center-width); /* Adjust to match your theme */
+            margin: 0 auto;
+            padding: var(--global-padding);
+        }
+
+        /* Base outline for all blocks */
+        .wp-block,
+        .editor-block-list__block {
+            outline: 1px dotted rgba(0,0,0,0.25) !important;
+            outline-offset: -2px;
+        }
+
+        /* Nesting levels */
+        .wp-block .wp-block,
+        .editor-block-list__block .editor-block-list__block {
+            outline-color: rgba(0,0,0,0.3) !important;
+        }
+        .wp-block .wp-block .wp-block,
+        .editor-block-list__block .editor-block-list__block .editor-block-list__block {
+            outline-color: rgba(0,0,0,0.35) !important;
+        }
+        .wp-block .wp-block .wp-block .wp-block,
+        .editor-block-list__block .editor-block-list__block .editor-block-list__block .editor-block-list__block {
+            outline-color: rgba(0,0,0,0.4) !important;
+        }
+        .wp-block .wp-block .wp-block .wp-block .wp-block,
+        .editor-block-list__block .editor-block-list__block .editor-block-list__block .editor-block-list__block .editor-block-list__block {
+            outline-color: rgba(0,0,0,0.45) !important;
+        }
+
+        /* Selected block */
+        .wp-block.is-selected,
+        .editor-block-list__block.is-selected {
+            outline-style: solid !important;
+            outline-color: rgba(0,0,0,0.6) !important;
+        }
+
+        /* Parent of selected block */
+        .wp-block.has-child-selected,
+        .editor-block-list__block.has-child-selected {
+            outline-style: solid !important;
+            outline-color: rgba(0,0,0,0.4) !important;
+        }
+
+        /* Dark mode */
+        @media (prefers-color-scheme: dark) {
+            .wp-block, .editor-block-list__block { outline-color: rgba(255,255,255,0.2) !important; }
+            .wp-block .wp-block, .editor-block-list__block .editor-block-list__block { outline-color: rgba(255,255,255,0.3) !important; }
+            .wp-block .wp-block .wp-block, .editor-block-list__block .editor-block-list__block .editor-block-list__block { outline-color: rgba(255,255,255,0.4) !important; }
+            .wp-block .wp-block .wp-block .wp-block, .editor-block-list__block .editor-block-list__block .editor-block-list__block .editor-block-list__block { outline-color: rgba(255,255,255,0.5) !important; }
+            .wp-block .wp-block .wp-block .wp-block .wp-block, .editor-block-list__block .editor-block-list__block .editor-block-list__block .editor-block-list__block .editor-block-list__block { outline-color: rgba(255,255,255,0.6) !important; }
+
+            .wp-block.is-selected, .editor-block-list__block.is-selected { outline-color: rgba(255,255,255,0.85) !important; }
+            .wp-block.has-child-selected, .editor-block-list__block.has-child-selected { outline-color: rgba(255,255,255,0.65) !important; }
+        }
+
+        /* Exclude placeholders and UI chrome */
+        .wp-block.is-placeholder,
+        .block-editor-default-block-appender,
+        .block-list-appender {
+            outline: none !important;
+        }
+        '
+    );
+});

@@ -1,0 +1,15 @@
+{
+  "name": "monospace-art-theme",
+  "version": "1.0.0",
+  "description": "WordPress theme for monospace art gallery",
+  "scripts": {
+    "watch": "sass --watch assets/scss:assets/css",
+    "build": "sass assets/scss:assets/css --style compressed"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "sass": "^1.97.1"
+  }
+}

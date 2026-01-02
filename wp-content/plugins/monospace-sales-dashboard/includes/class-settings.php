@@ -844,7 +844,7 @@ class MSD_Settings {
             ['title' => 'Apply to Categories', 'id' => 'msd_price_adj_categories', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'options' => self::get_product_categories()],
             ['title' => 'Apply to Tags', 'id' => 'msd_price_adj_tags', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'options' => self::get_product_tags()],
             ['title' => 'Exclude Categories', 'id' => 'msd_price_adj_exclude_cats', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'options' => self::get_product_categories()],
-            ['title' => 'Rounding', 'id' => 'msd_rounding', 'type' => 'select', 'options' => ['none' => 'None', 'up' => 'Round up', 'down' => 'Round down', 'nearest' => 'Round to nearest'], 'default' => 'none'],
+            ['title' => 'Exclude Tags', 'id' => 'msd_price_adj_exclude_tags', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'options' => self::get_product_tags()],            ['title' => 'Rounding', 'id' => 'msd_rounding', 'type' => 'select', 'options' => ['none' => 'None', 'up' => 'Round up', 'down' => 'Round down', 'nearest' => 'Round to nearest'], 'default' => 'none'],
             ['title' => 'Charm Pricing', 'id' => 'msd_charm_pricing', 'type' => 'select', 'options' => ['none' => 'None', 'up' => 'Round up to .99', 'down' => 'Round down to .99'], 'default' => 'none'],
             ['type' => 'sectionend', 'id' => 'msd_price_adj_end'],
         ];

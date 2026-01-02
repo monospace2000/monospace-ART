@@ -50,9 +50,15 @@ class MSD_Price_Adjustments {
             return $price;
         }
 
-        // Check exclusions first
+        // Check category exclusions
         $exclude_cats = (array) get_option('msd_price_adj_exclude_cats', []);
         if (!empty($exclude_cats) && has_term($exclude_cats, 'product_cat', $product_id)) {
+            return $price;
+        }
+
+        // Check tag exclusions
+        $exclude_tags = (array) get_option('msd_price_adj_exclude_tags', []);
+        if (!empty($exclude_tags) && has_term($exclude_tags, 'product_tag', $product_id)) {
             return $price;
         }
 

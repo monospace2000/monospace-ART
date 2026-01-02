@@ -13,10 +13,10 @@ define( 'MONOSPACE_ART_THEME_VERSION', '1.0.0' );
 define( 'MONOSPACE_ART_THEME_DIR', get_template_directory() );
 define( 'MONOSPACE_ART_THEME_URI', get_template_directory_uri() );
 
-require_once MONOSPACE_ART_THEME_DIR . '/inc/core/enqueue.php';
-require_once MONOSPACE_ART_THEME_DIR . '/inc/core/setup.php';
-require_once MONOSPACE_ART_THEME_DIR . '/inc/core/sidebars.php';
-require_once MONOSPACE_ART_THEME_DIR . '/inc/core/editor.php';
+require_once MONOSPACE_ART_THEME_DIR . '/includes/core/enqueue.php';
+require_once MONOSPACE_ART_THEME_DIR . '/includes/core/setup.php';
+require_once MONOSPACE_ART_THEME_DIR . '/includes/core/sidebars.php';
+require_once MONOSPACE_ART_THEME_DIR . '/includes/core/editor.php';
 
 
 /**
@@ -38,7 +38,7 @@ function monospace_log( $message ) {
  * ------------------------------
  */
 function monospace_art_load_modules() {
-    $base_dir = MONOSPACE_ART_THEME_DIR . '/inc/modules';
+    $base_dir = MONOSPACE_ART_THEME_DIR . '/includes/modules';
     if ( ! is_dir( $base_dir ) ) return;
 
     $exclude_dirs = ['disabled'];
@@ -91,7 +91,7 @@ add_action( 'init', 'monospace_art_load_modules');
 
 // Include About page only in admin
 if ( is_admin() ) {
-   // require_once get_stylesheet_directory() . '/inc/admin/about.php';
+   // require_once get_stylesheet_directory() . '/includes/admin/about.php';
 }
 
 add_action( 'admin_menu', function() {
@@ -128,86 +128,10 @@ add_action( 'admin_init', function() {
 
 
 
-/**
- * Show publication date for posts in the "blog" category:
- * - single blog posts
- * - blog category archive
- * - main posts feed (home/blog index)
- */
-add_filter( 'the_content', 'ms_show_date_on_blog_posts_everywhere' );
-function ms_show_date_on_blog_posts_everywhere( $content ) {
-
-    // We only add dates to normal posts
-    if ( get_post_type() !== 'post' ) {
-        return $content;
-    }
-
-    $is_blog_post = has_category( 'blog' );
-
-    // --- SINGLE POST ---
-    if ( is_singular( 'post' ) && $is_blog_post ) {
-        $date_html = '<p class="post-date">' . get_the_date() . '</p>';
-        return $date_html . $content;
-    }
-
-    // --- BLOG CATEGORY ARCHIVE ---
-    if ( is_category( 'blog' ) && is_main_query() ) {
-        $date_html = '<p class="post-date">' . get_the_date() . '</p>';
-        return $date_html . $content;
-    }
-
-    // --- MAIN FEED (home / posts page) ---
-    if ( ( is_home() || is_archive() ) && is_main_query() && $is_blog_post ) {
-        $date_html = '<p class="post-date">' . get_the_date() . '</p>';
-        return $date_html . $content;
-    }
-
-    return $content;
-}
 
 
 
 
-
-
-
-
-
-
-
-
-// TEMPORARY DEBUG - Remove after troubleshooting
-add_action('wp_footer', function() {
-    if (!current_user_can('manage_options')) return;
-
-    global $post;
-    if (!$post) return;
-
-    $product = wc_get_product($post->ID);
-    if (!$product) return;
-
-    echo '<div style="position:fixed;bottom:0;left:0;background:#000;color:#0f0;padding:10px;font-family:monospace;font-size:11px;max-width:400px;z-index:9999;">';
-    echo '<strong>DEBUG INFO:</strong><br>';
-
-    // Check settings
-    echo 'Volume enabled: ' . (get_option('msd_volume_enable') === 'yes' ? 'YES' : 'NO') . '<br>';
-    echo 'Hints enabled: ' . (get_option('msd_hints_enable') === 'yes' ? 'YES' : 'NO') . '<br>';
-
-    // Check JSON
-    $json = get_option('msd_volume_rules', '');
-    echo 'JSON exists: ' . (!empty($json) ? 'YES' : 'NO') . '<br>';
-
-    // Check product attributes
-    $terms = wp_get_post_terms($post->ID, 'pa_size', ['fields' => 'slugs']);
-    echo 'pa_size terms: ' . print_r($terms, true) . '<br>';
-    echo 'Has 4x4: ' . (in_array('4x4', (array)$terms) ? 'YES' : 'NO') . '<br>';
-
-    // Check match
-    $matches = monospace_product_matches_volume_rule($post->ID, 'miniature');
-    echo 'Matches miniature rule: ' . ($matches ? 'YES' : 'NO') . '<br>';
-
-    echo '</div>';
-});
 
 
 

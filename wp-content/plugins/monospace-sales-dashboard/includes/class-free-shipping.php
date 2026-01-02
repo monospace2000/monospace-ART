@@ -251,6 +251,7 @@ class MSD_Free_Shipping {
 
     /**
      * Make message product-specific (replace "items" with actual product type)
+     * Generic implementation - uses category names from cart
      */
     private static function make_product_specific($message, $quantity) {
         // Check if message contains "items" or "item"
@@ -258,15 +259,18 @@ class MSD_Free_Shipping {
             return $message;
         }
 
-        // Get product type names from cart
-        $type_names = self::get_cart_product_type_names();
+        // Get product type name from cart
+        $type_name = self::get_cart_product_type_name();
 
-        if (!$type_names) {
+        if (!$type_name) {
             return $message; // No specific type found, keep as is
         }
 
-        // Use singular or plural based on quantity
-        $replacement = ($quantity == 1) ? $type_names['singular'] : $type_names['plural'];
+        // Use singular or plural
+        $singular = $type_name;
+        $plural = (substr($type_name, -1) === 's') ? $type_name : $type_name . 's';
+
+        $replacement = ($quantity == 1) ? $singular : $plural;
 
         // Replace "items" and "item"
         $message = str_replace('items', $replacement, $message);
@@ -276,62 +280,37 @@ class MSD_Free_Shipping {
     }
 
     /**
-     * Get product type names from cart (same logic as volume discounts)
+     * Get product type name from cart (generic - uses categories)
+     * Returns lowercase category name if all items are from same category
      */
-    private static function get_cart_product_type_names() {
+    private static function get_cart_product_type_name() {
         if (!WC()->cart) {
             return null;
         }
 
-        // Count products by rule key (miniature, category, attribute)
-        $type_counts = [];
+        $categories = [];
 
         foreach (WC()->cart->get_cart() as $cart_item) {
             $product_id = $cart_item['product_id'];
+            $cats = wp_get_post_terms($product_id, 'product_cat', ['fields' => 'names']);
 
-            // Check if it's a miniature
-            if (self::is_miniature($product_id)) {
-                if (!isset($type_counts['miniature'])) {
-                    $type_counts['miniature'] = 0;
-                }
-                $type_counts['miniature'] += $cart_item['quantity'];
-                continue;
-            }
-
-            // Check categories
-            $categories = wp_get_post_terms($product_id, 'product_cat', ['fields' => 'slugs']);
-            if (!is_wp_error($categories) && !empty($categories)) {
-                foreach ($categories as $cat_slug) {
-                    if (!isset($type_counts[$cat_slug])) {
-                        $type_counts[$cat_slug] = 0;
-                    }
-                    $type_counts[$cat_slug] += $cart_item['quantity'];
-                }
+            if (!is_wp_error($cats) && !empty($cats)) {
+                $categories = array_merge($categories, $cats);
             }
         }
 
-        if (empty($type_counts)) {
+        if (empty($categories)) {
             return null;
         }
 
-        // Find the dominant type
-        arsort($type_counts);
-        $dominant_key = key($type_counts);
+        $categories = array_unique($categories);
 
-        // Try as tag first, then category
-        $term = get_term_by('slug', $dominant_key, 'product_tag');
-        if (!$term) {
-            $term = get_term_by('slug', $dominant_key, 'product_cat');
+        // Only return category name if all items are from same category
+        if (count($categories) === 1) {
+            return strtolower($categories[0]);
         }
 
-        if ($term) {
-            $name = strtolower($term->name);
-            $singular = (substr($name, -1) === 's') ? substr($name, 0, -1) : $name;
-            $plural = (substr($name, -1) === 's') ? $name : $name . 's';
-            return ['singular' => $singular, 'plural' => $plural];
-        }
-
-        return null;
+        return null; // Mixed categories, keep generic "items"
     }
 
     /**
@@ -364,9 +343,11 @@ class MSD_Free_Shipping {
         $cart_total = WC()->cart->get_subtotal();
         $cart_qty = WC()->cart->get_cart_contents_count();
 
-        // Find closest rule
+        // Find closest rule and track which rule key it belongs to
         $closest_amount = null;
         $closest_qty = null;
+        $closest_rule_key = null;
+        $closest_type = null;
 
         foreach ($rules as $rule_key => $rule_list) {
             foreach ($rule_list as $rule) {
@@ -376,6 +357,8 @@ class MSD_Free_Shipping {
                             $needed = floatval($rule['amount']) - $cart_total;
                             if ($needed > 0 && ($closest_amount === null || $needed < $closest_amount)) {
                                 $closest_amount = $needed;
+                                $closest_rule_key = $rule_key;
+                                $closest_type = 'amount';
                             }
                         }
                         break;
@@ -385,6 +368,8 @@ class MSD_Free_Shipping {
                             $needed = intval($rule['quantity']) - $cart_qty;
                             if ($needed > 0 && ($closest_qty === null || $needed < $closest_qty)) {
                                 $closest_qty = $needed;
+                                $closest_rule_key = $rule_key;
+                                $closest_type = 'quantity';
                             }
                         }
                         break;
@@ -393,17 +378,17 @@ class MSD_Free_Shipping {
         }
 
         // Generate message
-        if ($closest_amount !== null && $closest_amount <= 50) {
+        if ($closest_type === 'amount' && $closest_amount !== null && $closest_amount <= 50) {
             $template = get_option('msd_freeship_hint_almost_amount', 'Add {amount} more for free shipping');
             return str_replace('{amount}', wc_price($closest_amount), $template);
         }
 
-        if ($closest_qty !== null && $closest_qty <= 3) {
+        if ($closest_type === 'quantity' && $closest_qty !== null && $closest_qty <= 3) {
             $template = get_option('msd_freeship_hint_almost_qty', 'Add {qty} more items for free shipping');
             $message = str_replace('{qty}', $closest_qty, $template);
 
-            // Make product-specific by replacing "items" with actual product type
-            $message = self::make_product_specific($message, $closest_qty);
+            // Make product-specific using the actual rule key
+            $message = self::make_product_specific_from_rule_key($message, $closest_qty, $closest_rule_key);
 
             return $message;
         }
@@ -411,6 +396,74 @@ class MSD_Free_Shipping {
         return '';
     }
 
-}
+    /**
+     * Make message product-specific based on rule key
+     */
+    private static function make_product_specific_from_rule_key($message, $quantity, $rule_key) {
+        // Check if message contains "items" or "item"
+        if (strpos($message, 'items') === false && strpos($message, 'item') === false) {
+            return $message;
+        }
 
-// No custom styles needed - using WooCommerce native notices
+        // Get product type name based on rule key
+        $type_name = self::get_product_type_from_rule_key($rule_key);
+
+        if (!$type_name) {
+            return $message; // No specific type found, keep as is
+        }
+
+        // Use singular or plural
+        $singular = $type_name;
+        $plural = (substr($type_name, -1) === 's') ? $type_name : $type_name . 's';
+
+        $replacement = ($quantity == 1) ? $singular : $plural;
+
+        // Replace "items" and "item"
+        $message = str_replace('items', $replacement, $message);
+        $message = str_replace('item', $replacement, $message);
+
+        return $message;
+    }
+
+    /**
+     * Get product type name from rule key
+     */
+    private static function get_product_type_from_rule_key($rule_key) {
+        if (empty($rule_key)) {
+            return null;
+        }
+
+        // Special case: "miniature" is a common rule key
+        if ($rule_key === 'miniature') {
+            return 'miniature';
+        }
+
+        // Check if it's a category slug
+        $term = get_term_by('slug', $rule_key, 'product_cat');
+        if ($term) {
+            return strtolower($term->name);
+        }
+
+        // Check if it's a tag slug
+        $term = get_term_by('slug', $rule_key, 'product_tag');
+        if ($term) {
+            return strtolower($term->name);
+        }
+
+        // If rule key is "attr:taxonomy=term", extract the term
+        if (strpos($rule_key, 'attr:') === 0) {
+            $payload = substr($rule_key, 5);
+            if (strpos($payload, '=') !== false) {
+                list($tax, $slug) = explode('=', $payload, 2);
+                $term = get_term_by('slug', $slug, trim($tax));
+                if ($term) {
+                    return strtolower($term->name);
+                }
+            }
+        }
+
+        // Fallback: use the rule key itself as the type name
+        return strtolower(str_replace('-', ' ', $rule_key));
+    }
+
+}

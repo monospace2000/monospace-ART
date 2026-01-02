@@ -383,8 +383,6 @@ class MSD_Volume_Discounts {
             $plural = (substr($name, -1) === 's') ? $name : $name . 's';
             return ['singular' => $singular, 'plural' => $plural];
         }
-            }
-        }
 
         return null;
     }
