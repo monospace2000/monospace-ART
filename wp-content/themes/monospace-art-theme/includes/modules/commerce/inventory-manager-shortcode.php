@@ -222,7 +222,12 @@ function mit_render_terminal() {
         Status: <strong class="<?php echo $availability_class; ?>"><?php echo esc_html($availability_label); ?></strong>
 
         <div style="margin:15px 0;">
-            <?php echo $product->get_image('full'); ?>
+            <div style="margin:15px 0;">
+                <?php
+                $image = $product->get_image('full');
+                echo str_replace('<img', '<img style="max-width:100%; height:auto; display:block;"', $image);
+                ?>
+            </div>
         </div>
 
         <?php if ($related_post_id): ?>

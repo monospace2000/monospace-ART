@@ -18,19 +18,19 @@ function ms_show_date_on_blog_posts_everywhere( $content ) {
 
     // --- SINGLE POST ---
     if ( is_singular( 'post' ) && $is_blog_post ) {
-        $date_html = '<p class="post-date">' . get_the_date() . '</p>';
+        $date_html = '<p class="post-date"><a href="' . esc_url( get_permalink() ) . '">' . get_the_date() . '</a></p>';
         return $date_html . $content;
     }
 
     // --- BLOG CATEGORY ARCHIVE ---
     if ( is_category( 'blog' ) && is_main_query() ) {
-        $date_html = '<p class="post-date">' . get_the_date() . '</p>';
+        $date_html = '<p class="post-date"><a href="' . esc_url( get_permalink() ) . '">' . get_the_date() . '</a></p>';
         return $date_html . $content;
     }
 
     // --- MAIN FEED (home / posts page) ---
     if ( ( is_home() || is_archive() ) && is_main_query() && $is_blog_post ) {
-        $date_html = '<p class="post-date">' . get_the_date() . '</p>';
+        $date_html = '<p class="post-date"><a href="' . esc_url( get_permalink() ) . '">' . get_the_date() . '</a></p>';
         return $date_html . $content;
     }
 

@@ -12,49 +12,48 @@ if ( ! defined( 'ABSPATH' ) ) exit;
    FRONTEND: Customer-Facing Commissions Tab
    ===================================================== */
 
-/* 1) Register endpoint properly with WooCommerce */
-function ms_register_commissions_endpoint() {
-    // Don't use add_rewrite_endpoint - let WooCommerce handle it
-    // Just register the query var
+/**
+ * Register endpoint + query var for "My Commissions"
+ * Handle case where file loads after init has fired
+ */
+if (did_action('init')) {
+    add_rewrite_endpoint('my-commissions', EP_ROOT | EP_PAGES);
+} else {
+    add_action('init', function () {
+        add_rewrite_endpoint('my-commissions', EP_ROOT | EP_PAGES);
+    });
 }
-add_action('init', 'ms_register_commissions_endpoint', 0);
 
-/* 1a) Force WooCommerce to recognize and create rewrite rules */
-add_filter('woocommerce_get_query_vars', function($vars) {
-    $vars['commissions'] = 'commissions';
+add_filter('query_vars', function ($vars) {
+    $vars[] = 'my-commissions';
     return $vars;
-}, 0);
+});
 
-/* 1b) Flush on activation */
-function ms_activate_commissions_endpoint() {
-    // Let WooCommerce register its endpoints first
-    add_filter('woocommerce_get_query_vars', function($vars) {
-        $vars['commissions'] = 'commissions';
-        return $vars;
-    }, 0);
+add_filter('woocommerce_get_query_vars', function($vars) {
+    $vars['my-commissions'] = 'my-commissions';
+    return $vars;
+});
 
-    // Force WooCommerce to re-register endpoints
-    WC()->query->init_query_vars();
-    WC()->query->add_endpoints();
-
+/* One-time flush after endpoint registration */
+if (!get_option('ms_commissions_endpoint_flushed_v3')) {
     flush_rewrite_rules();
+    update_option('ms_commissions_endpoint_flushed_v3', true);
 }
-register_activation_hook(__FILE__, 'ms_activate_commissions_endpoint');
-add_action('after_switch_theme', 'ms_activate_commissions_endpoint');
 
-/* 2) Add to account menu */
+
+/* 3) Insert tab after Orders */
 add_filter('woocommerce_account_menu_items', function($items) {
     $new = array();
     foreach ($items as $key => $label) {
         $new[$key] = $label;
         if ($key === 'orders') {
-            $new['commissions'] = __('Commissions', 'monospace-art-theme');
+            $new['my-commissions'] = __('Commissions', 'monospace-art-theme');
         }
     }
     return $new;
 }, 20);
 
-/* 3) Add badge count via JavaScript */
+/* 3b) Add badge count via JavaScript */
 add_action('wp_footer', function() {
     if (!is_account_page()) return;
 
@@ -63,7 +62,7 @@ add_action('wp_footer', function() {
         ?>
         <script>
         document.addEventListener('DOMContentLoaded', function() {
-            var commissionLink = document.querySelector('.woocommerce-MyAccount-navigation-link--commissions a');
+            var commissionLink = document.querySelector('.woocommerce-MyAccount-navigation-link--my-commissions a');
             if (commissionLink) {
                 var badge = document.createElement('span');
                 badge.className = 'ms-badge';
@@ -100,7 +99,7 @@ add_action('wp_footer', function() {
  */
 
 /* 4) Render commissions tab */
-add_action( 'woocommerce_account_commissions_endpoint', function() {
+add_action( 'woocommerce_account_my-commissions_endpoint', function() {
 
     if ( ! is_user_logged_in() ) {
         echo '<p>Please log in to view your commissions.</p>';
@@ -141,6 +140,7 @@ add_action( 'woocommerce_account_commissions_endpoint', function() {
     if (!$has_commissions) {
         echo '<div class="woocommerce-notices-wrapper woocommerce-info">';
         echo esc_html__('No commissions available yet.', 'monospace-art-theme');
+        echo ' <a class="button" href="/services/custom-work/">' . esc_html__('Browse custom orders', 'monospace-art-theme') . '</a>';
         echo '</div>';
         return;
     }
@@ -205,7 +205,7 @@ add_action( 'woocommerce_account_commissions_endpoint', function() {
                 'Full Price' => '<span class="commission-price" style="font-size:1em;font-weight:normal;">' . wc_price($c['full_price']) . '</span>',
                 'Deposit (' . intval($c['deposit_percent']) . '%)' => '<span class="commission-price" style="font-size:1em;font-weight:normal;">' . wc_price($c['deposit']) . '</span>',
                 'Remaining' => '<span class="commission-price" style="font-size:1em;font-weight:normal;">' . wc_price($c['remaining']) . '</span>',
-                'Special Requests' => $item->get_meta('_commission_special_request', true) ?: 'â€”',
+                'Special Requests' => $item->get_meta('_commission_special_request', true) ?: '—',
             ];
 
             foreach ($fields as $label => $value) {
@@ -226,7 +226,7 @@ add_action( 'woocommerce_account_commissions_endpoint', function() {
                 }
                 echo '</div>';
             } else {
-                echo 'â€”';
+                echo '—';
             }
             echo '</div>';
 
@@ -520,7 +520,7 @@ add_action( 'admin_footer', function() {
                     console.log('Upload response:', response);
 
                     if (response.success) {
-                        $status.removeClass('uploading').addClass('success').text('âœ“ Uploaded ' + response.data.count + ' file(s) - Email sent!');
+                        $status.removeClass('uploading').addClass('success').text('✓ Uploaded ' + response.data.count + ' file(s) - Email sent!');
                         $fileInput.val('');
 
                         setTimeout(function() {
@@ -713,7 +713,7 @@ function ms_send_commission_preview_email( $order, $item, $preview_urls, $custom
     }
     echo '</div>';
 
-    echo '<p><a href="' . esc_url(wc_get_account_endpoint_url('commissions')) . '" style="background:#46b450;color:#fff;padding:10px 20px;text-decoration:none;display:inline-block;border-radius:3px;">' . __('View All Commissions', 'monospace-art-theme') . '</a></p>';
+    echo '<p><a href="' . esc_url(wc_get_account_endpoint_url('my-commissions')) . '" style="background:#46b450;color:#fff;padding:10px 20px;text-decoration:none;display:inline-block;border-radius:3px;">' . __('View All Commissions', 'monospace-art-theme') . '</a></p>';
 
     echo '<p style="color:#666;font-size:0.9em;">' . __('Order #', 'monospace-art-theme') . $order->get_id() . '</p>';
 

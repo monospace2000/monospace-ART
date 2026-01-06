@@ -3,23 +3,10 @@
  * Block Editor Configuration
  */
 
-/**
- * Load theme styles in block editor
- */
 add_action('after_setup_theme', function() {
     add_theme_support('editor-styles');
-
-    add_editor_style([
-        'assets/styles/01-global.css',
-        'assets/styles/02-header.css',
-        'assets/styles/03-menu.css',
-        'assets/styles/04-layout.css',
-        'assets/styles/05-archives.css',
-        'assets/styles/06-components.css',
-        'assets/styles/07-woocommerce.css',
-    ]);
+    add_editor_style('assets/css/editor.css');
 });
-
 
 
 

@@ -211,7 +211,7 @@ class MSD_Free_Shipping {
 
         if ($already_applied) {
             // Show success message as WooCommerce notice
-            $message = get_option('msd_freeship_hint_active', 'Free shipping applied! ✓');
+            $message = get_option('msd_freeship_hint_active', 'Free shipping applied! âœ“');
             wc_print_notice($message, 'success');
 
         } else {
@@ -350,6 +350,14 @@ class MSD_Free_Shipping {
         $closest_type = null;
 
         foreach ($rules as $rule_key => $rule_list) {
+            // Check if cart has items matching this rule key
+            $has_matching_items = self::cart_has_matching_items($rule_key);
+
+            // Skip category/tag-specific rules if cart doesn't have matching items
+            if ($rule_key !== 'global' && !$has_matching_items) {
+                continue;
+            }
+
             foreach ($rule_list as $rule) {
                 switch ($rule['type']) {
                     case 'min_amount':
@@ -394,6 +402,48 @@ class MSD_Free_Shipping {
         }
 
         return '';
+    }
+
+    /**
+     * Check if cart has items matching a rule key
+     */
+    private static function cart_has_matching_items($rule_key) {
+        if (!WC()->cart || WC()->cart->is_empty()) {
+            return false;
+        }
+
+        // 'global' always matches
+        if ($rule_key === 'global') {
+            return true;
+        }
+
+        foreach (WC()->cart->get_cart() as $cart_item) {
+            $product_id = $cart_item['product_id'];
+
+            // Check category
+            if (has_term($rule_key, 'product_cat', $product_id)) {
+                return true;
+            }
+
+            // Check tag
+            if (has_term($rule_key, 'product_tag', $product_id)) {
+                return true;
+            }
+
+            // Check attribute format: attr:taxonomy=slug
+            if (strpos($rule_key, 'attr:') === 0) {
+                $payload = substr($rule_key, 5);
+                if (strpos($payload, '=') !== false) {
+                    list($tax, $slug) = explode('=', $payload, 2);
+                    $terms = wp_get_post_terms($product_id, trim($tax), ['fields' => 'slugs']);
+                    if (!is_wp_error($terms) && in_array(trim($slug), $terms)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

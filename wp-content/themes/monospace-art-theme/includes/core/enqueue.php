@@ -65,17 +65,6 @@ function monospace_art_enqueue_assets() {
         null
     );
 
-    // Theme styles
-/*     wp_enqueue_style('monospace-global', get_template_directory_uri() . '/assets/styles/01-global.css', array('monospace-art-google-fonts'), $theme_version);
-    wp_enqueue_style('monospace-header', get_template_directory_uri() . '/assets/styles/02-header.css', array('monospace-global'), $theme_version);
-    wp_enqueue_style('monospace-menu', get_template_directory_uri() . '/assets/styles/03-menu.css', array('monospace-global'), $theme_version);
-    wp_enqueue_style('monospace-layout', get_template_directory_uri() . '/assets/styles/04-layout.css', array('monospace-global'), $theme_version);
-    wp_enqueue_style('monospace-archives', get_template_directory_uri() . '/assets/styles/05-archives.css', array('monospace-global'), $theme_version);
-    wp_enqueue_style('monospace-components', get_template_directory_uri() . '/assets/styles/06-components.css', array('monospace-global'), $theme_version);
-    wp_enqueue_style('monospace-woocommerce', get_template_directory_uri() . '/assets/styles/07-woocommerce.css', array('monospace-global'), $theme_version);
-    wp_enqueue_style('monospace-start-page', get_template_directory_uri() . '/assets/styles/start_template.css',  array('monospace-global'), $theme_version);
- */
-
         // Theme styles - compiled from SASS
     wp_enqueue_style('monospace-theme', get_template_directory_uri() . '/assets/css/style.css', array('monospace-art-google-fonts'), $theme_version);
 

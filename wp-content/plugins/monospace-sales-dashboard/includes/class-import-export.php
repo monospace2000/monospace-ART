@@ -17,11 +17,13 @@ class MSD_Import_Export {
      */
     public static function output_section() {
         ?>
+
         <div class="msd-import-export-wrap">
             <h3><?php _e('Export Configuration', 'monospace-sales'); ?></h3>
             <p><?php _e('Download your current Sales Dashboard settings as a JSON file for backup or transfer.', 'monospace-sales'); ?></p>
 
-            <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
+            <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" target="_self">
+
                 <input type="hidden" name="action" value="msd_export">
                 <?php wp_nonce_field('msd_export', 'msd_export_nonce'); ?>
 
@@ -70,9 +72,18 @@ class MSD_Import_Export {
                 </table>
 
                 <p class="submit">
-                    <button type="submit" class="button button-primary">
+                    <button type="button" class="button button-primary" id="msd-export-btn">
                         <?php _e('Download Configuration File', 'monospace-sales'); ?>
                     </button>
+
+                    <script>
+                    jQuery('#msd-export-btn').on('click', function() {
+                        var form = jQuery(this).closest('form');
+                        var data = form.serialize();
+
+                        window.location.href = '<?php echo admin_url('admin-post.php'); ?>?' + data;
+                    });
+                    </script>
                 </p>
             </form>
 
@@ -137,7 +148,7 @@ class MSD_Import_Export {
         ];
 
         // Global controls
-        if (!empty($_POST['export_global'])) {
+        if (!empty($_GET['export_global'])) {
             $export_data['global'] = [
                 'enable' => get_option('msd_global_enable'),
                 'sale_mode' => get_option('msd_sale_mode'),
@@ -147,20 +158,21 @@ class MSD_Import_Export {
         }
 
         // Price adjustments
-        if (!empty($_POST['export_price_adj'])) {
+        if (!empty($_GET['export_price_adj'])) {
             $export_data['price_adjustments'] = [
                 'enable' => get_option('msd_price_adj_enable'),
                 'percentage' => get_option('msd_price_adj_percentage'),
                 'categories' => get_option('msd_price_adj_categories'),
                 'tags' => get_option('msd_price_adj_tags'),
                 'exclude_cats' => get_option('msd_price_adj_exclude_cats'),
+                'exclude_tags' => get_option('msd_price_adj_exclude_tags'),
                 'rounding' => get_option('msd_rounding'),
                 'charm_pricing' => get_option('msd_charm_pricing'),
             ];
         }
 
         // Sale rules
-        if (!empty($_POST['export_sale_rules'])) {
+        if (!empty($_GET['export_sale_rules'])) {
             $export_data['sale_rules'] = [
                 'categories' => get_option('msd_sale_categories'),
                 'tags' => get_option('msd_sale_tags'),
@@ -170,15 +182,28 @@ class MSD_Import_Export {
         }
 
         // Volume discounts
-        if (!empty($_POST['export_volume'])) {
+        if (!empty($_GET['export_volume'])) {
             $export_data['volume_discounts'] = [
                 'enable' => get_option('msd_volume_enable'),
                 'rules' => get_option('msd_volume_rules'),
             ];
         }
 
+        // Free shipping
+        if (!empty($_GET['export_freeship'])) {
+            $export_data['free_shipping'] = [
+                'enable' => get_option('msd_freeship_enable'),
+                'coupon' => get_option('msd_freeship_coupon'),
+                'rules' => get_option('msd_freeship_rules'),
+                'hints_enable' => get_option('msd_freeship_hints_enable'),
+                'hint_active' => get_option('msd_freeship_hint_active'),
+                'hint_almost_amount' => get_option('msd_freeship_hint_almost_amount'),
+                'hint_almost_qty' => get_option('msd_freeship_hint_almost_qty'),
+            ];
+        }
+
         // Scheduling
-        if (!empty($_POST['export_scheduling'])) {
+        if (!empty($_GET['export_scheduling'])) {
             $export_data['scheduling'] = [
                 'enable' => get_option('msd_schedule_enable'),
                 'start' => get_option('msd_schedule_start'),
@@ -194,17 +219,35 @@ class MSD_Import_Export {
         }
 
         // Badges
-        if (!empty($_POST['export_badges'])) {
+        if (!empty($_GET['export_badges'])) {
             $export_data['badges'] = [
                 'enable' => get_option('msd_badges_enable'),
                 'text' => get_option('msd_badge_text'),
+                'hints_enable' => get_option('msd_hints_enable'),
+                'hint_position' => get_option('msd_hint_position'),
+                'hint_text_color' => get_option('msd_hint_text_color'),
+                'hint_secondary_color' => get_option('msd_hint_secondary_color'),
+                'hint_bg_color' => get_option('msd_hint_bg_color'),
+                'hint_border_color' => get_option('msd_hint_border_color'),
+                'hint_text_size' => get_option('msd_hint_text_size'),
+                'hint_secondary_size' => get_option('msd_hint_secondary_size'),
+                'hint_font_weight' => get_option('msd_hint_font_weight'),
+                'hint_text_align' => get_option('msd_hint_text_align'),
+                'hint_padding' => get_option('msd_hint_padding'),
+                'hint_margin' => get_option('msd_hint_margin'),
+                'hint_border_radius' => get_option('msd_hint_border_radius'),
+                'hint_border_width' => get_option('msd_hint_border_width'),
+                'hint_template_bundle' => get_option('msd_hint_template_bundle'),
+                'hint_template_bxgy' => get_option('msd_hint_template_bxgy'),
+                'hint_template_percent' => get_option('msd_hint_template_percent'),
+                'hint_secondary_text' => get_option('msd_hint_secondary_text'),
                 'hint_almost' => get_option('msd_hint_almost'),
                 'hint_active' => get_option('msd_hint_active'),
             ];
         }
 
         // Product overrides
-        if (!empty($_POST['export_products'])) {
+        if (!empty($_GET['export_products'])) {
             global $wpdb;
             $meta_keys = ['_msd_enable_sale', '_msd_show_original', '_msd_exclude_price_adj', '_msd_exclude_volume', '_msd_custom_badge'];
 
@@ -223,16 +266,20 @@ class MSD_Import_Export {
             $export_data['products'] = $products;
         }
 
-        // Generate filename
+        // Generate filename and content
         $filename = 'msd-config-' . date('Y-m-d-His') . '.json';
+        $json_output = json_encode($export_data, JSON_PRETTY_PRINT);
 
         // Send headers
         header('Content-Type: application/json');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
-        header('Pragma: no-cache');
+        header('Content-Transfer-Encoding: binary');
+        header('Content-Length: ' . strlen($json_output));
+        header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+        header('Pragma: public');
         header('Expires: 0');
 
-        echo json_encode($export_data, JSON_PRETTY_PRINT);
+        echo $json_output;
         exit;
     }
 

@@ -13,6 +13,13 @@ function monospace_is_editor_context() {
     return false;
 }
 
+
+
+
+
+
+
+
 function monospace_custom_add_to_cart_shortcode( $atts ) {
 
     $atts = shortcode_atts(
@@ -61,10 +68,7 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
     $attr_list = monospace_render_product_attributes( $product, $product_id );
     $button    = monospace_render_buy_button( $product, $status, $gallery_url, $gallery_name );
 
-    // ==========================================
-    // SALES DASHBOARD INTEGRATION
     // Get dynamic discount hint from Sales Dashboard
-    // ==========================================
     $discount_hint = monospace_get_volume_discount_hint( $product, $product_id, $status );
 
     $status_slug  = $status ? sanitize_title( $status ) : 'default';
@@ -73,7 +77,7 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
     $sku = $product->get_sku();
 
     $sku_html = $sku
-        ? '<div class="painting-sku" style="font-family:sans-serif;font-size:0.7em;color:#999;text-align:right;margin:5px 2px 0 0;">'
+        ? '<div class="painting-sku">'
             . esc_html( $sku ) .
           '</div>'
         : '';
@@ -86,7 +90,7 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
     $status_slug = $status ? sanitize_title( $status ) : '';
 
     /**
-     * CLEAN ADD-TO-CART LINK + CART REDIRECT
+     * RESPONSIVE ADD-TO-CART LINK + CART REDIRECT
      */
     if (
         $product->get_price() &&
@@ -109,7 +113,7 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
 
         } else {
 
-            // Add to cart â†’ redirect to cart
+            // Add to cart → redirect to cart
             $add_to_cart_btn =
                 '<a class="painting-buy-button" href="' .
                 esc_url(
@@ -124,8 +128,8 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
         }
 
         $price_html  =
-            '<div class="painting-price-row" style="width:100%;display:flex;justify-content:flex-end;align-items:center;gap:15px;margin-bottom:4px;">' .
-                '<div class="painting-price" style="font-size:1.2em;color:#333;">' . $price_display . '</div>' .
+            '<div class="painting-price-row">' .
+                '<div class="painting-price">' . $price_display . '</div>' .
                 '<div class="painting-cart-button">' . $add_to_cart_btn . '</div>' .
             '</div>';
     }
@@ -147,10 +151,9 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
         $price_html,
         $button,
         $sku_html,
-        $discount_hint  // Dynamic hint from Sales Dashboard
+        $discount_hint
     );
 }
-
 add_shortcode( 'painting_buy_button', 'monospace_custom_add_to_cart_shortcode' );
 
 /**

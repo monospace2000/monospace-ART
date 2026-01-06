@@ -2,7 +2,7 @@
 /*
 Plugin Name: monospace ART - Product Filter
 Description: Filter WooCommerce products by custom attributes (medium, surface, size, year, format), availability, and price, with NOT logic, custom availability logic.
-Version: 2.2.0
+Version: 2.2.1
 Author: Hens Breet
 */
 
@@ -35,19 +35,23 @@ function ms_product_filter_shortcode(){
         'gallery'   => 'At Gallery'
     ];
 
-    // Get min/max prices for slider
-    global $wpdb;
-    $price_range = $wpdb->get_row("
-        SELECT MIN(CAST(meta_value AS DECIMAL(10,2))) as min_price,
-               MAX(CAST(meta_value AS DECIMAL(10,2))) as max_price
-        FROM {$wpdb->postmeta}
-        WHERE meta_key = '_price'
-        AND meta_value != ''
-        AND meta_value > 0
-    ");
+    // Get min/max prices for slider (using actual product prices after filters)
+    $all_product_ids = get_posts([
+        'post_type' => 'product',
+        'posts_per_page' => -1,
+        'fields' => 'ids',
+    ]);
 
-    $min_price = $price_range ? floor($price_range->min_price) : 0;
-    $max_price = $price_range ? ceil($price_range->max_price) : 1000;
+    $prices = [];
+    foreach ($all_product_ids as $product_id) {
+        $product = wc_get_product($product_id);
+        if ($product && $product->get_price()) {
+            $prices[] = floatval($product->get_price());
+        }
+    }
+
+    $min_price = !empty($prices) ? floor(min($prices)) : 0;
+    $max_price = !empty($prices) ? ceil(max($prices)) : 1000;
 
     ob_start();
     ?>
@@ -180,25 +184,27 @@ function ms_product_filter_shortcode(){
     border-radius: 50%;
     cursor: pointer;
 }
+
 /* ---------------------------------------------
    RESULTS GRID – ALWAYS 3 COLUMNS
 ----------------------------------------------*/
 .ms-product-grid {
-    display: flex;
-    flex-wrap: wrap;
-    margin: -1em;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
-
 .ms-product-item {
-    width: calc(33.333% - 2em);
-    margin: 1em;
     position: relative;
-    aspect-ratio: 1 / 1;       /* force square container */
-    overflow: hidden;          /* Add this to clip overflowing content */
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
     border-radius: 5px;
     box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3) !important;
 }
+
 .ms-product-item a {
     display: block;
     height: 100%;
@@ -223,17 +229,38 @@ function ms_product_filter_shortcode(){
     left: 6px;
     width: 12px;
     height: 12px;
-    background: #27c327;
+
+    /* dark → light (top → bottom) */
+    background: linear-gradient(
+        to bottom,
+        #1a8f1a 0%,
+        #27c327 50%,
+        #4ef34e 100%
+    );
+
     border-radius: 50%;
     border: 2px solid white;
+    box-shadow:
+        0 2px 6px rgba(39, 195, 39, 0.4),
+        inset -2px -2px 4px rgba(0, 0, 0, 0.15),
+        inset 2px 2px 4px rgba(255, 255, 255, 0.6);
 }
-.ms-availability-dot2 {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    background: #27c327;
-    border-radius: 50%;
-    border: 2px solid white;
+
+.ms-availability-dot::before {
+    content: "";
+    position: absolute;
+    top: 1px;
+    left: 2px;
+    right: 2px;
+    height: 45%;
+    border-radius: inherit;
+
+    /* white → transparent (top → bottom) */
+    background: linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.9),
+        rgba(255,255,255,0)
+    );
 }
 
 /* ---------------------------------------------
@@ -241,16 +268,11 @@ function ms_product_filter_shortcode(){
 ----------------------------------------------*/
 @media (max-width: 640px) {
     .ms-product-grid {
-        margin: -1em; /* reduce outer negative margin for tighter spacing */
-    }
-    .ms-product-item {
-        width: calc(50% - 2em); /* 2 items per row */
-        margin: 1em;           /* smaller spacing */
-        font-size: 0.7em;        /* slightly smaller type */
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        padding: 12px;
     }
 }
-
-
 
 /* ---------------------------------------------
    MOBILE — RESTRUCTURE LABELS + CONTROLS
@@ -364,7 +386,7 @@ function ms_product_filter_shortcode(){
     <?php endif; ?>
 
     <!-- ACTION BUTTONS -->
-    <div style="padding:18px 20px;">A green dot <span class="ms-availability-dot2"></span> indicates item availability.</div>
+    <div style="padding:18px 20px;font-size: 0.8em;">A green dot <span class="ms-availability-dot" style="display: inline-block; position: relative; bottom: -2px; left: 0;"></span> indicates item availability.</div>
     <div class="ms-filter-actions">
         <button type="button" id="ms-reverse-order" class="ms-filter-btn">Newest First</button>
         <div id="ms-filter-count">Found 0 items</div>
@@ -707,26 +729,11 @@ function ms_filter_products_callback() {
     $avail = !empty($_REQUEST['availability']) ? sanitize_text_field($_REQUEST['availability']) : '';
     $is_not_availability = !empty($_REQUEST['availability_not']);
 
-    // Apply price filter ONLY when:
-    // 1. availability is 'available'
-    // 2. AND NOT excluded
-    // 3. AND price params are provided
-    $meta_query = [];
-    if ($avail === 'available' && !$is_not_availability && !empty($_REQUEST['price_min']) && !empty($_REQUEST['price_max'])) {
-        $meta_query[] = [
-            'key' => '_price',
-            'value' => [floatval($_REQUEST['price_min']), floatval($_REQUEST['price_max'])],
-            'type' => 'NUMERIC',
-            'compare' => 'BETWEEN'
-        ];
-    }
-
-
+    // Don't use meta_query for price - we'll filter by actual price after WP_Query
     $args = [
         'post_type'      => 'product',
         'posts_per_page' => -1,
         'tax_query'      => $tax_query ?: [],
-        'meta_query'     => $meta_query ?: [],
         'orderby'        => 'date',
         'order'          => (!empty($_REQUEST['order']) && $_REQUEST['order'] === 'ASC') ? 'ASC' : 'DESC',
         'fields'         => 'ids',
@@ -734,6 +741,20 @@ function ms_filter_products_callback() {
     ];
 
     $filtered_ids = get_posts($args);
+
+    // Apply price filter using actual product prices (after Sales Dashboard filters)
+    if ($avail === 'available' && !$is_not_availability && !empty($_REQUEST['price_min']) && !empty($_REQUEST['price_max'])) {
+        $price_min = floatval($_REQUEST['price_min']);
+        $price_max = floatval($_REQUEST['price_max']);
+
+        $filtered_ids = array_filter($filtered_ids, function($p_id) use ($price_min, $price_max) {
+            $product = wc_get_product($p_id);
+            if (!$product) return false;
+
+            $price = floatval($product->get_price());
+            return ($price >= $price_min && $price <= $price_max);
+        });
+    }
 
    $products = array_filter($filtered_ids, function($p_id) use ($avail, $is_not_availability) {
 

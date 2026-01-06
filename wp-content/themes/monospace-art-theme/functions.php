@@ -24,7 +24,7 @@ require_once MONOSPACE_ART_THEME_DIR . '/includes/core/editor.php';
  * Global Debug Settings
  * ------------------------------
  */
-define( 'MONOSPACE_MODULE_DEBUG', true ); // Set to false to disable loader logging
+define( 'MONOSPACE_MODULE_DEBUG', false ); // Set to false to disable loader logging
 
 function monospace_log( $message ) {
     if ( defined( 'MONOSPACE_MODULE_DEBUG' ) && MONOSPACE_MODULE_DEBUG ) {
@@ -116,18 +116,6 @@ add_action( 'admin_init', function() {
         exit;
     }
 });
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
