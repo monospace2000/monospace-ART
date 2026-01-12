@@ -20,6 +20,7 @@ add_action('enqueue_block_editor_assets', function() {
         /* Match your front-end max-width */
         .editor-styles-wrapper {
             max-width: var(--column-center-width); /* Adjust to match your theme */
+            font-size: 1.3rem !important;
             margin: 0 auto;
             padding: var(--global-padding);
         }

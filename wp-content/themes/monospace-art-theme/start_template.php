@@ -202,7 +202,7 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
 
             <div class="flex-break"></div>
 
-            <div class="box link" id="markets" onclick="document.location.href='market-dates'">
+            <div class="box link" id="markets" onclick="document.location.href='market-and-events/schedule'">
                 <div class="box-title">Markets & Events</div>
                 <div class="box-content bottom-align">Find upcoming markets, exhibitions, and in-person events where my work will be available.</div>
             </div>

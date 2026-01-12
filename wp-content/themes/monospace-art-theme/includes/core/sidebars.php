@@ -18,4 +18,4 @@ function monospace_art_register_sidebars() {
     ]);
 }
 
-add_action('widgets_init', 'monospace_art_register_sidebars');
+//add_action('widgets_init', 'monospace_art_register_sidebars');
