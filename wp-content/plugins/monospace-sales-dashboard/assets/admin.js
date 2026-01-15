@@ -211,7 +211,7 @@
                 const $rule = $(`
                     <div class="msd-rule" data-rule-id="${ruleId}">
                         <select class="msd-rule-type">
-                            <option value="fixed_bundle">Fixed Bundle (3 for $99)</option>
+                            <option value="fixed_bundle">Fixed Bundle (n for $xx)</option>
                             <option value="buy_x_get_y">Buy X Get Y Free</option>
                             <option value="second_half">Second Half Price</option>
                             <option value="percent_discount">Percent Discount</option>

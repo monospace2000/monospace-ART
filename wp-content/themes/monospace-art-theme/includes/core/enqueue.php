@@ -8,7 +8,7 @@
 function monospace_block_spacing_critical_css() {
     ?>
     <style id="block-spacing-override">
-
+/*
         .wp-block-group,
         .wp-block-columns,
         .wp-block-column {
@@ -22,7 +22,7 @@ function monospace_block_spacing_critical_css() {
             margin:  0 !important;
             padding: calc(var(--global-padding)/2) var(--global-padding) !important;
         }
-
+ */
     </style>
     <?php
 }
@@ -66,8 +66,12 @@ function monospace_art_enqueue_assets() {
     );
 
         // Theme styles - compiled from SASS
-    wp_enqueue_style('monospace-theme', get_template_directory_uri() . '/assets/css/style.css', array('monospace-art-google-fonts'), $theme_version);
-
+    wp_enqueue_style(
+        'monospace-theme',
+        get_template_directory_uri() . '/assets/css/style.css',
+        array('monospace-art-google-fonts'),
+        filemtime(get_template_directory() . '/assets/css/style.css')
+    );
 
     // -------------------------------------------------------
     // Scripts

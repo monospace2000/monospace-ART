@@ -134,7 +134,14 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
 }
 </style>
 
+
 <div class="container">
+
+<div class="search-bar" style="width: 100%; display: flex; justify-content: flex-end; padding: 0px 0; margin-bottom: 0px;">
+    <?php echo do_shortcode('[search_form placeholder="" button_text="Search"]'); ?>
+</div>
+
+            <div class="flex-break"></div>
 
 
             <div class="box" id="welcome">
@@ -202,7 +209,7 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
 
             <div class="flex-break"></div>
 
-            <div class="box link" id="markets" onclick="document.location.href='market-and-events/schedule'">
+            <div class="box link" id="markets" onclick="document.location.href='market-dates'">
                 <div class="box-title">Markets & Events</div>
                 <div class="box-content bottom-align">Find upcoming markets, exhibitions, and in-person events where my work will be available.</div>
             </div>

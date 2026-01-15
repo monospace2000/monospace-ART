@@ -48,6 +48,11 @@ add_action( 'template_redirect', function () {
         return;
     }
 
+        // Skip redirect if coming from search results
+    if ( defined('MONOSPACE_FROM_SEARCH') && MONOSPACE_FROM_SEARCH ) {
+        return;
+    }
+
     $product_id = get_queried_object_id();
 
     // Skip if product is exempt

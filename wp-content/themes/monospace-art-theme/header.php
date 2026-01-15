@@ -141,7 +141,7 @@ $og_image = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(),'full
         if (has_custom_logo()) {
             $logo_id  = get_theme_mod('custom_logo');
             $logo_img = wp_get_attachment_image($logo_id, 'full', false, array('class' => 'custom-logo'));
-            echo '<a href="' . $logo_link . '">' . $logo_img . '</a>';
+            echo '<a title="Click to view the Art Feed" href="' . $logo_link . '">' . $logo_img . '</a>';
         } else { ?>
             <a href="<?php echo $logo_link; ?>" class="logo-text"><?php bloginfo('name'); ?></a>
         <?php } ?>

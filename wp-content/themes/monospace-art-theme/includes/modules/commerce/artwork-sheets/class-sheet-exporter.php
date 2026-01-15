@@ -26,8 +26,8 @@ class Monospace_Sheet_Exporter {
 
         $options = [
             'include_image' => isset($_POST['include_image']),
-            'include_price' => isset($_POST['include_price']),
             'include_availability' => isset($_POST['include_availability']),
+            'include_price' => isset($_POST['include_price']),
             'include_wc_id' => isset($_POST['include_wc_id']),
             'include_post_id' => isset($_POST['include_post_id']),
             'include_loan_section' => isset($_POST['include_loan_section']),
@@ -56,6 +56,9 @@ class Monospace_Sheet_Exporter {
         $export_data = [];
 
         foreach ($product_ids as $product_id) {
+            // Force include product ID for re-importing
+            $options['include_wc_id'] = true;
+
             $data = $data_handler->gather_data($product_id, $options);
             if ($data) {
                 // Remove image URLs for cleaner JSON
@@ -95,13 +98,10 @@ class Monospace_Sheet_Exporter {
             'Gallery Name',
             'Gallery URL',
             'Artist Name',
-            'Artist Website'
+            'Artist Website',
+            'Price',
+            'Price Formatted'
         ];
-
-        if ($options['include_price']) {
-            $headers[] = 'Price';
-            $headers[] = 'Price Formatted';
-        }
         if ($options['include_wc_id']) {
             $headers[] = 'WC Product ID';
         }
@@ -129,13 +129,10 @@ class Monospace_Sheet_Exporter {
                 $data['gallery_name'] ?: '',
                 $data['gallery_url'] ?: '',
                 $data['artist_name'],
-                $data['artist_website']
+                $data['artist_website'],
+                $data['price'] ?? '',
+                strip_tags($data['price_formatted'] ?? '')
             ];
-
-            if ($options['include_price']) {
-                $row[] = $data['price'] ?? '';
-                $row[] = strip_tags($data['price_formatted'] ?? '');
-            }
 
             if ($options['include_wc_id']) {
                 $row[] = $data['wc_product_id'] ?? '';
