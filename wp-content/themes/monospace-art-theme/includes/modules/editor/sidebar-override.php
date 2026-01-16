@@ -266,6 +266,29 @@ function monospace_get_sidebar_content($post_id = null) {
             return $output;
         }
 
+        // 404 page
+        if (is_404()) {
+            $prefix = 'monospace_404_';
+            $desktop = get_option($prefix . 'sidebar_desktop', '');
+            $mobile = get_option($prefix . 'sidebar_mobile', '');
+            $mirror = get_option($prefix . 'mirror_sidebar', '');
+            if ($mirror === '') $mirror = '1';
+
+            if ($mirror === '1') {
+                return do_shortcode($desktop);
+            }
+
+            // Output both with CSS classes
+            $output = '';
+            if ($desktop) {
+                $output .= '<div class="content-desktop">' . do_shortcode($desktop) . '</div>';
+            }
+            if ($mobile) {
+                $output .= '<div class="content-mobile">' . do_shortcode($mobile) . '</div>';
+            }
+            return $output;
+        }
+
         return '';
     }
 

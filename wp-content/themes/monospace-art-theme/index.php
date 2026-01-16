@@ -50,7 +50,7 @@
 
             <?php endwhile; ?>
         <?php else : ?>
-            <p>No posts found.</p>
+            <h3 style="margin-left:0.5rem;">No posts found.</h3>
         <?php endif; ?>
 
     </main>

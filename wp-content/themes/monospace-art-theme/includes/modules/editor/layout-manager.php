@@ -69,6 +69,7 @@ function monospace_layout_manager_page() {
             <a href="?page=monospace-layout-manager&tab=blog-feed" class="nav-tab <?php echo $active_tab === 'blog-feed' ? 'nav-tab-active' : ''; ?>">Blog Feed</a>
             <a href="?page=monospace-layout-manager&tab=categories" class="nav-tab <?php echo $active_tab === 'categories' ? 'nav-tab-active' : ''; ?>">Categories</a>
             <a href="?page=monospace-layout-manager&tab=search" class="nav-tab <?php echo $active_tab === 'search' ? 'nav-tab-active' : ''; ?>">Search Results</a>
+            <a href="?page=monospace-layout-manager&tab=404" class="nav-tab <?php echo $active_tab === '404' ? 'nav-tab-active' : ''; ?>">404 Page</a>
             <a href="?page=monospace-layout-manager&tab=posts" class="nav-tab <?php echo $active_tab === 'posts' ? 'nav-tab-active' : ''; ?>">Posts</a>
             <a href="?page=monospace-layout-manager&tab=pages" class="nav-tab <?php echo $active_tab === 'pages' ? 'nav-tab-active' : ''; ?>">Pages</a>
             <a href="?page=monospace-layout-manager&tab=products" class="nav-tab <?php echo $active_tab === 'products' ? 'nav-tab-active' : ''; ?>">Products</a>
@@ -88,6 +89,9 @@ function monospace_layout_manager_page() {
                     break;
                 case 'search':
                     monospace_render_search_settings();
+                    break;
+                case '404':
+                    monospace_render_404_settings();
                     break;
                 case 'posts':
                     monospace_render_posts_settings();
@@ -479,6 +483,69 @@ function monospace_render_search_settings() {
             </td>
         </tr>
     </table>
+    <?php
+}
+
+/* ============================================================
+ * TAB: 404 PAGE
+ * ============================================================ */
+
+function monospace_render_404_settings() {
+    $sidebar_desktop = get_option( 'monospace_404_sidebar_desktop', '' );
+    $sidebar_mobile = get_option( 'monospace_404_sidebar_mobile', '' );
+
+    // Mirror checkbox - default to checked (1) if not set
+    $mirror_sidebar = get_option( 'monospace_404_mirror_sidebar', '1' );
+    ?>
+
+    <h3>404 Page</h3>
+    <p>Configure the sidebar for 404 error pages. To edit the main 404 content, edit the <code>404.php</code> template file.</p>
+
+    <table class="form-table">
+        <tr>
+            <th scope="row"><label for="404-sidebar-desktop">Sidebar Content (Desktop)</label></th>
+            <td>
+                <?php
+                wp_editor( $sidebar_desktop, '404_sidebar_desktop', [
+                    'textarea_name' => 'sidebar_desktop',
+                    'media_buttons' => true,
+                    'textarea_rows' => 10,
+                    'teeny'         => false,
+                    'quicktags'     => true,
+                ]);
+                ?>
+                <p class="description">Custom sidebar content for 404 pages. HTML and shortcodes allowed.</p>
+            </td>
+        </tr>
+        <tr>
+            <th scope="row"><label for="404-sidebar-mobile">Sidebar Content (Mobile/Tablet)</label></th>
+            <td>
+                <?php
+                wp_editor( $sidebar_mobile, '404_sidebar_mobile', [
+                    'textarea_name' => 'sidebar_mobile',
+                    'media_buttons' => true,
+                    'textarea_rows' => 10,
+                    'teeny'         => false,
+                    'quicktags'     => true,
+                ]);
+                ?>
+                <p class="description">If empty, desktop version will be used. HTML and shortcodes allowed.</p>
+            </td>
+        </tr>
+        <tr>
+            <th scope="row"></th>
+            <td>
+                <label>
+                    <input type="checkbox" name="mirror_sidebar" value="1" <?php checked( $mirror_sidebar, '1' ); ?> />
+                    Mirror desktop content to mobile (ignore mobile field above)
+                </label>
+            </td>
+        </tr>
+    </table>
+
+    <p style="background: #f0f0f1; padding: 12px; border-left: 4px solid #72aee6;">
+        <strong>Tip:</strong> Check the Shortcodes tab to see available shortcodes for search, tags, recent posts, and menus.
+    </p>
     <?php
 }
 

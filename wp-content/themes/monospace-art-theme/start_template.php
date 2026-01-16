@@ -193,7 +193,7 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
 
             <div class="flex-break"></div>
 
-            <div class="box link" id="commissions" onclick="document.location.href='custom-work'">
+            <div class="box link" id="commissions" onclick="document.location.href='services/custom-work'">
                 <div class="box-title">Custom Orders</div>
                 <div class="box-content bottom-align">Commission a custom artwork designed specifically for your space and ideas.</div>
             </div>
@@ -209,12 +209,12 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
 
             <div class="flex-break"></div>
 
-            <div class="box link" id="markets" onclick="document.location.href='market-dates'">
+            <div class="box link" id="markets" onclick="document.location.href='markets-and-events/schedule'">
                 <div class="box-title">Markets & Events</div>
                 <div class="box-content bottom-align">Find upcoming markets, exhibitions, and in-person events where my work will be available.</div>
             </div>
 
-            <div class="box link" id="classes" onclick="document.location.href='classes'">
+            <div class="box link" id="classes" onclick="document.location.href='services/classes'">
                 <div class="box-title">Art Classes</div>
                 <div class="box-content bottom-align">Personalized art instruction focused on technique, confidence, and creative development.</div>
             </div>
