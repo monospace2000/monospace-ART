@@ -54,6 +54,7 @@ function msd_init() {
 
     // Load core classes
     require_once MSD_PLUGIN_DIR . 'includes/class-settings.php';
+    require_once MSD_PLUGIN_DIR . 'includes/class-dashboard-overview.php';
     require_once MSD_PLUGIN_DIR . 'includes/class-sale-control.php';
     require_once MSD_PLUGIN_DIR . 'includes/class-price-adjustments.php';
     require_once MSD_PLUGIN_DIR . 'includes/class-volume-discounts.php';
@@ -61,9 +62,11 @@ function msd_init() {
     require_once MSD_PLUGIN_DIR . 'includes/class-product-overrides.php';
     require_once MSD_PLUGIN_DIR . 'includes/class-import-export.php';
     require_once MSD_PLUGIN_DIR . 'includes/class-bulk-editor.php';
+    require_once MSD_PLUGIN_DIR . 'includes/class-additional-tracker.php';
 
     // Initialize
     MSD_Settings::init();
+    MSD_Dashboard_Overview::init();
     MSD_Sale_Control::init();
     MSD_Price_Adjustments::init();
     MSD_Volume_Discounts::init();
@@ -71,6 +74,7 @@ function msd_init() {
     MSD_Product_Overrides::init();
     MSD_Import_Export::init();
     MSD_Bulk_Editor::init();
+    MSD_Additional_Tracker::init();
 }
 add_action('plugins_loaded', 'msd_init');
 

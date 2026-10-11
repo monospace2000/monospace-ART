@@ -27,9 +27,11 @@ function ms_product_filter_shortcode(){
     $ms_admin_mode = true;
 
     $attributes = ['pa_format','pa_medium','pa_surface','pa_size'];
+
     $availabilities = [
         ''          => 'All Availability',
         'available' => 'Available',
+        'reserved'  => 'Reserved',
         'sold'      => 'Private Collection',
         'private'   => 'Artist\'s Private Collection',
         'gallery'   => 'At Gallery'
@@ -342,6 +344,20 @@ function ms_product_filter_shortcode(){
         <?php foreach($attributes as $tax):
             $terms = get_terms(['taxonomy'=>$tax,'hide_empty'=>true]);
             if(!$terms || is_wp_error($terms)) continue;
+
+            // For the Size dropdown, hide terms used only by print products
+            if ($tax === 'pa_size') {
+                $terms = array_filter($terms, function($term) {
+                    foreach (get_objects_in_term($term->term_id, 'pa_size') as $pid) {
+                        if (!has_term('print', 'product_cat', $pid)) {
+                            return true; // at least one non-print product uses this size
+                        }
+                    }
+                    return false;
+                });
+            }
+
+            if (empty($terms)) continue;
             $label = ucfirst(str_replace('pa_','',$tax));
         ?>
             <label><?= esc_html($label) ?>:</label>
@@ -705,12 +721,12 @@ function ms_filter_products_callback() {
 
 
 
-    $normal_products = array_filter($all_products, function($p_id){
+    $normal_products = array_filter($all_products, function($p_id) {
         $product_categories = wp_get_post_terms($p_id, 'product_cat', ['fields'=>'slugs']);
-        $linked_post_id = get_post_meta($p_id, '_related_post_id', true);
+        $linked_post_id = (int) get_post_meta($p_id, '_related_post_id', true);
         return !in_array('custom-order', $product_categories)
-            && !in_array('commissions', $product_categories)
-            && !empty($linked_post_id);
+            && !in_array('print', $product_categories)
+            && $linked_post_id;
     });
 
     $tax_query = [];
@@ -759,17 +775,18 @@ function ms_filter_products_callback() {
    $products = array_filter($filtered_ids, function($p_id) use ($avail, $is_not_availability) {
 
     // --- Get availability field ---
-    $product_availability = get_field('painting_availability_status', $p_id);
-    if (is_array($product_availability)) {
-        $product_availability = isset($product_availability['value'])
-            ? $product_availability['value']
-            : reset($product_availability);
-    }
-    $product_availability = strtolower(trim($product_availability));
+    $product_availability = strtolower(trim((string) get_post_meta($p_id, 'painting_availability_status', true)));
 
     // --- WooCommerce product data ---
     $wc_product = wc_get_product($p_id);
     $stock_status = $wc_product ? $wc_product->get_stock_status() : '';
+
+    // --- Check WooCommerce stock status FIRST ---
+    // If out of stock and not gallery/private, treat as sold (override ACF field)
+    $is_out_of_stock = ($stock_status === 'outofstock');
+    if ($is_out_of_stock && !in_array($product_availability, ['gallery', 'private'], true)) {
+        $product_availability = 'sold';
+    }
 
     // --- Core status flags ---
     $is_private = $product_availability === 'private';
@@ -796,6 +813,11 @@ function ms_filter_products_callback() {
     switch (strtolower($avail)) {
         case 'available':
             $matches = $is_available;
+            break;
+        case 'reserved':
+            // Only match if ACF field is 'reserved' AND product is in stock
+            // (out of stock items were already overridden to 'sold' above)
+            $matches = ($product_availability === 'reserved');
             break;
         case 'sold':
             $matches = $is_sold;
@@ -828,13 +850,7 @@ function ms_filter_products_callback() {
         $related_post_id = get_post_meta($p_id, '_related_post_id', true);
         if (!$related_post_id) continue;
 
-        $product_availability = get_field('painting_availability_status', $p_id);
-        if (is_array($product_availability)) {
-            $product_availability = isset($product_availability['value'])
-                ? $product_availability['value']
-                : reset($product_availability);
-        }
-        $product_availability = strtolower(trim($product_availability));
+        $product_availability = strtolower(trim((string) get_post_meta($p_id, 'painting_availability_status', true)));
 
         $wc_product   = wc_get_product($p_id);
         $stock_status = $wc_product ? $wc_product->get_stock_status() : '';

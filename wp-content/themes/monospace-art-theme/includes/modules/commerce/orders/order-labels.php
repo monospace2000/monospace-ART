@@ -18,6 +18,7 @@ function ms_get_order_labels() {
         'in-person-sale' => 'In-Person Sale',
         'commission'     => 'Commission',
         'loan'           => 'Loan',
+        'gift'           => 'Gift',
         'test'           => 'Test',
     ] );
 }
@@ -145,6 +146,7 @@ add_action( 'admin_head', function () {
         .order-label-select option[value="in-person-sale"] { color:#166534; }
         .order-label-select option[value="commission"] { color:#6b21a8; }
         .order-label-select option[value="loan"] { color:#b45309; }
+        .order-label-select option[value="gift"] { color:#0284c7; }
         .order-label-select option[value="test"] { color:#dc2626; }
     </style>
     <?php

@@ -64,8 +64,8 @@ add_action( 'woocommerce_after_single_product_summary', function() {
         if ( $url && $title ) {
             echo '<div class="related-blog-link" '.$styles.'>';
             echo '<a href="' . esc_url( $url ) . '" class="button related-blog-button">';
-           // echo '◂◂◂ More about "' . esc_html( $title ) . '"';
-            echo 'Back to ' . esc_html( $title );
+            echo 'Read more about "' . esc_html( $title ) . '"';
+            //echo 'Back to ' . esc_html( $title );
             //echo 'More about this item';
             echo '</a>';
             echo '</div>';

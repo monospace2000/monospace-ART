@@ -7,6 +7,7 @@
 
     $(document).ready(function() {
 
+
         // Toggle visibility based on sale mode
         $('#msd_sale_mode').on('change', function() {
             const mode = $(this).val();
@@ -218,7 +219,7 @@
                             <option value="fixed_discount">Fixed Discount</option>
                         </select>
                         <div class="msd-rule-fields"></div>
-                        <button type="button" class="button button-small msd-remove-rule">Ã—</button>
+                        <button type="button" class="button button-small msd-remove-rule">🗑️</button>
                     </div>
                 `);
 
@@ -323,9 +324,8 @@
         // BULK EDITOR
         // ========================================
 
-        if ($('#msd-bulk-form').length) {
-            initBulkEditor();
-        }
+        // Always initialize bulk editor (use event delegation for elements that might load later)
+        initBulkEditor();
 
         // ========================================
         // FREE SHIPPING RULE BUILDER
@@ -446,7 +446,7 @@
                             <option value="all_from_category">All Items From Category</option>
                         </select>
                         <div class="msd-rule-fields"></div>
-                        <button type="button" class="button button-small msd-remove-rule">×</button>
+                        <button type="button" class="button button-small msd-remove-rule">🗑️</button>
                     </div>
                 `);
 
@@ -539,14 +539,21 @@
         function initBulkEditor() {
             let selectedProducts = [];
 
-            // Toggle filter fields
-            $('#msd-filter-method').on('change', function() {
+            // Toggle filter fields (use event delegation)
+            $(document).on('change', '#msd-filter-method', function() {
                 $('.msd-filter-category, .msd-filter-tag, .msd-filter-search, .msd-filter-manual').hide();
                 $('.msd-filter-' + $(this).val()).show();
-            }).trigger('change');
+            });
 
-            // Load products
-            $('#msd-load-products').on('click', function() {
+            // Trigger initial state if element exists
+            if ($('#msd-filter-method').length) {
+                $('#msd-filter-method').trigger('change');
+            }
+
+            // Load products (use event delegation)
+            $(document).on('click', '#msd-load-products', function(e) {
+                e.preventDefault();
+
                 const method = $('#msd-filter-method').val();
                 const $btn = $(this);
                 const $spinner = $btn.next('.spinner');
@@ -569,13 +576,31 @@
                     case 'all':
                         query.all = '1';
                         break;
+                    case 'has_additional':
+                        query.has_additional = '1';
+                        break;
                 }
 
-                $.post(ajaxurl, query, function(response) {
-                    displayProducts(response.data || []);
-                    $btn.prop('disabled', false);
-                    $spinner.removeClass('is-active');
-                });
+                // Use msdAdmin.ajaxurl if available, fallback to global ajaxurl
+                const ajaxUrl = (typeof msdAdmin !== 'undefined') ? msdAdmin.ajaxurl : (typeof ajaxurl !== 'undefined' ? ajaxurl : '/wp-admin/admin-ajax.php');
+
+                $.post(ajaxUrl, query)
+                    .done(function(response) {
+                        if (response.success) {
+                            displayProducts(response.data || []);
+                        } else {
+                            alert('Error: ' + (response.data || 'Unknown error'));
+                            displayProducts([]);
+                        }
+                    })
+                    .fail(function(xhr, status, error) {
+                        alert('Failed to load products: ' + error);
+                        displayProducts([]);
+                    })
+                    .always(function() {
+                        $btn.prop('disabled', false);
+                        $spinner.removeClass('is-active');
+                    });
             });
 
             function displayProducts(products) {
@@ -584,23 +609,34 @@
                 $list.empty();
 
                 if (!products.length) {
-                    $list.html('<p>No products found.</p>');
+                    $list.html('<div class="notice notice-warning inline"><p>No products found matching your criteria.</p></div>');
                     $('#msd-product-count').text('');
                     $('#msd-bulk-submit').prop('disabled', true);
                     return;
                 }
 
-                $('#msd-product-count').html(`<strong>${products.length} products</strong> selected`);
+                // Show success message with count and IDs
+                const productIds = products.map(p => p.id).join(', ');
+                $('#msd-product-count').html(`
+                    <div class="notice notice-success inline" style="margin: 15px 0; padding: 10px;">
+                        <p style="margin: 0;">
+                            <strong>✓ Successfully loaded ${products.length} product${products.length !== 1 ? 's' : ''}</strong><br>
+                            <span style="font-size: 12px; color: #666;">Product IDs: ${productIds}</span>
+                        </p>
+                    </div>
+                `);
                 $('#msd-bulk-submit').prop('disabled', false);
 
-                const $table = $('<table class="wp-list-table widefat"><thead><tr><th>Select</th><th>Product</th><th>ID</th></tr></thead><tbody></tbody></table>');
+                const $table = $('<table class="wp-list-table widefat"><thead><tr><th>Select</th><th>Product</th><th>ID</th><th>Current Additional %</th></tr></thead><tbody></tbody></table>');
 
                 products.forEach(p => {
+                    const addlPct = p.additional_pct !== null ? p.additional_pct + '%' : '—';
                     $table.find('tbody').append(`
                         <tr>
                             <td><input type="checkbox" class="msd-product-checkbox" value="${p.id}" checked></td>
                             <td>${p.title}</td>
                             <td>${p.id}</td>
+                            <td style="font-weight: ${p.additional_pct !== null ? 'bold' : 'normal'}; color: ${p.additional_pct !== null ? '#2271b1' : '#666'}">${addlPct}</td>
                         </tr>
                     `);
                 });
@@ -610,7 +646,8 @@
                 // Update hidden field
                 updateProductIds();
 
-                $('.msd-product-checkbox').on('change', updateProductIds);
+                // Use event delegation for dynamically created checkboxes
+                $(document).off('change', '.msd-product-checkbox').on('change', '.msd-product-checkbox', updateProductIds);
             }
 
             function updateProductIds() {

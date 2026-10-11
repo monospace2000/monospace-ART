@@ -4,14 +4,14 @@
  *
  * Automatically wraps <img> tags (that are not already links)
  * in <a> tags with data attributes for GLightbox.
- * 
+ *
  * Features:
  * - Active only on single post pages (not archives or pages).
  * - Skips images already inside <a> tags.
  * - Skips images with `data-nolightbox` or class `nolightbox`.
  * - Optional captions from WordPress image data or alt text.
  *
- * @package astra-child-theme-for-monospace-art
+ * @package monospace-art-theme
  */
 
 // =========================================================
@@ -68,7 +68,7 @@ function monospace_wrap_images_for_glightbox( $content ) {
     // Safely load post content into a DOMDocument
     libxml_use_internal_errors( true );
     $dom = new DOMDocument();
-    $dom->loadHTML( mb_convert_encoding( $content, 'HTML-ENTITIES', 'UTF-8' ) );
+    $dom->loadHTML( '<?xml encoding="UTF-8">' . $content, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
     libxml_clear_errors();
 
     $images = $dom->getElementsByTagName( 'img' );
@@ -91,8 +91,37 @@ function monospace_wrap_images_for_glightbox( $content ) {
         // --- Proceed to wrap image in <a> ---
 
         $src = $img->getAttribute( 'src' );
+
+        // Try to get full-resolution image URL
+        $full_src = $src; // Fallback to current src
+
+        // Method 1: Extract attachment ID from wp-image-* class
+        $classes = $img->getAttribute( 'class' );
+        if ( preg_match( '/wp-image-(\d+)/i', $classes, $matches ) ) {
+            $attachment_id = intval( $matches[1] );
+            $full_image = wp_get_attachment_image_src( $attachment_id, 'full' );
+            if ( $full_image ) {
+                $full_src = $full_image[0];
+            }
+        }
+        // Method 2: If no class, try to find attachment by URL
+        else {
+            global $wpdb;
+            $attachment_id = $wpdb->get_var( $wpdb->prepare(
+                "SELECT ID FROM {$wpdb->posts} WHERE guid LIKE %s OR guid LIKE %s",
+                '%' . basename( $src ),
+                $src
+            ) );
+            if ( $attachment_id ) {
+                $full_image = wp_get_attachment_image_src( $attachment_id, 'full' );
+                if ( $full_image ) {
+                    $full_src = $full_image[0];
+                }
+            }
+        }
+
         $link = $dom->createElement( 'a' );
-        $link->setAttribute( 'href', $src );
+        $link->setAttribute( 'href', $full_src );
         $link->setAttribute( 'data-gallery', 'post-gallery' );
         $link->setAttribute( 'class', 'glightbox' );
 
@@ -218,8 +247,8 @@ function monospace_glightbox_custom_styles() {
                 closeOnOutsideClick: true  // click background to close
             });
 
-           
-       
+
+
 
             lightbox.on('open', () => {
                 // Use a slight delay to ensure the slide is fully rendered

@@ -1,12 +1,31 @@
 <?php
 /**
- * Auto Featured Image Functions
- * Add this to your child theme's functions.php
- */
-
-/**
- * Automatically set featured image from first image in post content
- * Runs when a post is saved
+ * Auto Featured Image
+ *
+ * Automatically sets the post's featured image from the first image in the post content
+ * when a post is published or updated. Saves time by eliminating manual featured image selection.
+ *
+ * FUNCTIONALITY:
+ * - Triggers when a post is saved or published
+ * - Finds the first <img> tag in post content
+ * - Extracts the image ID from WordPress classes (wp-image-{id})
+ * - Sets that image as the post's featured image
+ * - Only runs if no featured image is already set
+ *
+ * BEHAVIOR:
+ * - Skips autosaves and revisions
+ * - Only processes regular posts (not pages or products)
+ * - Does nothing if a featured image is already manually set
+ * - Requires images to be uploaded through WordPress media library
+ *
+ * USE CASE:
+ * When creating artwork posts, just add an image in the content. WordPress will
+ * automatically use it as the featured image for archive pages and thumbnails.
+ *
+ * TECHNICAL:
+ * - Hooks into 'save_post_post' action (priority 20)
+ * - Parses HTML to find image with regex
+ * - Uses set_post_thumbnail() to assign featured image
  */
 add_action( 'save_post_post', 'auto_set_featured_image_from_content', 20, 3 );
 function auto_set_featured_image_from_content( $post_id, $post, $update ) {

@@ -89,9 +89,53 @@ add_filter('woocommerce_cart_item_quantity', function($product_quantity, $cart_i
 
 
 
-/* add_filter( 'woocommerce_cart_item_name', function( $name, $cart_item ) {
-    return $name . '<br><small>Extra info</small>';
-}, 10, 2 ); */
+// Show "Update Cart" button when cart contains a print product.
+// Uses JS (wp_footer) to bypass CSS specificity battles and remove WooCommerce's
+// default `disabled` attribute, which the button has on initial page load.
+add_action( 'wp_footer', function() {
+    if ( ! is_cart() || ! WC()->cart ) {
+        return;
+    }
+    if ( ! function_exists( 'monospace_get_post_for_print_product' ) ) {
+        return;
+    }
+    foreach ( WC()->cart->get_cart() as $cart_item ) {
+        $product_id = $cart_item['product_id'] ?? 0;
+        if ( $product_id && monospace_get_post_for_print_product( $product_id ) ) {
+            ?>
+            <script>
+            document.addEventListener( 'DOMContentLoaded', function () {
+                var btn = document.querySelector( 'button[name="update_cart"]' );
+                if ( btn ) {
+                    btn.removeAttribute( 'disabled' );
+                    btn.style.setProperty( 'display',       'inline-block', 'important' );
+                    btn.style.setProperty( 'visibility',    'visible',      'important' );
+                    btn.style.setProperty( 'opacity',       '1',            'important' );
+                    btn.style.setProperty( 'pointer-events','auto',         'important' );
+                    btn.style.setProperty( 'position',      'relative',     'important' );
+                    btn.style.setProperty( 'width',         'auto',         'important' );
+                    btn.style.setProperty( 'height',        'auto',         'important' );
+                    btn.style.setProperty( 'left',          'auto',         'important' );
+                }
+            } );
+            </script>
+            <?php
+            break;
+        }
+    }
+} );
+
+
+// Show "Free shipping" under the line item name for print products
+add_filter( 'woocommerce_cart_item_name', function( $name, $cart_item, $cart_item_key ) {
+    $product_id = $cart_item['product_id'] ?? 0;
+    if ( $product_id && function_exists( 'monospace_get_post_for_print_product' ) ) {
+        if ( monospace_get_post_for_print_product( $product_id ) ) {
+            $name .= '<br><small style="color:#28a745;font-weight:600;">Free shipping</small>';
+        }
+    }
+    return $name;
+}, 10, 3 );
 
 // replace"Product" with "Item" on client facing pages
 add_filter( 'gettext', 'monospace_frontend_replace_product_label', 20, 3 );
@@ -166,5 +210,37 @@ add_shortcode( 'product_price', 'ms_product_price_shortcode' );
 add_filter( 'woocommerce_return_to_shop_redirect', function () {
     return home_url( '/art-feed/' ); // change to your desired URL
 } );
+
+
+/**
+ * Display price on single product pages
+ * Uses same hook as commission products for consistency
+ */
+add_action( 'woocommerce_before_add_to_cart_button', function() {
+    global $product;
+
+    if ( ! $product ) {
+        return;
+    }
+
+    // Skip if this is a commission product (they handle their own price display)
+    $product_id = $product->get_id();
+    if ( get_post_meta( $product_id, '_is_commission_product', true ) === 'yes' ) {
+        return;
+    }
+
+    // Get the price
+    $price = $product->get_price();
+
+    if ( ! $price || $price <= 0 ) {
+        return;
+    }
+
+    // Display the price with same styling as commission products
+    echo '<p class="product-price-display" style="margin-bottom: 0em !important; font-size: 1.3em; font-weight: 600; color: #333;">';
+    echo '<strong>Price:</strong> ' . wc_price( $price );
+    echo '</p>';
+    echo '<div style="margin-bottom: 1.5em;"></div>';
+}, 5 );
 
 

@@ -1,18 +1,20 @@
 <?php
 /**
- * Enqueue scripts and styles
+ * Save Keyboard Shortcuts
  *
- * @package astra-child-theme-for-monospace-art
- */
-
-
-
-/**
- * Add keyboard shortcut (⌘S / Ctrl+S) to save posts/products in WP admin
+ * Adds Command/Ctrl+S keyboard shortcut for saving posts and products in WordPress admin.
+ * This provides a familiar save experience for users coming from desktop applications.
  *
- * Features:
- * - Works on post and product edit screens
- * - Overrides browser default save (prevent page save dialog)
+ * FUNCTIONALITY:
+ * - Intercepts Cmd+S (Mac) or Ctrl+S (Windows/Linux) keypresses
+ * - Prevents browser's default "save page" dialog
+ * - Triggers WordPress's publish/update button click
+ * - Works on both post and product edit screens
+ *
+ * TECHNICAL:
+ * - Adds inline JavaScript to admin pages
+ * - Listens for keydown events with metaKey or ctrlKey + 'S'
+ * - Triggers click on #publish button (WordPress standard)
  * - Triggers the "Publish" or "Update" button
  */
 add_action( 'admin_footer-post.php', 'monospace_save_shortcut' );

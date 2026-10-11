@@ -53,6 +53,7 @@ function monospace_sidebar_override_metabox_callback($post) {
     $mobile_content = get_post_meta($post->ID, '_monospace_mobile_sidebar', true);
     $hide_sidebar   = get_post_meta($post->ID, '_monospace_hide_sidebar', true);
     $hide_header    = get_post_meta($post->ID, '_monospace_hide_header', true);
+    $hide_title     = get_post_meta($post->ID, '_monospace_hide_title', true);
 
     // Mirror checkbox - default to checked (1) if not set
     $mirror_sidebar = get_post_meta($post->ID, '_monospace_mirror_sidebar', true);
@@ -74,6 +75,13 @@ function monospace_sidebar_override_metabox_callback($post) {
         <label>
             <input type="checkbox" name="monospace_hide_sidebar" value="1" <?php checked($hide_sidebar, '1'); ?>>
             <?php esc_html_e('Hide sidebar entirely', 'monospace-art-theme'); ?>
+        </label>
+    </p>
+
+    <p>
+        <label>
+            <input type="checkbox" name="monospace_hide_title" value="1" <?php checked($hide_title, '1'); ?>>
+            <?php esc_html_e('Hide page/post title', 'monospace-art-theme'); ?>
         </label>
     </p>
 
@@ -172,6 +180,12 @@ add_action('save_post', function($post_id) {
         update_post_meta($post_id, '_monospace_hide_sidebar', '1');
     } else {
         delete_post_meta($post_id, '_monospace_hide_sidebar');
+    }
+
+    if (isset($_POST['monospace_hide_title'])) {
+        update_post_meta($post_id, '_monospace_hide_title', '1');
+    } else {
+        delete_post_meta($post_id, '_monospace_hide_title');
     }
 
     if (isset($_POST['monospace_sidebar_override'])) {
@@ -359,6 +373,16 @@ function monospace_get_sidebar_content($post_id = null) {
     return do_shortcode($final_content);
 }
 /* ============================================================
+ * HELPER FUNCTION - CHECK IF TITLE SHOULD BE HIDDEN
+ * ============================================================ */
+function monospace_should_hide_title($post_id = null) {
+    if (!$post_id) {
+        $post_id = get_the_ID();
+    }
+    return get_post_meta($post_id, '_monospace_hide_title', true) === '1';
+}
+
+/* ============================================================
  * BODY CLASSES
  * ============================================================ */
 
@@ -372,6 +396,11 @@ add_filter('body_class', function($classes) {
         $hide_sidebar = get_post_meta(get_the_ID(), '_monospace_hide_sidebar', true);
         if ($hide_sidebar) {
             $classes[] = 'hide-sidebar';
+        }
+
+        $hide_title = get_post_meta(get_the_ID(), '_monospace_hide_title', true);
+        if ($hide_title) {
+            $classes[] = 'hide-title';
         }
     }
 

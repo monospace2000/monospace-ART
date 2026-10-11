@@ -55,6 +55,20 @@ class MSD_Product_Overrides {
             ],
         ]);
 
+        // Additional percentage increase
+        woocommerce_wp_text_input([
+            'id'          => '_msd_additional_percentage',
+            'label'       => __('Additional Price Increase (%)', 'monospace-sales'),
+            'description' => __('Extra % added on top of the global price adjustment. Leave blank for none.', 'monospace-sales'),
+            'desc_tip'    => true,
+            'type'        => 'number',
+            'custom_attributes' => [
+                'step' => '0.01',
+                'min'  => '-100',
+                'max'  => '1000',
+            ],
+        ]);
+
         // Exclude from price adjustments
         woocommerce_wp_checkbox([
             'id' => '_msd_exclude_price_adj',
@@ -92,6 +106,14 @@ class MSD_Product_Overrides {
         // Show original price
         $show_original = isset($_POST['_msd_show_original']) ? sanitize_text_field($_POST['_msd_show_original']) : '';
         update_post_meta($post_id, '_msd_show_original', $show_original);
+
+        // Additional percentage increase
+        $additional_pct = isset($_POST['_msd_additional_percentage']) ? trim($_POST['_msd_additional_percentage']) : '';
+        if ($additional_pct !== '' && is_numeric($additional_pct)) {
+            update_post_meta($post_id, '_msd_additional_percentage', floatval($additional_pct));
+        } else {
+            delete_post_meta($post_id, '_msd_additional_percentage');
+        }
 
         // Exclude from price adjustments
         $exclude_price = isset($_POST['_msd_exclude_price_adj']) ? 'yes' : 'no';

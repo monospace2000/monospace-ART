@@ -1,19 +1,19 @@
 <?php
 /**
- * Enqueue scripts and styles
+ * Admin Post Navigation
  *
- * @package astra-child-theme-for-monospace-art
- */
-
-
-
-/**
- * Add next/previous edit links to the WordPress admin bar
+ * Adds previous/next navigation links to the WordPress admin bar when editing posts or products.
+ * This makes it easy to quickly navigate between content items without returning to the list view.
  *
- * Features:
- * - Shows on single post/product edit screens
- * - Adds "Previous" and "Next" edit links aligned to the right
- * - Supports both posts and WooCommerce products
+ * FUNCTIONALITY:
+ * - Shows "Previous" and "Next" links in the admin bar on edit screens
+ * - Works with both regular posts and WooCommerce products
+ * - Links appear on the right side of the admin bar
+ * - Only appears on single post/product edit screens (post.php, post-new.php)
+ *
+ * USAGE:
+ * Navigate to any post or product edit screen. The admin bar will show prev/next links
+ * allowing you to cycle through content items in chronological order.
  */
 add_action( 'admin_bar_menu', function( $admin_bar ) {
     global $post, $wpdb, $pagenow;

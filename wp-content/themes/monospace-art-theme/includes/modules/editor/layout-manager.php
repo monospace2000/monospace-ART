@@ -361,6 +361,7 @@ function monospace_render_categories_settings() {
                     <li><strong>Archive Header Title</strong></li>
                     <li><strong>Desktop/Mobile Header Descriptions</strong></li>
                     <li><strong>Header Location</strong> (above content or in sidebar)</li>
+                    <li><strong>Archive View</strong> (list/grid toggle and starting view)</li>
                 </ul>
             </li>
             <li>Save the category</li>

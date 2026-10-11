@@ -10,11 +10,15 @@
           <?php endif; ?>>
 
         <?php
-        // Render title ONLY on pages
+        // Render title ONLY on pages (unless hidden via meta)
         if (is_page() || is_product()) :
+            if (!monospace_should_hide_title()) :
         ?>
             <h1 class="entry-title"><?php the_title(); ?></h1>
-        <?php endif; ?>
+        <?php
+            endif;
+        endif;
+        ?>
 
         <?php if (have_posts()) : ?>
             <?php while (have_posts()) : the_post(); ?>
@@ -40,6 +44,7 @@
                         );
  */
                         echo apply_filters('the_content', $content);
+
                     } else {
                         // Single post: normal content
                         the_content();

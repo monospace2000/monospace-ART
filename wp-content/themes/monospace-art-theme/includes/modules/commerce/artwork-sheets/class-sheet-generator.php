@@ -58,6 +58,10 @@ class Monospace_Sheet_Generator {
                             <td><input type="checkbox" name="include_image" value="1" checked></td>
                         </tr>
                         <tr>
+                            <th>Images Only</th>
+                            <td><input type="checkbox" name="images_only" id="images_only" value="1"></td>
+                        </tr>
+                        <tr>
                             <th>Show Availability</th>
                             <td><input type="checkbox" name="include_availability" id="include_availability" value="1" checked></td>
                         </tr>
@@ -103,6 +107,7 @@ class Monospace_Sheet_Generator {
                         <button type="submit" name="action" value="preview" class="button button-primary">Preview (Print to PDF)</button>
                         <button type="submit" name="action" value="json" class="button">Export JSON</button>
                         <button type="submit" name="action" value="csv" class="button">Export CSV</button>
+                        <button type="submit" name="action" value="images" class="button">Export Images (ZIP)</button>
                     </p>
                 </div>
 
@@ -235,7 +240,7 @@ class Monospace_Sheet_Generator {
                     <th class="sortable-header" data-column="date" style="width:10%">Date</th>
                     <th class="sortable-header" data-column="status" style="width:10%">Status</th>
                     <th class="sortable-header" data-column="id" style="width:8%">ID</th>
-                    <th class="sortable-header" data-column="selected" style="width:7%;text-align:center;">Select</th>
+                    <th class="sortable-header" data-column="selected" style="width:10%;text-align:center;">Select</th>
                 </tr>
             </thead>
             <tbody>
@@ -460,6 +465,7 @@ class Monospace_Sheet_Generator {
                 const availabilityCheckbox = document.getElementById('include_availability');
                 const priceRow = document.getElementById('price-row');
                 const priceCheckbox = document.getElementById('include_price');
+                const imagesOnlyCheckbox = document.getElementById('images_only');
 
                 function updatePriceRowVisibility() {
                     priceRow.style.display = availabilityCheckbox.checked ? '' : 'none';
@@ -470,6 +476,31 @@ class Monospace_Sheet_Generator {
 
                 availabilityCheckbox.addEventListener('change', updatePriceRowVisibility);
                 updatePriceRowVisibility();
+
+                // Images Only mode - ensure "Show Image" is checked and uncheck all other options
+                imagesOnlyCheckbox.addEventListener('change', function() {
+                    const includeImageCheckbox = document.querySelector('input[name="include_image"]');
+                    const includeLoanCheckbox = document.querySelector('input[name="include_loan_section"]');
+                    const includeFooterCheckbox = document.querySelector('input[name="include_footer"]');
+                    const includeGeneratedDateCheckbox = document.querySelector('input[name="include_generated_date"]');
+                    const includeWcIdCheckbox = document.querySelector('input[name="include_wc_id"]');
+                    const includePostIdCheckbox = document.querySelector('input[name="include_post_id"]');
+
+                    if (this.checked) {
+                        // Check "Show Image" and uncheck everything else
+                        includeImageCheckbox.checked = true;
+                        availabilityCheckbox.checked = false;
+                        priceCheckbox.checked = false;
+                        if (includeLoanCheckbox) includeLoanCheckbox.checked = false;
+                        if (includeFooterCheckbox) includeFooterCheckbox.checked = false;
+                        if (includeGeneratedDateCheckbox) includeGeneratedDateCheckbox.checked = false;
+                        if (includeWcIdCheckbox) includeWcIdCheckbox.checked = false;
+                        if (includePostIdCheckbox) includePostIdCheckbox.checked = false;
+
+                        // Update price row visibility
+                        updatePriceRowVisibility();
+                    }
+                });
 
                 // Sort handlers
                 document.querySelectorAll('.sortable-header').forEach(th => {

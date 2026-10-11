@@ -1,7 +1,28 @@
 <?php
 /**
  * Miniature Set Block
- * Display 2-3 images side by side with shared caption
+ *
+ * Custom Gutenberg block for displaying 2-3 miniature paintings side by side
+ * with a shared caption. Perfect for showcasing small artworks as a collection.
+ *
+ * FUNCTIONALITY:
+ * - Registers custom Gutenberg block 'monospace/miniature-set'
+ * - Allows users to add 2-3 images in a horizontal row
+ * - Supports shared caption for the entire set
+ * - Responsive: stacks vertically on mobile devices
+ *
+ * USAGE IN EDITOR:
+ * 1. Add "Miniature Set" block from block inserter
+ * 2. Upload or select 2-3 images
+ * 3. Add optional caption that applies to all images
+ * 4. Block will display images side-by-side on desktop, stacked on mobile
+ *
+ * STYLING:
+ * - Uses CSS class .miniature-set for custom styling
+ * - Responsive breakpoints defined in theme CSS
+ *
+ * RELATED:
+ * - clickable-feed-image.php handles making these clickable on archive pages
  *
  * @package monospace-art-theme
  */

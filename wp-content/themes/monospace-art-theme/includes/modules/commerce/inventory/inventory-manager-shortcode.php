@@ -16,9 +16,11 @@ add_shortcode('market_inventory_terminal', 'mit_render_terminal');
 function mit_availability_options() {
     return [
         'available' => __('Available', 'quick-product'),
+        'reserved'  => __('Reserved', 'quick-product'),
         'sold'      => __('Private Collection', 'quick-product'),
         'private'   => __('Artist\'s Private Collection', 'quick-product'),
         'gallery'   => __('At Gallery', 'quick-product'),
+        'gallery-reserved' => __('At Gallery (QR Purchase Only)', 'quick-product'),
     ];
 }
 
@@ -54,28 +56,59 @@ function mit_find_product_by_suffix($suffix) {
    Undo most recent sale
 -------------------------------*/
 function mit_undo_sale($product_id) {
-    $orders = wc_get_orders([
-        'limit'   => 1,
-        'status'  => 'completed',
-        'orderby' => 'date',
-        'order'   => 'DESC',
-    ]);
+    // Newest completed order containing this product, checked in batches,
+    // so a sale can be undone even after other sales have happened since
+    for ($page = 1; ; $page++) {
+        $orders = wc_get_orders([
+            'limit'   => 50,
+            'paged'   => $page,
+            'status'  => 'completed',
+            'orderby' => 'date',
+            'order'   => 'DESC',
+        ]);
+        if (! $orders) {
+            return false;
+        }
 
-    foreach ($orders as $order) {
-        foreach ($order->get_items() as $item) {
-            if ($item->get_product_id() == $product_id) {
-                $order->update_status('cancelled', 'Market correction: undo sale');
-                return true;
+        foreach ($orders as $order) {
+            foreach ($order->get_items() as $item) {
+                if ($item->get_product_id() == $product_id) {
+                    $order->update_status('cancelled', 'Market correction: undo sale');
+                    return true;
+                }
             }
         }
     }
-    return false;
 }
 
 /* ------------------------------
    Main Terminal UI
 -------------------------------*/
 function mit_render_terminal() {
+
+    // Logged-out visitors get a login prompt that returns them to this page.
+    if (!is_user_logged_in()) {
+        $redirect = get_permalink();
+        if (!$redirect) {
+            $redirect = home_url(add_query_arg([], null));
+        }
+
+        ob_start();
+        ?>
+        <div class="mit-terminal mit-login" style="max-width:850px; margin:0; padding:0; font-family:sans-serif;">
+            <p>Please log in to access the market inventory terminal.</p>
+            <?php
+            wp_login_form([
+                'echo'           => true,
+                'redirect'       => $redirect,
+                'label_username' => __('Username or Email', 'quick-product'),
+                'remember'       => true,
+            ]);
+            ?>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
 
     if (!current_user_can('manage_woocommerce')) {
         return '<p>Access denied.</p>';
@@ -111,7 +144,7 @@ function mit_render_terminal() {
             }
         }
 
-        echo "<script>window.history.replaceState({}, '', " . json_encode(remove_query_arg(['product_id', 'msg'])) . ");</script>";
+        echo "<script>window.history.replaceState({}, '', " . json_encode(remove_query_arg(['msg'])) . ");</script>";
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -219,7 +252,8 @@ function mit_render_terminal() {
     <div style="border:1px solid #000; padding:15px; margin:10px 0; background-color: #fff;">
         <strong><?php echo esc_html($product->get_name()); ?></strong><br>
         SKU: <?php echo esc_html($product->get_sku()); ?><br>
-        Status: <strong class="<?php echo $availability_class; ?>"><?php echo esc_html($availability_label); ?></strong>
+        Status: <strong class="<?php echo $availability_class; ?>"><?php echo esc_html($availability_label); ?></strong><?php if ($availability_key === 'available'): ?><br>
+        Price: <strong><?php echo wc_price($product->get_regular_price()); ?></strong><?php endif; ?>
 
         <div style="margin:15px 0;">
             <div style="margin:15px 0;">

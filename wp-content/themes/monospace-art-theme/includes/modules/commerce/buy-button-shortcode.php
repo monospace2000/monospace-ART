@@ -1,7 +1,44 @@
 <?php
 /**
  * Painting Buy Button Shortcode
- * Integrated with monospace Sales Dashboard
+ *
+ * Displays a styled purchase card for artwork with size, medium, price, and buy button.
+ * Integrates with WooCommerce for purchasing and ACF for availability status.
+ *
+ * SHORTCODE USAGE:
+ * [painting_buy_button id="123"]
+ * [painting_buy_button id="123" sku="2024-001"]
+ *
+ * PARAMETERS:
+ * - id (required): WooCommerce product ID
+ * - sku (optional): Product SKU for display
+ *
+ * DISPLAY ELEMENTS:
+ * - Product attributes (size, medium, price)
+ * - Availability status ("Available", "Sold", "Gallery", "Private")
+ * - Add to cart button (if available for purchase)
+ * - SKU code (if provided)
+ *
+ * AVAILABILITY STATES:
+ * - Available: Yellow badge, shows buy button
+ * - Gallery: White badge, shows buy button
+ * - Sold: Red text, no button
+ * - Private: Red text, no button
+ *
+ * PRINTS:
+ * - If the post has print products set in the Quick Product editor, the card gets
+ *   tabs Original | Framed Print | Unframed Print, opening on Original
+ *   (monospace_render_painting_card(); panes come from print-order-shortcode.php)
+ *
+ * STYLING:
+ * - Uses .painting-buy-row CSS class
+ * - Responsive: stacks on mobile
+ * - Card-style with shadow and border
+ *
+ * INTEGRATION:
+ * - WooCommerce product data (price, stock, attributes)
+ * - ACF field 'painting_availability_status' for status
+ * - Related to clickable-feed-image.php for archive badges
  *
  * @package astra-child-theme-for-monospace-art
  */
@@ -11,6 +48,29 @@ function monospace_is_editor_context() {
     if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) return true;
     if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) return true;
     return false;
+}
+
+/**
+ * Generate reserved purchase key for a product
+ * Must match the logic in monospace-quick-product plugin
+ */
+function monospace_generate_reserved_key( $product_id ) {
+    $secret = defined('MONOSPACE_RESERVED_SECRET') ? MONOSPACE_RESERVED_SECRET : 'ms-art-reserved-2024';
+    return substr( md5( $product_id . $secret ), 0, 16 );
+}
+
+/**
+ * Validate reserved purchase key from URL
+ */
+function monospace_validate_reserved_key( $product_id ) {
+    if ( ! isset( $_GET['reserved_key'] ) ) {
+        return false;
+    }
+
+    $provided_key = sanitize_text_field( $_GET['reserved_key'] );
+    $expected_key = monospace_generate_reserved_key( $product_id );
+
+    return hash_equals( $expected_key, $provided_key );
 }
 
 
@@ -36,15 +96,10 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
         $attr_list = '<div class="painting-attr">Attributes: TBA</div>';
         $button = '<a class="painting-buy-button status-coming-soon" href="#">Coming Soon</a>';
 
-        return sprintf(
-            '<div class="painting-buy-row%s" data-status="%s">
-                <div class="painting-attrs">%s</div>
-                <div class="painting-action">%s</div>
-            </div>',
-            esc_attr( $status_class ),
-            esc_attr( $status_slug ),
-            $attr_list,
-            $button
+        return monospace_render_painting_card(
+            monospace_render_card_slots( $attr_list, '', $button, '' ),
+            $status_class,
+            $status_slug
         );
     }
 
@@ -61,12 +116,29 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
     $product = wc_get_product( $product_id );
     if ( ! $product ) return '';
 
-    $status       = function_exists( 'get_field' ) ? get_field( 'painting_availability_status', $product_id ) : '';
-    $gallery_url  = function_exists( 'get_field' ) ? get_field( 'painting_gallery_url', $product_id ) : '';
-    $gallery_name = function_exists( 'get_field' ) ? get_field( 'painting_gallery_name', $product_id ) : '';
+    $status       = get_post_meta( $product_id, 'painting_availability_status', true );
+    $gallery_url  = get_post_meta( $product_id, 'painting_gallery_url', true );
+    $gallery_name = get_post_meta( $product_id, 'painting_gallery_name', true );
+
+    // Check WooCommerce stock status FIRST - if out of stock, override to sold
+    // This ensures display is correct even if auto-sync hasn't run yet
+    // Note: gallery items also override to sold when out of stock (item was purchased)
+    if ( ! $product->is_in_stock() && $status !== 'private' ) {
+        $status = 'sold';
+    }
+
+    // Check for valid reserved purchase key - bypass reserved/gallery-reserved gate if valid
+    $has_valid_reserved_key = false;
+    if ( ( $status === 'reserved' || $status === 'gallery-reserved' ) && monospace_validate_reserved_key( $product_id ) ) {
+        $has_valid_reserved_key = true;
+    }
 
     $attr_list = monospace_render_product_attributes( $product, $product_id );
     $button    = monospace_render_buy_button( $product, $status, $gallery_url, $gallery_name );
+
+    if ( $has_valid_reserved_key ) {
+        $button = '';
+    }
 
     // Get dynamic discount hint from Sales Dashboard
     $discount_hint = monospace_get_volume_discount_hint( $product, $product_id, $status );
@@ -76,16 +148,15 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
 
     $sku = $product->get_sku();
 
-    $sku_html = $sku
-        ? '<div class="painting-sku">'
-            . esc_html( $sku ) .
-          '</div>'
-        : '';
-
-    $price_html = '';
+    $price_html = $add_to_cart_btn = '';
     $non_purchasable_statuses = [
-        'gallery','private','sold','coming-soon','artist-private-collection','private-collection'
+        'gallery','gallery-reserved','private','sold','reserved','coming-soon','artist-private-collection','private-collection'
     ];
+
+    // Remove gate statuses from non-purchasable list if valid key is present
+    if ( $has_valid_reserved_key ) {
+        $non_purchasable_statuses = array_diff( $non_purchasable_statuses, ['reserved', 'gallery-reserved'] );
+    }
 
     $status_slug = $status ? sanitize_title( $status ) : '';
 
@@ -127,34 +198,74 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
                 '">Add to cart</a>';
         }
 
-        $price_html  =
-            '<div class="painting-price-row">' .
-                '<div class="painting-price">' . $price_display . '</div>' .
-                '<div class="painting-cart-button">' . $add_to_cart_btn . '</div>' .
-            '</div>';
+        $price_html = '<div class="painting-price">' . $price_display . '</div>';
     }
 
+    // Show price for reserved/gallery-reserved items (without purchase button, unless valid key present)
+    if ( ( $status === 'reserved' || $status === 'gallery-reserved' ) && ! $has_valid_reserved_key && $product->get_price() && $product->is_in_stock() ) {
+        $price_display = $product->get_price_html();
+        $price_html = '<div class="painting-price">' . $price_display . '</div>';
+    }
 
-    return sprintf(
-        '<div class="painting-buy-row%s" data-status="%s">
-            <div class="painting-attrs">%s</div>
-            <div class="painting-action">
-                %s
-                %s
-                %s
-                %s
-            </div>
-        </div>',
-        esc_attr( $status_class ),
-        esc_attr( $status_slug ),
-        $attr_list,
-        $price_html,
-        $button,
-        $sku_html,
-        $discount_hint
+    $gallery_note_html = '';
+    if ( $status === 'gallery-reserved' && ! $has_valid_reserved_key ) {
+        $note_gallery = $gallery_name ?: 'the gallery';
+        $gallery_note_html = '<p class="painting-gallery-qr-note" style="font-size:11px;color:#888;text-align:right;margin:6px 0 0 0;line-height:1.4;">'
+            . 'This item can only be purchased through the QR code link at ' . esc_html( $note_gallery )
+            . '</p>';
+    }
+
+    // Status labels ("Private Collection", "Reserved") sit with the price;
+    // gallery links and "Coming Soon" take the button slot
+    $is_label = strpos( $button, 'sold-label' ) !== false;
+
+    return monospace_render_painting_card(
+        monospace_render_card_slots(
+            $attr_list,
+            $price_html . ( $is_label ? $button : '' ),
+            $add_to_cart_btn . ( $is_label ? '' : $button ),
+            $gallery_note_html . $discount_hint,
+            (string) $sku
+        ),
+        $status_class,
+        $status_slug
     );
 }
 add_shortcode( 'painting_buy_button', 'monospace_custom_add_to_cart_shortcode' );
+
+/**
+ * Wrap the original painting's card contents. When the post has print products set
+ * in the Quick Product editor (_print_product_id / _framed_print_product_id), the card
+ * gets tabs: Original | Framed Print | Unframed Print, opening on Original.
+ */
+function monospace_render_painting_card( $inner, $status_class, $status_slug ) {
+    $post_id = get_the_ID();
+    $prints  = $post_id ? monospace_get_print_panes(
+        intval( get_post_meta( $post_id, '_print_product_id', true ) ),
+        intval( get_post_meta( $post_id, '_framed_print_product_id', true ) ),
+        false
+    ) : [];
+
+    if ( ! $prints ) {
+        return sprintf(
+            '<div class="painting-buy-row card-panel%s" data-status="%s">%s</div>',
+            esc_attr( $status_class ),
+            esc_attr( $status_slug ),
+            $inner
+        );
+    }
+
+    // No button on the original (sold, private): hold its row open with an invisible
+    // one, so the SKU / button row is the same height and place as on the print tabs
+    $inner = str_replace(
+        '<div class="card-buy"></div>',
+        '<div class="card-buy" aria-hidden="true"><a class="painting-buy-button" tabindex="-1" style="visibility:hidden">Add to cart</a></div>',
+        $inner
+    );
+
+    $panes = [ 'original' => [ 'label' => 'Original', 'html' => $inner ] ] + $prints;
+    return monospace_render_tabbed_card( 'artwork-card-' . $post_id, $panes, 'original', $status_class, $status_slug );
+}
 
 /**
  * Get volume discount hint from Sales Dashboard
@@ -162,8 +273,14 @@ add_shortcode( 'painting_buy_button', 'monospace_custom_add_to_cart_shortcode' )
  */
 function monospace_get_volume_discount_hint( $product, $product_id, $status ) {
 
-    // Only show for available products
-    $is_available = !in_array($status, ['sold', 'private', 'gallery']) && $product->is_in_stock();
+    // Check if reserved key is valid
+    $has_valid_reserved_key = ( ( $status === 'reserved' || $status === 'gallery-reserved' ) && monospace_validate_reserved_key( $product_id ) );
+
+    // Only show for available products (or reserved/gallery-reserved with valid key)
+    $is_available = !in_array($status, ['sold', 'private', 'gallery', 'gallery-reserved']) && $product->is_in_stock();
+    if ( ( $status === 'reserved' || $status === 'gallery-reserved' ) && ! $has_valid_reserved_key ) {
+        $is_available = false;
+    }
     if ( ! $is_available ) {
         return '';
     }
@@ -470,6 +587,14 @@ function monospace_render_buy_button( $product, $status, $gallery_url, $gallery_
             return $gallery_url
                 ? '<a class="gallery-button button status-gallery" href="' . esc_url( $gallery_url ) . '" target="_blank" rel="noopener">' . $gallery_label . '</a>'
                 : '<span class="sold-label status-gallery">' . $gallery_label . '</span>';
+
+        case 'gallery-reserved':
+            return $gallery_url
+                ? '<a class="gallery-button button status-gallery-reserved" href="' . esc_url( $gallery_url ) . '" target="_blank" rel="noopener">' . $gallery_label . '</a>'
+                : '<span class="gallery-button status-gallery-reserved">' . $gallery_label . '</span>';
+
+        case 'reserved':
+            return '<span class="sold-label status-reserved">Reserved</span>';
 
         case 'sold':
             return '<span class="sold-label status-sold">Private Collection</span>';

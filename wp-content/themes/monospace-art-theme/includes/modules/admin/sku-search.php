@@ -1,8 +1,26 @@
 <?php
 /**
- * WooCommerce SKU Search for Relevanssi
- * Redirects to related post when SKU is found
- * Searches last 4 digits of SKU (matches 1-4 digits at the END)
+ * SKU Search with Smart Redirect
+ *
+ * Enhances WooCommerce product search by allowing users to search by SKU numbers.
+ * Automatically redirects to the related blog post when a SKU is found.
+ *
+ * FUNCTIONALITY:
+ * - Adds WooCommerce SKU field to Relevanssi search index
+ * - Searches the last 1-4 digits of SKU codes
+ * - When SKU match is found, redirects to the related blog post (not the product)
+ * - Useful for finding artwork posts by their product SKU
+ *
+ * HOW IT WORKS:
+ * 1. User searches for "1234" (last 4 digits of SKU)
+ * 2. Relevanssi finds product with matching SKU
+ * 3. System looks up related blog post via custom field 'related_blog_post_id'
+ * 4. Redirects user to the artwork blog post instead of product page
+ *
+ * REQUIREMENTS:
+ * - Relevanssi search plugin must be installed and active
+ * - Products must have SKU codes set
+ * - Blog posts must have 'related_blog_post_id' field linking to product
  */
 
 /**

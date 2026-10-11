@@ -1,6 +1,20 @@
 <?php
-
-
+/**
+ * Password Protection Customization
+ *
+ * Customizes WordPress's default password protection form to provide a cleaner,
+ * simpler user experience for password-protected posts and pages.
+ *
+ * FUNCTIONALITY:
+ * - Removes post title from password form (for privacy)
+ * - Simplifies the form text ("This content is password protected")
+ * - Maintains WordPress's secure password cookie system
+ * - Works with all post types (posts, pages, products)
+ *
+ * USE CASE:
+ * When you set a post/page to "Password Protected" in WordPress, this module
+ * customizes the form visitors see to make it cleaner and more professional.
+ */
 
 // Hide the title from the password form
 add_filter( 'the_password_form', function() {

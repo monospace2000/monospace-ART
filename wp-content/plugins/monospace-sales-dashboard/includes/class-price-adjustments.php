@@ -38,6 +38,11 @@ class MSD_Price_Adjustments {
 
         $product_id = $product->get_id();
 
+        // Skip if volume discount has already set this product's price
+        if (!empty(MSD_Volume_Discounts::$discounted_product_ids[$product_id])) {
+            return $price;
+        }
+
         // Check product-level exclusion first
         if (MSD_Product_Overrides::is_excluded_from_price_adj($product_id)) {
             return $price;
@@ -83,9 +88,16 @@ class MSD_Price_Adjustments {
             }
         }
 
-        // Apply percentage adjustment
+        // Apply global percentage adjustment
         $percentage = (float) get_option('msd_price_adj_percentage', 25);
         $price *= 1 + ($percentage / 100);
+
+        // Apply per-product additional percentage (if set)
+        $product_percentage = get_post_meta($product_id, '_msd_additional_percentage', true);
+        if ($product_percentage !== '' && is_numeric($product_percentage)) {
+            $product_percentage = (float) $product_percentage;
+            $price *= 1 + ($product_percentage / 100);
+        }
 
         // Apply rounding
         $rounding = get_option('msd_rounding', 'none');

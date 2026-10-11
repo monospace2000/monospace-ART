@@ -36,15 +36,22 @@ class MSD_Settings {
 
         wp_enqueue_style('msd-admin', MSD_PLUGIN_URL . 'assets/admin.css', [], MSD_VERSION);
         wp_enqueue_script('msd-admin', MSD_PLUGIN_URL . 'assets/admin.js', ['jquery'], MSD_VERSION, true);
+
+        // Localize script with AJAX URL
+        wp_localize_script('msd-admin', 'msdAdmin', [
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('msd_ajax')
+        ]);
     }
 
     /**
      * Output settings page with tabs
      */
     public static function output_settings() {
-        $current_section = isset($_GET['section']) ? sanitize_text_field($_GET['section']) : 'global';
+        $current_section = isset($_GET['section']) ? sanitize_text_field($_GET['section']) : 'dashboard';
 
         $sections = [
+            'dashboard' => __('Dashboard', 'monospace-sales'),
             'global' => __('Global Controls', 'monospace-sales'),
             'price_adjustments' => __('Price Adjustments', 'monospace-sales'),
             'sale_rules' => __('Sale Rules', 'monospace-sales'),
@@ -53,6 +60,7 @@ class MSD_Settings {
             'scheduling' => __('Scheduling', 'monospace-sales'),
             'badges' => __('Badges & Messages', 'monospace-sales'),
             'bulk_editor' => __('Bulk Editor', 'monospace-sales'),
+            'additional_tracker' => __('Additional % Tracker', 'monospace-sales'),
             'import_export' => __('Import/Export', 'monospace-sales'),
         ];
 
@@ -88,6 +96,9 @@ class MSD_Settings {
      */
     private static function output_section($section) {
         switch ($section) {
+            case 'dashboard':
+                MSD_Dashboard_Overview::output_section();
+                break;
             case 'global':
                 self::output_global_section();
                 break;
@@ -111,6 +122,9 @@ class MSD_Settings {
                 break;
             case 'bulk_editor':
                 MSD_Bulk_Editor::output_section();
+                break;
+            case 'additional_tracker':
+                MSD_Additional_Tracker::output_section();
                 break;
             case 'import_export':
                 MSD_Import_Export::output_section();
@@ -768,8 +782,8 @@ class MSD_Settings {
 
         $current_section = isset($_GET['section']) ? sanitize_text_field($_GET['section']) : 'global';
 
-        // Skip for bulk editor and import/export (they handle their own saving)
-        if (in_array($current_section, ['bulk_editor', 'import_export'])) {
+        // Skip for sections that handle their own saving or are read-only
+        if (in_array($current_section, ['dashboard', 'bulk_editor', 'additional_tracker', 'import_export'])) {
             return;
         }
 

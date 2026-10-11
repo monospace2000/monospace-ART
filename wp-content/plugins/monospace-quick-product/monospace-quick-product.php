@@ -3,7 +3,7 @@
 /**
  * Plugin Name: monospace ART - Quick Product Creator
  * Description: Link posts to WooCommerce products with a simple meta box, and edit product attributes.
- * Version: 1.18
+ * Version: 1.20
  * Author: monospace
  * Requires PHP: 7.4
  * Requires at least: 5.8
@@ -135,6 +135,8 @@ class MetaBox
 				],
 				'categories'     => [],                 // default categories handled below
 				'availability'   => 'available',       // default availability
+				'gallery_name'   => '',
+				'gallery_url'    => '',
 			];
 
 			// Optional: assign default category “Original” if it exists
@@ -155,6 +157,8 @@ class MetaBox
 			'attributes'    => [],
 			'categories'    => [],
 			'availability'  => 'available',
+			'gallery_name'  => '',
+			'gallery_url'   => '',
 		];
 
 		if (function_exists('wc_get_product')) {
@@ -235,6 +239,10 @@ class MetaBox
 		if (! is_wp_error($categories)) {
 			$this->data['categories'] = $categories;
 		}
+
+		// Get gallery info
+		$this->data['gallery_name'] = get_post_meta($product_id, 'painting_gallery_name', true) ?: '';
+		$this->data['gallery_url']  = get_post_meta($product_id, 'painting_gallery_url', true) ?: '';
 
 		// Get stock quantity
 		$stock_qty = $product->get_stock_quantity() ?? 0;
@@ -329,6 +337,7 @@ class MetaBox
 		</div>
 
 		<?php $this->render_availability_field(); ?>
+		<?php $this->render_reserved_link(); ?>
 
 
 
@@ -371,8 +380,14 @@ class MetaBox
 		echo '<hr style="margin: 15px 0;">';
 		echo '<p style="font-weight: 600; margin-bottom: 10px;">' . esc_html__('Product Attributes', 'quick-product') . '</p>';
 
+		// Attributes that belong to Printful print products, not to the original artwork
+		$print_only = ['pa_color'];
+
 		foreach ($attribute_taxonomies as $tax) {
 			$taxonomy = wc_attribute_taxonomy_name($tax->attribute_name);
+			if (in_array($taxonomy, $print_only, true)) {
+				continue;
+			}
 			$selected_value = $this->data['attributes'][$taxonomy] ?? '';
 
 			$this->render_single_attribute_dropdown($taxonomy, $tax->attribute_label, $selected_value);
@@ -404,8 +419,10 @@ class MetaBox
 			? $this->data['categories']
 			: ($original_id ? [$original_id] : []);
 
+		// Hidden, not removed: the checkboxes still submit, so saves keep the
+		// default (Original) or the product's existing categories.
 		?>
-		<div class="qp-field">
+		<div class="qp-field" style="display: none;">
 			<label><?php esc_html_e('Product Categories', 'quick-product'); ?></label>
 			<div style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 8px; background: #fff;">
 				<?php foreach ($categories as $category) : ?>
@@ -425,10 +442,12 @@ class MetaBox
 	private function render_availability_field()
 	{
 		$availability_options = [
-			'available' => __('Available', 'quick-product'),
-			'sold'      => __('Sold', 'quick-product'),
-			'private'   => __('Private Collection', 'quick-product'),
-			'gallery'   => __('At Gallery', 'quick-product'),
+			'available'        => __('Available', 'quick-product'),
+			'reserved'         => __('Reserved', 'quick-product'),
+			'sold'             => __('Sold', 'quick-product'),
+			'private'          => __('Private Collection', 'quick-product'),
+			'gallery'          => __('At Gallery', 'quick-product'),
+			'gallery-reserved' => __('At Gallery (QR Purchase Only)', 'quick-product'),
 		];
 
 		$selected = $this->data['availability'] ?? 'available';
@@ -445,9 +464,147 @@ class MetaBox
 				<?php endforeach; ?>
 			</select>
 		</div>
+
+		<?php
+		$gallery_statuses = ['gallery', 'gallery-reserved'];
+		$show_gallery     = in_array($selected, $gallery_statuses) ? '' : 'display:none;';
+		?>
+		<div id="qp-gallery-fields" style="<?php echo esc_attr($show_gallery); ?>">
+			<div class="qp-field">
+				<label><?php esc_html_e('Gallery Name', 'quick-product'); ?></label>
+				<input type="text"
+					name="qp_gallery_name"
+					id="qp-gallery-name"
+					value="<?php echo esc_attr($this->data['gallery_name'] ?? ''); ?>"
+					placeholder="<?php esc_attr_e('e.g. Fountain Art Fair', 'quick-product'); ?>">
+			</div>
+			<div class="qp-field">
+				<label><?php esc_html_e('Gallery URL', 'quick-product'); ?></label>
+				<input type="url"
+					name="qp_gallery_url"
+					id="qp-gallery-url"
+					value="<?php echo esc_attr($this->data['gallery_url'] ?? ''); ?>"
+					placeholder="https://">
+			</div>
+		</div>
+
+		<hr style="margin: 15px 0;">
+
+		<div class="qp-field">
+			<label><?php esc_html_e('Print Product ID', 'quick-product'); ?></label>
+			<input type="number"
+				name="qp_print_product_id"
+				id="qp-print-product-id"
+				value="<?php echo esc_attr(get_post_meta($this->post->ID, '_print_product_id', true)); ?>"
+				placeholder="<?php esc_attr_e('Printful variable product ID', 'quick-product'); ?>">
+			<p style="font-size:11px;color:#666;margin:4px 0 0 0;">Used by <code>[print_order_button]</code> shortcode.</p>
+		</div>
+
+		<div class="qp-field">
+			<label><?php esc_html_e('Framed Print Product ID', 'quick-product'); ?></label>
+			<input type="number"
+				name="qp_framed_print_product_id"
+				id="qp-framed-print-product-id"
+				value="<?php echo esc_attr(get_post_meta($this->post->ID, '_framed_print_product_id', true)); ?>"
+				placeholder="<?php esc_attr_e('Printful framed product ID', 'quick-product'); ?>">
+			<p style="font-size:11px;color:#666;margin:4px 0 0 0;">Adds an Unframed / Framed switch to the print card.</p>
+		</div>
 	<?php
 	}
 
+	private function generate_reserved_key($product_id)
+	{
+		// Generate a secure hash based on product ID + secret salt
+		$secret = defined('MONOSPACE_RESERVED_SECRET') ? MONOSPACE_RESERVED_SECRET : 'ms-art-reserved-2024';
+		return substr(md5($product_id . $secret), 0, 16);
+	}
+
+	private function render_reserved_link()
+	{
+		$is_reserved = in_array(($this->data['availability'] ?? ''), ['reserved', 'gallery-reserved']);
+		$product_id = $this->data['product_id'] ?? 0;
+		$post_id = get_the_ID();
+
+		if (!$product_id) {
+			return; // No product yet, can't generate link
+		}
+
+		$post_url = get_permalink($post_id);
+		$reserved_key = $this->generate_reserved_key($product_id);
+		$reserved_url = add_query_arg('reserved_key', $reserved_key, $post_url);
+
+		$display_style = $is_reserved ? '' : 'display: none;';
+	?>
+		<div id="qp-reserved-link-section" class="qp-field" style="<?php echo esc_attr($display_style); ?>">
+			<div style="background: #f0f6fc; border: 1px solid #0073aa; border-radius: 4px; padding: 12px; margin-top: 8px;">
+				<label style="color: #0073aa; margin-bottom: 8px;">
+					🔗 <?php esc_html_e('Reserved Purchase Link', 'quick-product'); ?>
+				</label>
+				<input type="text"
+					id="qp-reserved-url"
+					readonly
+					value="<?php echo esc_attr($reserved_url); ?>"
+					style="width: 100%; font-size: 11px; margin-bottom: 8px; background: #fff; cursor: text;"
+					onclick="this.select();">
+				<button type="button"
+					id="qp-copy-reserved-link"
+					class="button button-secondary"
+					style="width: 100%;">
+					<?php esc_html_e('Copy Link', 'quick-product'); ?>
+				</button>
+				<p style="font-size: 11px; color: #666; margin: 8px 0 0 0; line-height: 1.4;">
+					<?php esc_html_e('Share this link with the customer to allow them to complete the purchase. The link bypasses the "Reserved" status and shows the buy button.', 'quick-product'); ?>
+				</p>
+			</div>
+		</div>
+	<?php
+	}
+
+
+	private function sort_size_terms($terms)
+	{
+		$order = [
+			// Landscape, large to small
+			'20" × 16"',
+			'14" × 11"',
+			'12" × 9"',
+			'10" × 8"',
+			'7" × 5"',
+			'6" × 4"',
+			// Portrait, large to small
+			'24" × 36"',
+			'20" × 30"',
+			'18" × 24"',
+			'16" × 20"',
+			'12" × 18"',
+			'12" × 16"',
+			'11" × 14"',
+			'9" × 12"',
+			'8" × 10"',
+			'5" × 7"',
+			'4" × 6"',
+			// Square, large to small
+			'18" × 18"',
+			'16" × 16"',
+			'14" × 14"',
+			'12" × 12"',
+			'10" × 10"',
+			'4" × 4"',
+			// Special
+			'Sketchbook page',
+			'Other',
+		];
+
+		$order_map = array_flip($order);
+
+		usort($terms, function($a, $b) use ($order_map) {
+			$pos_a = $order_map[$a->name] ?? 999;
+			$pos_b = $order_map[$b->name] ?? 999;
+			return $pos_a - $pos_b;
+		});
+
+		return $terms;
+	}
 
 	private function render_single_attribute_dropdown($taxonomy, $label, $selected)
 	{
@@ -455,6 +612,10 @@ class MetaBox
 			'taxonomy'   => $taxonomy,
 			'hide_empty' => false,
 		]);
+
+		if ($taxonomy === 'pa_size') {
+			$terms = $this->sort_size_terms($terms);
+		}
 
 
 		if (is_wp_error($terms) || empty($terms)) {
@@ -468,7 +629,21 @@ class MetaBox
 				class="qp-attribute-select"
 				data-taxonomy="<?php echo esc_attr($taxonomy); ?>">
 				<option value=""><?php esc_html_e('— Select —', 'quick-product'); ?></option>
-				<?php foreach ($terms as $term) : ?>
+				<?php
+				if ($taxonomy === 'pa_size') :
+					$separators = [
+						'20" × 16"' => '— Landscape —',
+						'24" × 36"' => '— Portrait —',
+						'18" × 18"' => '— Square —',
+						'Sketchbook page' => '— Other —',
+					];
+				endif;
+				foreach ($terms as $term) :
+					if ($taxonomy === 'pa_size' && isset($separators[$term->name])) :
+						echo '<option disabled>─────────────────</option>';
+						echo '<option disabled>' . esc_html($separators[$term->name]) . '</option>';
+					endif;
+				?>
 					<option value="<?php echo esc_attr($term->slug); ?>"
 						<?php selected($selected, $term->slug); ?>>
 						<?php echo esc_html($term->name); ?>
@@ -506,6 +681,119 @@ class MetaBox
 		<script>
 			(function($) {
 				'use strict';
+
+				// -------------------------------------------------------
+				// Buy button shortcode: stamp the product ID into the body
+				//
+				// The server already rewrote post_content, but the open editor
+				// still holds the old copy and would write it back on the next
+				// save. Apply the same rewrite to the editor's own state so the
+				// two agree.
+				// -------------------------------------------------------
+
+				// Rewrite every [painting_buy_button] in `text` to point at
+				// productId. Returns null when nothing changed.
+				function stampShortcode(text, productId) {
+					if (typeof text !== 'string' || text.indexOf('[painting_buy_button') === -1) {
+						return null;
+					}
+
+					var changed = false;
+
+					var out = text.replace(/\[painting_buy_button\b([^\]]*)\]/g, function(full, atts) {
+						if (/\bid\s*=/.test(atts)) {
+							// Replace the existing value, quoted or bare.
+							atts = atts.replace(/\bid\s*=\s*("[^"]*"|'[^']*'|[^\s\]]*)/, 'id="' + productId + '"');
+						} else {
+							atts = atts.replace(/\s+$/, '') + ' id="' + productId + '"';
+						}
+
+						var rebuilt = '[painting_buy_button' + atts + ']';
+						if (rebuilt !== full) {
+							changed = true;
+						}
+						return rebuilt;
+					});
+
+					return changed ? out : null;
+				}
+
+				// Block editor: walk the tree and patch whichever attribute
+				// carries the raw text (core/shortcode uses `text`, paragraph /
+				// html / freeform use `content`).
+				function stampBlockEditor(productId) {
+					if (typeof wp === 'undefined' || !wp.data || !wp.data.select('core/block-editor')) {
+						return false;
+					}
+
+					var select = wp.data.select('core/block-editor');
+					var dispatch = wp.data.dispatch('core/block-editor');
+					var touched = false;
+
+					(function walk(blocks) {
+						(blocks || []).forEach(function(block) {
+							var attrs = block.attributes || {};
+							var updates = {};
+
+							['text', 'content'].forEach(function(key) {
+								var value = attrs[key];
+								// Newer Gutenberg hands back a RichTextData object here.
+								if (value && typeof value === 'object' && typeof value.toString === 'function') {
+									value = value.toString();
+								}
+								var next = stampShortcode(value, productId);
+								if (next !== null) {
+									updates[key] = next;
+								}
+							});
+
+							if (Object.keys(updates).length) {
+								dispatch.updateBlockAttributes(block.clientId, updates);
+								touched = true;
+							}
+
+							walk(block.innerBlocks);
+						});
+					})(select.getBlocks());
+
+					return touched;
+				}
+
+				// Classic editor: TinyMCE when visual, the raw textarea when not.
+				function stampClassicEditor(productId) {
+					var touched = false;
+
+					if (typeof tinymce !== 'undefined') {
+						var mce = tinymce.get('content');
+						if (mce && !mce.isHidden()) {
+							var next = stampShortcode(mce.getContent(), productId);
+							if (next !== null) {
+								mce.setContent(next);
+								mce.fire('change');
+								touched = true;
+							}
+						}
+					}
+
+					var $textarea = $('#content');
+					if ($textarea.length) {
+						var nextRaw = stampShortcode($textarea.val(), productId);
+						if (nextRaw !== null) {
+							$textarea.val(nextRaw).trigger('change');
+							touched = true;
+						}
+					}
+
+					return touched;
+				}
+
+				function syncBuyButtonShortcode(productId) {
+					if (!productId) {
+						return false;
+					}
+					// Only one of these is live in any given screen.
+					return stampBlockEditor(productId) || stampClassicEditor(productId);
+				}
 
 				// Wait for DOM ready
 				$(function() {
@@ -666,7 +954,11 @@ class MetaBox
 							sku: $('#qp-sku').val(),
 							attributes: attributes,
 							categories: categories,
-							availability: $('#qp-availability').val()
+							availability: $('#qp-availability').val(),
+							gallery_name: $('#qp-gallery-name').val(),
+							gallery_url: $('#qp-gallery-url').val(),
+							print_product_id: $('#qp-print-product-id').val(),
+							framed_print_product_id: $('#qp-framed-print-product-id').val()
 						};
 
 						// Disable button and show processing
@@ -684,6 +976,10 @@ class MetaBox
 									// Update product ID field if new product was created
 									if (response.data.product_id) {
 										$('#qp-product-id').val(response.data.product_id);
+
+										// Keep the editor's copy of the body in step with
+										// the rewrite the server just made.
+										syncBuyButtonShortcode(response.data.product_id);
 									}
 
 									if (response.data.sku) {
@@ -706,6 +1002,58 @@ class MetaBox
 							.always(function() {
 								$button.prop('disabled', false).text('<?php echo esc_js(__('Create / Update Product', 'quick-product')); ?>');
 							});
+					});
+
+					// -------------------------
+					// Gallery / Reserved: Show/Hide fields based on availability
+					// -------------------------
+					function updateReservedLinkVisibility() {
+						var availability = $('#qp-availability').val();
+						var $section = $('#qp-reserved-link-section');
+
+						if (availability === 'reserved' || availability === 'gallery-reserved') {
+							$section.slideDown(200);
+						} else {
+							$section.slideUp(200);
+						}
+					}
+
+					function updateGalleryFieldsVisibility() {
+						var availability = $('#qp-availability').val();
+						var $section = $('#qp-gallery-fields');
+
+						if (availability === 'gallery' || availability === 'gallery-reserved') {
+							$section.slideDown(200);
+						} else {
+							$section.slideUp(200);
+						}
+					}
+
+					// Update visibility on availability change
+					$('#qp-availability').on('change', function() {
+						updateReservedLinkVisibility();
+						updateGalleryFieldsVisibility();
+					});
+
+					// -------------------------
+					// Copy Reserved Link Button
+					// -------------------------
+					$('#qp-copy-reserved-link').on('click', function(e) {
+						e.preventDefault();
+						var $input = $('#qp-reserved-url');
+						var $button = $(this);
+
+						// Select and copy
+						$input.select();
+						document.execCommand('copy');
+
+						// Visual feedback
+						var originalText = $button.text();
+						$button.text('<?php echo esc_js(__('✓ Copied!', 'quick-product')); ?>');
+
+						setTimeout(function() {
+							$button.text(originalText);
+						}, 2000);
 					});
 
 				}); // DOM ready
@@ -775,11 +1123,17 @@ class AjaxHandler
 			esc_url($edit_link)
 		);
 
+		if (! empty($result['shortcode_updated'])) {
+			$message .= '<br>' . esc_html__('Buy button shortcode updated in the post body.', 'quick-product');
+		}
+
 		wp_send_json_success([
 			'message'    => $message,
 			'product_id' => $result['product_id'],
 			'sku'        => $sku,
-			'action'     => $result['action']
+			'action'     => $result['action'],
+			'shortcode_updated' => ! empty($result['shortcode_updated']),
+			'product_url' => get_permalink($result['product_id'])
 		]);
 	}
 
@@ -788,14 +1142,17 @@ class AjaxHandler
 	private function sanitize_input()
 	{
 		return [
-			'product_id'    => intval($_POST['product_id'] ?? 0),
-			'product_name'  => sanitize_text_field(wp_unslash($_POST['product_name'] ?? '')),
-			'product_price' => sanitize_text_field(wp_unslash($_POST['product_price'] ?? '')),
-	        'sku'           => sanitize_text_field(wp_unslash($_POST['sku'] ?? '')),
-			'attributes'    => $this->sanitize_attributes($_POST['attributes'] ?? []),
-			'categories'    => $this->sanitize_categories($_POST['categories'] ?? []),
-			'availability'  => sanitize_text_field(wp_unslash($_POST['availability'] ?? 'available')),
-
+			'product_id'      => intval($_POST['product_id'] ?? 0),
+			'product_name'    => sanitize_text_field(wp_unslash($_POST['product_name'] ?? '')),
+			'product_price'   => sanitize_text_field(wp_unslash($_POST['product_price'] ?? '')),
+	        'sku'             => sanitize_text_field(wp_unslash($_POST['sku'] ?? '')),
+			'attributes'      => $this->sanitize_attributes($_POST['attributes'] ?? []),
+			'categories'      => $this->sanitize_categories($_POST['categories'] ?? []),
+			'availability'    => sanitize_text_field(wp_unslash($_POST['availability'] ?? 'available')),
+			'gallery_name'    => sanitize_text_field(wp_unslash($_POST['gallery_name'] ?? '')),
+			'gallery_url'     => esc_url_raw(wp_unslash($_POST['gallery_url'] ?? '')),
+			'print_product_id' => intval($_POST['print_product_id'] ?? 0),
+			'framed_print_product_id' => intval($_POST['framed_print_product_id'] ?? 0),
 		];
 	}
 
@@ -924,6 +1281,7 @@ class ProductSyncer
 
             case 'private':
             case 'gallery':
+            case 'gallery-reserved':
             case 'available':
                 // All "available-ish" states must have stock >= 1 and be in stock
                 $stock = (int) $product->get_stock_quantity();
@@ -943,6 +1301,10 @@ class ProductSyncer
         $product->set_stock_quantity(1);
         $product->set_stock_status('instock');
         $product->set_sold_individually(true);
+
+        // Set default shipping class to "Regular" (ID: 1360)
+        $product->set_shipping_class_id(1360);
+
         $action = 'created';
     }
 
@@ -957,7 +1319,7 @@ class ProductSyncer
 
 	// Generate SKU if it was blank
 	if (!empty($this->data['_needs_sku_generation'])) {
-		$generated_sku = $this->generate_sku($product_id);
+		$generated_sku = $this->generate_sku();
 		$product->set_sku($generated_sku);
 		$product->save();
 		// Update our data array so it gets saved to post meta
@@ -977,11 +1339,18 @@ class ProductSyncer
 	// Set attributes (must be done after product is saved)
 	$this->set_attributes($product_id, $action);
 
+	// Set shipping class based on size (Oversized if 20x16 or larger)
+	$this->set_shipping_class_by_size($product_id);
+
     // Link product back to post with custom field
     update_post_meta($product_id, '_related_post_id', $this->post_id);
 
     // Save availability so filter can read it
     update_post_meta($product_id, 'painting_availability_status', $this->data['availability']);
+
+    // Save gallery info
+    update_post_meta($product_id, 'painting_gallery_name', $this->data['gallery_name'] ?? '');
+    update_post_meta($product_id, 'painting_gallery_url',  $this->data['gallery_url'] ?? '');
 
     // Save relationship in post meta
     update_post_meta($this->post_id, '_qp_product_id', $product_id);
@@ -992,9 +1361,28 @@ class ProductSyncer
     update_post_meta($this->post_id, '_qp_categories', $this->data['categories']);
     update_post_meta($this->post_id, '_qp_availability', $this->data['availability']);
 
+    // Save print product IDs (unframed and framed)
+    foreach (['print_product_id', 'framed_print_product_id'] as $key) {
+        $print_id = intval($this->data[$key] ?? 0);
+        if ($print_id > 0) {
+            update_post_meta($this->post_id, '_' . $key, $print_id);
+            monospace_sync_print_product_link($this->post_id, $print_id);
+
+            // The reproduction is its own product and needs its own R SKU.
+            // Runs after the original has been saved, so the sequence sees it.
+            $this->ensure_print_product_sku($print_id);
+        } else {
+            delete_post_meta($this->post_id, '_' . $key);
+        }
+    }
+
+    // Stamp the product ID into [painting_buy_button] in the post body, if present.
+    $shortcode_updated = stamp_buy_button_shortcode($this->post_id, $product_id);
+
     return [
-        'product_id' => $product_id,
-        'action'     => $action,
+        'product_id'        => $product_id,
+        'action'            => $action,
+        'shortcode_updated' => $shortcode_updated,
     ];
 }
 
@@ -1089,16 +1477,126 @@ class ProductSyncer
 		return 0;
 	}
 
-	private function generate_sku($product_id)
+	/**
+	 * Work out the artwork-type letter that goes in the middle of the SKU.
+	 *
+	 *   P  Painting   D  Drawing   M  Miniature   O  Object   C  Custom order
+	 *
+	 * Checked most specific first, because the signals overlap: a 4" x 4"
+	 * painting is a miniature (M, not P). Only type-carrying signals are
+	 * consulted - the product categories the user ticked, the size and format
+	 * attributes, and the blog post's own categories as a fallback.
+	 *
+	 * R (Reproduction) is deliberately not produced here. A print is its own
+	 * product, separate from the original: the painting keeps its P and the
+	 * linked Printful product gets the R, via ensure_print_product_sku().
+	 *
+	 * @return string A single uppercase letter.
+	 */
+	private function resolve_type_letter()
+	{
+		$attributes = $this->data['attributes'] ?? [];
+		$size       = $attributes['pa_size'] ?? '';
+		$format     = $attributes['pa_format'] ?? '';
+
+		// Product categories ticked in the meta box, as slugs.
+		$product_cats = [];
+		foreach ((array) ($this->data['categories'] ?? []) as $term_id) {
+			$term = get_term((int) $term_id, 'product_cat');
+			if ($term && ! is_wp_error($term)) {
+				$product_cats[] = $term->slug;
+			}
+		}
+
+		// The blog post's own categories.
+		$post_cats = wp_get_post_terms($this->post_id, 'category', ['fields' => 'slugs']);
+		if (is_wp_error($post_cats)) {
+			$post_cats = [];
+		}
+
+		// 1. Commissions.
+		if (in_array('custom-order', $product_cats, true)) {
+			return 'C';
+		}
+
+		// 2. Miniature is a size, so it outranks the format below.
+		if ($size === '4x4' || in_array('miniature', $post_cats, true)) {
+			return 'M';
+		}
+
+		// 3. The format attribute, falling back to the matching blog category
+		//    when no format was picked (or "other" was).
+		$by_slug = [
+			'painting' => 'P',
+			'drawing'  => 'D',
+			'object'   => 'O',
+		];
+
+		if (isset($by_slug[$format])) {
+			return $by_slug[$format];
+		}
+
+		foreach ($by_slug as $slug => $letter) {
+			if (in_array($slug, $post_cats, true)) {
+				return $letter;
+			}
+		}
+
+		// 4. Unclassified. Deliberately not "O" - that means Object, and a
+		//    silent collision would be worse than an obvious odd letter.
+		return 'X';
+	}
+
+	/**
+	 * Give the linked Printful product an R SKU if it hasn't got one.
+	 *
+	 * The reproduction is a separate product from the original, so it gets
+	 * its own number: "Mudflats Sunset" stays P, "Mudflats Sunset - unframed
+	 * print" becomes R. Uses the current year rather than the artwork's - a
+	 * 2025 painting printed this year is a 2026 reproduction, which is how
+	 * the existing R SKUs are numbered.
+	 *
+	 * Never touches a SKU that is already set.
+	 *
+	 * @param int $print_id The Printful product ID.
+	 */
+	private function ensure_print_product_sku($print_id)
+	{
+		if (! function_exists('wc_get_product')) {
+			return;
+		}
+
+		$print_product = wc_get_product($print_id);
+		if (! $print_product) {
+			return;
+		}
+
+		if (trim((string) $print_product->get_sku()) !== '') {
+			return;
+		}
+
+		$print_product->set_sku($this->generate_sku('R', date('Y')));
+		$print_product->save();
+	}
+
+	/**
+	 * Build the next SKU: MNSPC-<year>-<type>-<nnnn>.
+	 *
+	 * The number is global and sequential across every type, so it is always
+	 * the highest existing MNSPC number plus one.
+	 *
+	 * @param string|null $letter Type letter; resolved from the artwork when null.
+	 * @param string|null $year   Four-digit year; the artwork's year when null.
+	 */
+	private function generate_sku($letter = null, $year = null)
 	{
 		global $wpdb;
 
 		// Year for SKU
-		$year = $this->data['attributes']['pa_year-created'] ?? date('Y');
+		$year = $year ?: ($this->data['attributes']['pa_year-created'] ?? date('Y'));
 
-		// Format for SKU (first letter of format, uppercase)
-		$format = $this->data['attributes']['pa_format'] ?? 'O';
-		$format = strtoupper(substr($format, 0, 1));
+		// Artwork type letter (P/D/M/O/C, or R when forced for a print)
+		$format = $letter ?: $this->resolve_type_letter();
 
 		// Find ALL existing SKUs with MNSPC prefix to get the highest number
 		$pattern = $wpdb->esc_like('MNSPC-') . '%';
@@ -1187,6 +1685,38 @@ class ProductSyncer
 		update_post_meta($product_id, 'painting_availability_status', $this->data['availability']);
 	}
 
+	private function set_shipping_class_by_size($product_id)
+	{
+		// Get the size attribute from the data
+		$size_slug = $this->data['attributes']['pa_size'] ?? '';
+
+		if (empty($size_slug)) {
+			// No size set, keep default shipping class (Regular)
+			return;
+		}
+
+		// Parse dimensions from size slug (e.g., "16x20", "20x16", "9x12")
+		// Size slugs are typically formatted as WxH or HxW in inches
+		if (preg_match('/(\d+)\s*x\s*(\d+)/i', $size_slug, $matches)) {
+			$dim1 = (int) $matches[1];
+			$dim2 = (int) $matches[2];
+
+			// Check if either dimension is >= 20 AND the other is >= 16
+			// This catches 20x16, 16x20, 24x18, etc.
+			$is_oversized = ($dim1 >= 20 && $dim2 >= 16) || ($dim2 >= 20 && $dim1 >= 16);
+
+			if ($is_oversized) {
+				// Set to Oversized shipping class (ID: 1361)
+				$product = wc_get_product($product_id);
+				if ($product) {
+					$product->set_shipping_class_id(1361);
+					$product->save();
+				}
+			}
+			// Otherwise, keep the default "Regular" shipping class (1360) that was set on creation
+		}
+	}
+
 	private function set_categories($product_id)
 	{
 		if (empty($this->data['categories'])) {
@@ -1219,6 +1749,20 @@ class MetaSaver
 	{
 		if (! $this->should_save()) {
 			return;
+		}
+
+		// Save print product IDs (unframed and framed)
+		foreach (['print_product_id', 'framed_print_product_id'] as $key) {
+			if (! isset($_POST['qp_' . $key])) {
+				continue;
+			}
+			$print_id = intval($_POST['qp_' . $key]);
+			if ($print_id > 0) {
+				update_post_meta($this->post_id, '_' . $key, $print_id);
+				monospace_sync_print_product_link($this->post_id, $print_id);
+			} else {
+				delete_post_meta($this->post_id, '_' . $key);
+			}
 		}
 
 		$fields = [
@@ -1266,6 +1810,100 @@ class MetaSaver
 
 		return true;
 	}
+}
+
+/**
+ * Rewrite the id attribute of every [painting_buy_button] in a string.
+ *
+ * Covers the three forms that turn up in post bodies:
+ *   [painting_buy_button id="xxxx"]  - the "Coming Soon" placeholder
+ *   [painting_buy_button id="123"]   - already pointing at a product
+ *   [painting_buy_button]            - no id yet
+ *
+ * @param string $content    Post content.
+ * @param int    $product_id Product ID to stamp in.
+ * @return string Content with every buy button pointing at $product_id.
+ */
+function set_buy_button_shortcode_id($content, $product_id)
+{
+	// Cheap bail-out so we don't run a regex over every post body.
+	if (strpos($content, '[painting_buy_button') === false) {
+		return $content;
+	}
+
+	return preg_replace_callback(
+		'/\[painting_buy_button\b([^\]]*)\]/',
+		function ($matches) use ($product_id) {
+			$atts = $matches[1];
+
+			if (preg_match('/\bid\s*=/', $atts)) {
+				// Replace the existing value, quoted or bare.
+				$atts = preg_replace(
+					'/\bid\s*=\s*("[^"]*"|\'[^\']*\'|[^\s\]]*)/',
+					'id="' . $product_id . '"',
+					$atts,
+					1
+				);
+			} else {
+				$atts = rtrim($atts) . ' id="' . $product_id . '"';
+			}
+
+			return '[painting_buy_button' . $atts . ']';
+		},
+		$content
+	);
+}
+
+/**
+ * Stamp a product ID into the post body's buy button shortcode.
+ *
+ * Only touches the post when a buy button is already present - it never adds
+ * one. Saves the caller the copy/paste step after creating a product.
+ *
+ * @param int $post_id    The blog post ID.
+ * @param int $product_id The product ID to stamp in.
+ * @return bool True when the post content actually changed.
+ */
+function stamp_buy_button_shortcode($post_id, $product_id)
+{
+	$post = get_post($post_id);
+	if (! $post || ! $product_id) {
+		return false;
+	}
+
+	$updated = set_buy_button_shortcode_id($post->post_content, $product_id);
+
+	if ($updated === $post->post_content) {
+		return false;
+	}
+
+	// wp_update_post() re-fires save_post_post. This request carries no qp_*
+	// fields, so letting MetaSaver run again would blank the meta we just
+	// wrote - unhook it for the duration of the write.
+	$plugin = Plugin::instance();
+	remove_action('save_post_post', [$plugin, 'save_meta_fields'], 10);
+
+	wp_update_post(wp_slash([
+		'ID'           => $post_id,
+		'post_content' => $updated,
+	]));
+
+	add_action('save_post_post', [$plugin, 'save_meta_fields'], 10, 3);
+
+	return true;
+}
+
+/**
+ * Sync _related_post_id onto a print product so the Art Filter can find it.
+ * Called from both MetaSaver and ProductSyncer.
+ *
+ * @param int $post_id       The blog post ID.
+ * @param int $print_product_id The Printful variable product ID.
+ */
+function monospace_sync_print_product_link( $post_id, $print_product_id ) {
+    if ( ! $post_id || ! $print_product_id ) return;
+    update_post_meta( $print_product_id, '_related_post_id', $post_id );
+    wp_set_object_terms( $print_product_id, 'print', 'product_cat' );
 }
 
 
@@ -1337,10 +1975,11 @@ add_action('wp_ajax_qp_find_product', function () {
 		'id' => $product_id,
 		'title' => get_the_title($product_id),
 		'price' => $price,
-	    'sku' => $sku,  // ADD THIS LINE
+	    'sku' => $sku,
 		'availability' => $availability,
 		'attributes' => $attributes,
 		'categories' => $categories,
+		'product_url' => get_permalink($product_id),
 	));
 });
 

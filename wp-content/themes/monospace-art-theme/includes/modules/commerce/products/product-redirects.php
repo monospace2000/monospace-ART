@@ -18,6 +18,15 @@ function monospace_wc_redirect_exceptions() {
 }
 
 /**
+ * Returns the blog post ID linked to a print product, or 0.
+ * Print products are identified by belonging to the 'prints' WooCommerce product category.
+ */
+function monospace_get_post_for_print_product( $product_id ) {
+    if ( ! has_term( 'print', 'product_cat', $product_id ) ) return 0;
+    return (int) get_post_meta( $product_id, '_related_post_id', true );
+}
+
+/**
  * Check if a product slug matches an exception pattern
  */
 function monospace_wc_is_exempt_product( $product_id ) {
@@ -39,7 +48,7 @@ function monospace_wc_is_exempt_product( $product_id ) {
 }
 
 /* ============================================================
- * 1. Redirect direct product page visits
+ * 1. Redirect product page visits from cart/checkout only
  * ============================================================ */
 
 add_action( 'template_redirect', function () {
@@ -48,7 +57,7 @@ add_action( 'template_redirect', function () {
         return;
     }
 
-        // Skip redirect if coming from search results
+    // Skip redirect if coming from search results
     if ( defined('MONOSPACE_FROM_SEARCH') && MONOSPACE_FROM_SEARCH ) {
         return;
     }
@@ -57,6 +66,25 @@ add_action( 'template_redirect', function () {
 
     // Skip if product is exempt
     if ( monospace_wc_is_exempt_product( $product_id ) ) {
+        return;
+    }
+
+    // Check if visitor is coming from cart or checkout
+    $referer = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
+    $is_from_cart = false;
+
+    if ( $referer && function_exists('wc_get_cart_url') && function_exists('wc_get_checkout_url') ) {
+        $cart_url = wc_get_cart_url();
+        $checkout_url = wc_get_checkout_url();
+
+        // Check if referer contains cart or checkout URL
+        if ( strpos( $referer, $cart_url ) !== false || strpos( $referer, $checkout_url ) !== false ) {
+            $is_from_cart = true;
+        }
+    }
+
+    // Only redirect if coming from cart/checkout; allow direct access otherwise
+    if ( ! $is_from_cart ) {
         return;
     }
 
@@ -89,6 +117,7 @@ add_filter( 'woocommerce_product_get_permalink', function ( $permalink, $product
     }
 
     $related_post_id = (int) get_post_meta( $product->get_id(), '_related_post_id', true );
+
     if ( $related_post_id && get_post_status( $related_post_id ) === 'publish' ) {
         return get_permalink( $related_post_id );
     }
@@ -111,6 +140,7 @@ add_filter( 'woocommerce_cart_item_permalink', function ( $permalink, $cart_item
     }
 
     $related_post_id = (int) get_post_meta( $product_id, '_related_post_id', true );
+
     if ( $related_post_id && get_post_status( $related_post_id ) === 'publish' ) {
         return get_permalink( $related_post_id );
     }
@@ -119,26 +149,3 @@ add_filter( 'woocommerce_cart_item_permalink', function ( $permalink, $cart_item
 
 }, 10, 3 );
 
-/* ============================================================
- * 4. Add-to-cart redirects
- * ============================================================ */
-
-add_filter( 'woocommerce_add_to_cart_redirect', function ( $url ) {
-
-    if ( empty( $_REQUEST['add-to-cart'] ) ) return $url;
-
-    $product_id = (int) $_REQUEST['add-to-cart'];
-
-    // Skip exempt products
-    if ( monospace_wc_is_exempt_product( $product_id ) ) {
-        return $url;
-    }
-
-    $related_post_id = (int) get_post_meta( $product_id, '_related_post_id', true );
-    if ( $related_post_id && get_post_status( $related_post_id ) === 'publish' ) {
-        return get_permalink( $related_post_id );
-    }
-
-    return $url;
-
-} );

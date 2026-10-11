@@ -31,9 +31,9 @@ function monospace_is_miniature($post_id) {
 
 /**
  * Display miniatures with special cover-style layout on archive pages
+ * DISABLED: Now handled by clickable-feed-image.php
  */
-add_filter('the_content', 'monospace_miniature_cover_fullwidth', 10);
-add_filter('the_excerpt', 'monospace_miniature_cover_fullwidth', 10);
+// add_filter('the_content', 'monospace_miniature_cover_fullwidth', 10);
 
 function monospace_miniature_cover_fullwidth($content) {
     // Only apply on home or archive pages
@@ -41,6 +41,11 @@ function monospace_miniature_cover_fullwidth($content) {
 
     global $post;
     if (!$post) return $content;
+
+    // Prevent duplicate processing with static tracker
+    static $processed_miniature = [];
+    if (isset($processed_miniature[$post->ID])) return $content;
+    $processed_miniature[$post->ID] = true;
 
     // Only apply to miniature (4x4) posts
     if (!monospace_is_miniature($post->ID)) return $content;
@@ -64,7 +69,7 @@ function monospace_miniature_cover_fullwidth($content) {
 
     // Wrapper mimicking WP Cover
     $replacement = '
-    <div style="
+    <div class="ms-miniature-cover" style="
         position:relative;
         width:100%;
         aspect-ratio: 1/1;
@@ -102,9 +107,9 @@ function monospace_miniature_cover_fullwidth($content) {
 
 /**
  * Add product attribute label (size, medium, painting/drawing) to images on archive pages
+ * DISABLED: Now handled by clickable-feed-image.php
  */
-add_filter('the_content', 'monospace_add_image_label', 20);
-add_filter('the_excerpt', 'monospace_add_image_label', 20);
+// add_filter('the_content', 'monospace_add_image_label', 20);
 
 function monospace_add_image_label($content) {
     global $post;
@@ -112,6 +117,11 @@ function monospace_add_image_label($content) {
 
     // Only apply on home or archive pages
     if (!is_home() && !is_archive()) return $content;
+
+    // Prevent duplicate processing with static tracker
+    static $processed_labels = [];
+    if (isset($processed_labels[$post->ID])) return $content;
+    $processed_labels[$post->ID] = true;
 
     // Must be painting OR drawing
     if (!has_category(['painting', 'drawing'], $post)) return $content;
@@ -121,8 +131,11 @@ function monospace_add_image_label($content) {
 
     // Find first image - for miniatures, it's already wrapped in special div
     if ($is_miniature) {
-        // For miniatures, find the cover div wrapper
-        if (!preg_match('/(<div[^>]*background-image[^>]*>.*?<\/div>)/is', $content, $match)) return $content;
+        // For miniatures, find the cover div wrapper by class
+        if (!preg_match('/(<div[^>]*class="ms-miniature-cover"[^>]*>.*?<\/div>)/is', $content, $match)) {
+            // Fallback to old pattern if class not found
+            if (!preg_match('/(<div[^>]*background-image[^>]*>.*?<\/div>)/is', $content, $match)) return $content;
+        }
         $wrapper = $match[0];
     } else {
         // For full-size, find first image
@@ -173,7 +186,7 @@ function monospace_add_image_label($content) {
 
     // Label HTML
     $label_html = '
-        <div style="
+        <div class="ms-image-label" style="
             position:absolute;
             bottom:10px;
             right:10px;
@@ -191,13 +204,18 @@ function monospace_add_image_label($content) {
     ';
 
     if ($is_miniature) {
-        // For miniatures, insert label before closing </div> of the cover wrapper
-        $replacement = str_replace('</div>', $label_html . '</div>', $wrapper);
-        return str_replace($wrapper, $replacement, $content);
+        // For miniatures, insert label before the LAST closing </div> of the cover wrapper
+        // Find the last occurrence of </div> and replace it
+        $last_div_pos = strrpos($wrapper, '</div>');
+        if ($last_div_pos !== false) {
+            $replacement = substr_replace($wrapper, $label_html . '</div>', $last_div_pos, 6);
+            return str_replace($wrapper, $replacement, $content);
+        }
+        return $content;
     } else {
         // For full-size, wrap image in relative div with label
         $replacement = '
-        <div style="position:relative; display:inline-block; width:100%;">
+        <div class="ms-image-wrapper" style="position:relative; display:inline-block; width:100%;">
             ' . $img_tag . $label_html . '
         </div>
         ';
@@ -207,14 +225,19 @@ function monospace_add_image_label($content) {
 
 /**
  * Add availability badge (bottom-left) inside existing image wrappers on archive pages.
+ * DISABLED: Now handled by clickable-feed-image.php
  */
-add_filter('the_content', 'monospace_add_availability_badge', 30);
-add_filter('the_excerpt', 'monospace_add_availability_badge', 30);
+// add_filter('the_content', 'monospace_add_availability_badge', 30);
 
 function monospace_add_availability_badge($content) {
     if (!is_archive() && !is_home()) return $content;
     global $post;
     if (!$post) return $content;
+
+    // Prevent duplicate processing with static tracker
+    static $processed_badges = [];
+    if (isset($processed_badges[$post->ID])) return $content;
+    $processed_badges[$post->ID] = true;
 
     $status = ''; // default: no badge
 
@@ -280,8 +303,16 @@ function monospace_add_availability_badge($content) {
         ">' . esc_html($status) . '</div>
     ';
 
-    // Insert badge inside the first wrapper with position:relative
-    $pattern = '/(<div[^>]*position:relative[^>]*>)/i';
+    // Insert badge inside the image wrapper
+    // Try to match specific wrapper classes first
+    if (strpos($content, 'ms-image-wrapper') !== false) {
+        $pattern = '/(<div[^>]*class="ms-image-wrapper"[^>]*>)/i';
+    } elseif (strpos($content, 'ms-miniature-cover') !== false) {
+        $pattern = '/(<div[^>]*class="ms-miniature-cover"[^>]*>)/i';
+    } else {
+        // Fallback to any position:relative div
+        $pattern = '/(<div[^>]*position[:\s]*relative[^>]*>)/i';
+    }
     return preg_replace($pattern, '$1' . $badge_html, $content, 1);
 }
 

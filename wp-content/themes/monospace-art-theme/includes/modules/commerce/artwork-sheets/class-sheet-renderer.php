@@ -16,29 +16,47 @@ class Monospace_Sheet_Renderer {
     }
 
     public function render_preview($product_ids, $options) {
-        echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Artwork Sheets</title></head><body>';
-
         $layout = $options['layout'];
 
-        if ($layout === 'list') {
+        echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Artwork Sheets</title>';
+
+        // Output styles once in the head
+        if (!empty($options['images_only'])) {
+            // Images-only mode handles its own styles
+        } elseif ($layout === 'list') {
+            // List view handles its own styles
+        } elseif ($layout === 'single') {
+            $this->render_single_sheet_styles($options);
+        } else {
+            // Multi-sheet handles its own styles
+        }
+
+        echo '</head><body>';
+
+        // Check if images-only mode is enabled
+        if (!empty($options['images_only'])) {
+            $this->render_images_only($product_ids, $options);
+        } elseif ($layout === 'list') {
             $this->render_list_view($product_ids, $options);
         } else {
             $items_per_page = $this->get_items_per_page($layout);
             $chunks = array_chunk($product_ids, $items_per_page);
+            $total_chunks = count($chunks);
 
-            foreach ($chunks as $chunk) {
-                echo '<div style="page-break-after: always;">';
-
+            foreach ($chunks as $index => $chunk) {
                 if ($layout === 'single') {
                     $data = Monospace_Product_Data::instance()->gather_data($chunk[0], $options);
                     if ($data) {
-                        $this->render_single_sheet($data, $options);
+                        $is_last_chunk = ($index === $total_chunks - 1);
+                        $this->render_single_sheet_content($data, $options, $is_last_chunk);
                     }
                 } else {
+                    $is_last_chunk = ($index === $total_chunks - 1);
+                    $page_break_style = $is_last_chunk ? '' : 'page-break-after: always;';
+                    echo '<div class="sheet-page" style="' . $page_break_style . '">';
                     $this->render_multi_sheet($chunk, $options, $layout);
+                    echo '</div>';
                 }
-
-                echo '</div>';
             }
         }
 
@@ -53,10 +71,14 @@ class Monospace_Sheet_Renderer {
         };
     }
 
-    public function render_single_sheet($data, $options) {
-        $footer_content = Monospace_Sheet_Settings::get_footer_content($data);
+    private function render_single_sheet_styles($options) {
         ?>
         <style>
+            @page {
+                size: letter;
+                margin: 0;
+            }
+
             @media screen {
                 body {
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -74,29 +96,61 @@ class Monospace_Sheet_Renderer {
             }
 
             @media print {
-                body { margin: 0; padding: 0; }
-                .sheet { padding: 0.5in; }
+                body {
+                    margin: 0;
+                    padding: 0;
+                }
+                .sheet {
+                    padding: 0.4in 0.5in;
+                    margin: 0;
+                    min-height: 11in;
+                    max-height: 11in;
+                    box-sizing: border-box;
+                    transform-origin: top left;
+                }
+                /* Auto-scale if content is too large */
+                @supports (container-type: size) {
+                    .sheet {
+                        container-type: size;
+                    }
+                }
             }
 
-            .sheet { font-size: 11pt; line-height: 1.4; }
-            .header { border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 25px; }
-            .title { font-size: 20pt; font-weight: bold; margin: 0 0 5px 0; }
-            .sku { font-size: 10pt; color: #666; }
+            .sheet {
+                font-size: 10.5pt;
+                line-height: 1.35;
+            }
+            .header {
+                border-bottom: 2px solid #333;
+                padding-bottom: 12px;
+                margin-bottom: 18px;
+            }
+            .title {
+                font-size: 18pt;
+                font-weight: bold;
+                margin: 0 0 4px 0;
+                line-height: 1.2;
+            }
+            .sku { font-size: 9.5pt; color: #666; }
             .content {
                 display: grid;
                 grid-template-columns: <?php echo $options['include_image'] ? '1fr 1fr' : '1fr'; ?>;
-                gap: 30px;
-                margin-bottom: 30px;
+                gap: 24px;
+                margin-bottom: 20px;
             }
             .artwork-image { text-align: center; }
-            .artwork-image img { max-width: 100%; max-height: 400px; border: 1px solid #ddd; }
-            .detail-row { margin-bottom: 12px; }
+            .artwork-image img {
+                max-width: 100%;
+                max-height: 340px;
+                border: 1px solid #ddd;
+            }
+            .detail-row { margin-bottom: 10px; }
             .detail-label { font-weight: bold; display: inline-block; min-width: 100px; }
             .status-badge {
                 display: inline-block;
-                padding: 4px 12px;
+                padding: 3px 10px;
                 border-radius: 3px;
-                font-size: 9pt;
+                font-size: 8.5pt;
                 font-weight: bold;
                 text-transform: uppercase;
             }
@@ -105,25 +159,28 @@ class Monospace_Sheet_Renderer {
             .status-gallery { background: #fff3cd; color: #856404; }
             .status-private { background: #e2e3e5; color: #383d41; }
             .loan-section {
-                margin-top: 30px;
-                padding-top: 20px;
+                margin-top: 20px;
+                padding-top: 15px;
                 border-top: 1px solid #ddd;
             }
-            .loan-section h3 { margin: 0 0 15px 0; font-size: 12pt; }
+            .loan-section h3 {
+                margin: 0 0 12px 0;
+                font-size: 11pt;
+            }
             .loan-field {
-                margin-bottom: 15px;
-                padding-bottom: 8px;
+                margin-bottom: 12px;
+                padding-bottom: 6px;
                 border-bottom: 1px dotted #ccc;
             }
             .loan-field label {
                 display: block;
-                font-size: 9pt;
+                font-size: 8.5pt;
                 color: #666;
-                margin-bottom: 3px;
+                margin-bottom: 2px;
             }
             .footer {
-                margin-top: 30px;
-                padding-top: 15px;
+                margin-top: 20px;
+                padding-top: 12px;
                 /* border-top: 1px solid #ddd; */
                 font-size: 9pt;
                 color: #666;
@@ -135,8 +192,14 @@ class Monospace_Sheet_Renderer {
                 font-style: italic;
             }
         </style>
+        <?php
+    }
 
-        <div class="sheet">
+    private function render_single_sheet_content($data, $options, $is_last = false) {
+        $footer_content = Monospace_Sheet_Settings::get_footer_content($data);
+        $page_break_style = $is_last ? '' : 'page-break-after: always;';
+        ?>
+        <div class="sheet" style="<?php echo $page_break_style; ?>">
             <div class="header">
                 <h1 class="title"><?php echo esc_html($data['title']); ?></h1>
                 <?php if ($data['sku']): ?>
@@ -164,10 +227,10 @@ class Monospace_Sheet_Renderer {
                     <?php endforeach; ?>
 
                     <?php
-// Only show price when: include_price is checked AND availability is included AND item is available
+// Only show price when: include_price is checked AND availability is included AND item is available or at gallery
 $show_price = !empty($options['include_price'])
     && $options['include_availability']
-    && (empty($data['availability_status']) || $data['availability_status'] === 'available')
+    && (empty($data['availability_status']) || $data['availability_status'] === 'available' || $data['availability_status'] === 'gallery')
     && isset($data['price']);
 
 if ($show_price):
@@ -318,10 +381,10 @@ if ($show_price):
                         <?php endforeach; ?>
 
                         <?php
-                        // Only show price when: include_price is checked AND availability is included AND status is available
+                        // Only show price when: include_price is checked AND availability is included AND status is available or at gallery
                         $show_price = !empty($options['include_price'])
                             && $options['include_availability']
-                            && (empty($data['availability_status']) || $data['availability_status'] === 'available')
+                            && (empty($data['availability_status']) || $data['availability_status'] === 'available' || $data['availability_status'] === 'gallery')
                             && isset($data['price']);
                         if ($show_price):
                         ?>
@@ -384,8 +447,8 @@ if ($show_price):
                     <?php $data = Monospace_Product_Data::instance()->gather_data($product_id, $options); ?>
                     <?php if ($data): ?>
                         <?php
-                        // Only show price if status is available
-                        $is_available = empty($data['availability_status']) || $data['availability_status'] === 'available';
+                        // Only show price if status is available or at gallery
+                        $is_available = empty($data['availability_status']) || $data['availability_status'] === 'available' || $data['availability_status'] === 'gallery';
                         ?>
                         <tr>
                             <td><?php echo esc_html($data['title']); ?></td>
@@ -405,6 +468,141 @@ if ($show_price):
                 <?php endforeach; ?>
             </tbody>
         </table>
+        <?php
+    }
+
+    private function render_images_only($product_ids, $options) {
+        $layout = $options['layout'] ?? 'single';
+
+        // Determine items per page based on layout
+        $items_per_page = match($layout) {
+            'single' => 1,
+            'dual' => 2,
+            'quad' => 4,
+            'list' => 6,
+            default => 4
+        };
+
+        ?>
+        <style>
+            @media screen {
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                    margin: 0;
+                    padding: 20px;
+                    background: #f5f5f5;
+                }
+            }
+
+            @media print {
+                body {
+                    margin: 0;
+                    padding: 0;
+                    background: white;
+                }
+                .page-break {
+                    page-break-after: always;
+                }
+                <?php if ($layout === 'single'): ?>
+                .images-grid {
+                    padding: 0;
+                    margin: 0;
+                }
+                .image-item {
+                    padding: 0;
+                }
+                <?php endif; ?>
+            }
+
+            .images-grid {
+                display: grid;
+                grid-template-columns: repeat(<?php echo $layout === 'single' ? '1' : ($layout === 'dual' ? '2' : '2'); ?>, 1fr);
+                gap: <?php echo $layout === 'single' ? '0' : '20px'; ?>;
+                padding: <?php echo $layout === 'single' ? '0' : '20px'; ?>;
+                background: white;
+            }
+
+            .image-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                <?php if ($layout === 'single'): ?>
+                    min-height: 100vh;
+                    box-sizing: border-box;
+                    padding: 40px;
+                <?php endif; ?>
+            }
+
+            .image-item img {
+                max-width: 100%;
+                max-height: <?php echo $layout === 'single' ? '85vh' : '400px'; ?>;
+                width: auto;
+                height: auto;
+                object-fit: contain;
+                border: 1px solid #ddd;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+
+            .image-caption {
+                margin-top: 15px;
+                font-size: <?php echo $layout === 'single' ? '14pt' : '10pt'; ?>;
+                color: #333;
+            }
+
+            .image-title {
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+
+            .image-sku {
+                color: #666;
+                font-size: <?php echo $layout === 'single' ? '11pt' : '9pt'; ?>;
+            }
+
+            .no-image {
+                width: 100%;
+                height: 300px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #f0f0f0;
+                border: 1px solid #ddd;
+                color: #999;
+                font-size: 14pt;
+            }
+        </style>
+
+        <?php
+        $chunks = array_chunk($product_ids, $items_per_page);
+        $total_pages = count($chunks);
+
+        foreach ($chunks as $page_index => $chunk):
+            $is_last_page = ($page_index === $total_pages - 1);
+            ?>
+            <div class="images-grid <?php echo !$is_last_page ? 'page-break' : ''; ?>">
+                <?php foreach ($chunk as $product_id): ?>
+                    <?php $data = Monospace_Product_Data::instance()->gather_data($product_id, $options); ?>
+                    <?php if ($data): ?>
+                        <div class="image-item">
+                            <?php if ($data['image_url']): ?>
+                                <img src="<?php echo esc_url($data['image_url']); ?>" alt="<?php echo esc_attr($data['title']); ?>">
+                            <?php else: ?>
+                                <div class="no-image">No image available</div>
+                            <?php endif; ?>
+
+                            <div class="image-caption">
+                                <div class="image-title"><?php echo esc_html($data['title']); ?></div>
+                                <?php if ($data['sku']): ?>
+                                    <div class="image-sku">SKU: <?php echo esc_html($data['sku']); ?></div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+        <?php endforeach; ?>
         <?php
     }
 }

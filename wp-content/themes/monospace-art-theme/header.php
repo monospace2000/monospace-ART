@@ -36,11 +36,32 @@ if (is_singular()) {
 <meta property="og:type" content="website">
 <meta property="og:url" content="<?php echo esc_url(get_permalink()); ?>">
 <?php
-$og_image = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(),'full') : get_stylesheet_directory_uri().'/assets/images/site-preview.png';
+// Determine OG image based on context
+if (is_singular('post')) {
+    // For blog posts: use featured image, or extract first image from content
+    if (has_post_thumbnail()) {
+        $og_image = get_the_post_thumbnail_url(get_the_ID(), 'full');
+    } else {
+        // Extract first image from post content
+        $content = get_the_content();
+        if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $content, $matches)) {
+            $og_image = esc_url_raw($matches[1]);
+        } else {
+            // No image found, use default
+            $og_image = get_stylesheet_directory_uri() . '/assets/images/site-preview.png';
+        }
+    }
+} else {
+    // For home page, archives, and other pages: always use static preview
+    $og_image = get_stylesheet_directory_uri() . '/assets/images/site-preview.png';
+}
 ?>
 <meta property="og:image" content="<?php echo esc_url($og_image); ?>">
+<meta property="og:image:secure_url" content="<?php echo esc_url($og_image); ?>">
+<meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="<?php echo esc_attr($page_title); ?>">
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image">
@@ -125,6 +146,10 @@ $og_image = has_post_thumbnail() ? get_the_post_thumbnail_url(get_the_ID(),'full
 
         <div class="menu-bar-cart">
             <?php echo do_shortcode('[monospace_cart]'); ?>
+        </div>
+
+        <div class="menu-bar-logo">
+            <a href="https://monospace.com"><img src="https://art.monospace.com/wp-content/uploads/logo_art_small.png" alt="monospace ART"></a>
         </div>
 
 

@@ -8,6 +8,9 @@ if (!defined('ABSPATH')) exit;
 
 class MSD_Volume_Discounts {
 
+    // Track product IDs that have had volume pricing applied
+    public static $discounted_product_ids = [];
+
     public static function init() {
         // Only run if enabled
         if (get_option('msd_volume_enable') !== 'yes') {
@@ -186,6 +189,7 @@ class MSD_Volume_Discounts {
             $cart->cart_contents[$cart_key]['data']->set_price($bundle_price);
             $cart->cart_contents[$cart_key]['volume_discount_label'] =
                 sprintf('%d items for $%s', $rule['qty'], number_format($rule['total'], 2));
+            self::$discounted_product_ids[$cart_item['product_id']] = true;
 
             $qty_to_discount -= $apply_qty;
         }

@@ -593,8 +593,8 @@ add_action('admin_footer', function() {
                     $btn.prop('disabled', false);
                 },
                 error: function(xhr, status, error) {
-                    console.error('Upload error:', error);
-                    $status.removeClass('uploading').addClass('error').text('Upload failed');
+                    console.error('Upload error:', error, xhr.status, xhr.responseText);
+                    $status.removeClass('uploading').addClass('error').text('Upload failed (HTTP ' + xhr.status + '): ' + xhr.responseText.substring(0, 200));
                     $btn.prop('disabled', false);
                 }
             });

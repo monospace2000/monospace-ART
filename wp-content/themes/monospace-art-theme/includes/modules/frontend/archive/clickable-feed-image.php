@@ -2,14 +2,73 @@
 /**
  * Archive Image Enhancements
  *
- * Handles special styling and clickability for images on archive/feed/search pages:
- * - Miniature cover layout for posts in "miniature" category
- * - Attribute labels (size, medium, type)
- * - Availability badges
- * - Clickable images (except for "blog" category)
+ * This module is the single source of truth for processing images on archive/feed/search pages.
+ * It handles everything from basic clickability to complex miniature layouts with badges.
  *
- * Related Files:
- * - Custom CSS can target .ms-archive-image-wrapper and child elements
+ * FUNCTIONALITY:
+ *
+ * 1. MINIATURE COVER LAYOUT
+ *    - Posts in "miniature" category get special cover-style treatment
+ *    - Background image with overlay and centered miniature image
+ *    - Visual styling: .ms-miniature-cover, .ms-miniature-background, .ms-miniature-overlay
+ *
+ * 2. CLICKABLE IMAGES
+ *    - Makes first image clickable (links to post)
+ *    - Also wraps figure captions in links
+ *    - Exception: Posts in "blog" category are NOT made clickable
+ *    - Handles miniature-set blocks (multiple images) specially
+ *
+ * 3. PRODUCT ATTRIBUTE LABELS (Bottom-Right)
+ *    - Displays size (e.g., "10x8"), medium (e.g., "casein"), and type (painting/drawing)
+ *    - Example: "10x8 casein painting" or "4x4 miniature drawing"
+ *    - Pulls data from WooCommerce product attributes (pa_size, pa_medium)
+ *    - Visual styling: .ms-attribute-label
+ *
+ * 4. AVAILABILITY BADGES (Bottom-Left)
+ *    - Shows "Available" (yellow) or "Gallery" (white) based on product status
+ *    - Only shown when WooCommerce product has stock > 0
+ *    - Respects ACF field 'painting_availability_status'
+ *    - No badge for sold/private items
+ *    - Visual styling: .ms-availability-badge .ms-available or .ms-gallery
+ *
+ * 5. CATEGORY EXCLUSION
+ *    - Automatically excludes 'miniature' and 'custom-artwork' from painting archive
+ *    - Keeps painting category feed clean and focused
+ *
+ * HTML STRUCTURE CREATED:
+ *
+ * Standard Images:
+ * <div class="ms-archive-image-wrapper ms-standard-image">
+ *   <a href="[post-url]" class="ms-archive-image-link">
+ *     <div class="ms-image-container">
+ *       <img...>
+ *       <div class="ms-attribute-label">10x8 casein painting</div>
+ *       <div class="ms-availability-badge ms-available">Available</div>
+ *     </div>
+ *   </a>
+ * </div>
+ *
+ * Miniature Images:
+ * <div class="ms-archive-image-wrapper ms-miniature-cover">
+ *   <a href="[post-url]" class="ms-archive-image-link">
+ *     <div class="ms-miniature-background" style="background-image:url(...)">
+ *       <div class="ms-miniature-overlay"></div>
+ *       <div class="ms-miniature-image-container">
+ *         <img...>
+ *       </div>
+ *       <div class="ms-attribute-label">4x4 miniature painting</div>
+ *       <div class="ms-availability-badge ms-available">Available</div>
+ *     </div>
+ *   </a>
+ * </div>
+ *
+ * REPLACES:
+ * - clickable-image.php (disabled) - Old basic clickability
+ * - image-labels.php (disabled) - Old badge system with inline styles
+ *
+ * STYLING:
+ * Custom CSS should target the classes above. All badges use CSS classes (not inline styles)
+ * for consistent theming across the site.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -21,7 +80,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * ============================================================ */
 
 add_filter('the_content', 'monospace_process_archive_images', 10);
-add_filter('the_excerpt', 'monospace_process_archive_images', 10);
+// add_filter('the_excerpt', 'monospace_process_archive_images', 10);
 
 function monospace_process_archive_images($content) {
     // Only run on main feed pages
@@ -113,22 +172,24 @@ function monospace_get_product_info($post_id) {
         ($info['type'] ? 'full size ' . $info['type'] : '');
 
     // Get availability status
-    if ($product->get_stock_quantity() > 0) {
-        $acf_status = get_post_meta($product_id, 'painting_availability_status', true);
+    $acf_status = get_post_meta($product_id, 'painting_availability_status', true);
 
-        if ($acf_status === 'gallery') {
-            $info['status'] = 'Gallery';
-        } elseif ($acf_status !== 'sold' && $acf_status !== 'private') {
-            $info['status'] = 'Available';
-        }
-    } else {
-        // Check post meta as fallback
-        $acf_status = get_post_meta($post->ID, 'painting_availability_status', true);
-        if ($acf_status === 'gallery') {
-            $info['status'] = 'Gallery';
-        } elseif ($acf_status === 'available') {
-            $info['status'] = 'Available';
-        }
+    // Check WooCommerce stock status FIRST - if out of stock, treat as sold
+    // This ensures display is correct even if auto-sync hasn't run yet
+    if (!$product->is_in_stock() && $acf_status !== 'private') {
+        $acf_status = 'sold';
+    }
+
+    // Set badge based on status (sold first, then others)
+    if ($acf_status === 'sold' || $acf_status === 'private') {
+        // No badge for sold/private items
+        $info['status'] = '';
+    } elseif ($acf_status === 'gallery') {
+        $info['status'] = 'Gallery';
+    } elseif ($acf_status === 'reserved') {
+        $info['status'] = 'Reserved';
+    } elseif ($acf_status === 'available') {
+        $info['status'] = 'Available';
     }
 
     return $info;
@@ -141,32 +202,34 @@ function monospace_get_product_info($post_id) {
 function monospace_process_miniature_set($content, $is_blog) {
     if ($is_blog) return $content;
 
-    // Make all images in miniature-set clickable
+    global $post;
     $permalink = get_the_permalink();
+    $product_info = monospace_get_product_info($post->ID);
 
-    // Find miniature-set wrapper
-    $pattern = '/(<div[^>]*class="[^"]*miniature-set[^"]*"[^>]*>)(.*?)(<\/div>)/is';
+    // Find miniature-set grid (div inside figure)
+    $pattern = '/(<div[^>]*class="[^"]*miniature-set-grid[^"]*"[^>]*>)(.*?)(<\/div>)/is';
 
-    return preg_replace_callback($pattern, function($matches) use ($permalink) {
-        $wrapper_open = $matches[1];
-        $inner_content = $matches[2];
-        $wrapper_close = $matches[3];
+    return preg_replace_callback($pattern, function($matches) use ($permalink, $product_info) {
+        $grid_open = $matches[1];
+        $grid_content = $matches[2];
+        $grid_close = $matches[3];
 
-        // Add wrapper class for styling
-        $wrapper_open = str_replace('class="', 'class="ms-miniature-set-clickable ', $wrapper_open);
-
-        // Wrap each image in a link if not already linked
-        $inner_content = preg_replace_callback('/<img([^>]+)>/i', function($img_match) use ($permalink) {
+        // Make each image clickable
+        $grid_content = preg_replace_callback('/<img([^>]+)>/i', function($img_match) use ($permalink) {
             $img = $img_match[0];
-
-            // Check if this img is already inside an <a> tag
-            // This is a simple check - assumes no complex nesting
-            static $in_link = false;
-
             return '<a href="' . esc_url($permalink) . '" class="ms-miniature-link">' . $img . '</a>';
-        }, $inner_content);
+        }, $grid_content);
 
-        return $wrapper_open . $inner_content . $wrapper_close;
+        // Build labels
+        $labels = monospace_build_labels($product_info);
+
+        // Wrap grid in positioned container with labels overlaying
+        return '<div style="position: relative; display: inline-block; width: 100%;">'
+            . $grid_open
+            . $grid_content
+            . $grid_close
+            . $labels
+            . '</div>';
     }, $content);
 }
 
@@ -307,7 +370,14 @@ function monospace_build_labels($product_info) {
 
     // Availability badge (bottom-left)
     if ($product_info['status']) {
-        $badge_class = $product_info['status'] === 'Available' ? 'ms-available' : 'ms-gallery';
+        $badge_class = 'ms-' . strtolower($product_info['status']);
+        if ($product_info['status'] === 'Available') {
+            $badge_class = 'ms-available';
+        } elseif ($product_info['status'] === 'Gallery') {
+            $badge_class = 'ms-gallery';
+        } elseif ($product_info['status'] === 'Reserved') {
+            $badge_class = 'ms-reserved';
+        }
         $html .= '<div class="ms-availability-badge ' . $badge_class . '">' . esc_html($product_info['status']) . '</div>';
     }
 
@@ -315,21 +385,25 @@ function monospace_build_labels($product_info) {
 }
 
 /* ============================================================
- * EXCLUDE - Miniatures from main painting category
+ * EXCLUDE - Categories from main painting category
  * ============================================================ */
 
-function monospace_exclude_miniatures_from_paintings($query) {
+function monospace_exclude_from_paintings($query) {
     if (!is_admin() && $query->is_main_query() && is_category('painting')) {
-        $miniature_posts = get_posts([
+        // Categories to exclude from the painting archive
+        $excluded_categories = ['miniature', 'custom-artwork'];
+
+        // Get all posts from excluded categories
+        $excluded_posts = get_posts([
             'post_type' => 'post',
             'posts_per_page' => -1,
-            'category_name' => 'miniature',
+            'category_name' => implode(',', $excluded_categories),
             'fields' => 'ids',
         ]);
 
-        if (!empty($miniature_posts)) {
-            $query->set('post__not_in', $miniature_posts);
+        if (!empty($excluded_posts)) {
+            $query->set('post__not_in', $excluded_posts);
         }
     }
 }
-add_action('pre_get_posts', 'monospace_exclude_miniatures_from_paintings');
+add_action('pre_get_posts', 'monospace_exclude_from_paintings');

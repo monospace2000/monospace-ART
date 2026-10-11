@@ -1,9 +1,31 @@
 <?php
 /**
- * Related Posts Module
+ * Related Posts Shortcode
  *
- * Displays related posts based on shared tags, without caching.
- * Shortcode: [related_posts]
+ * Displays a grid of related posts based on shared tags with the current post.
+ * Shows thumbnails and titles in a responsive 4-column grid.
+ *
+ * SHORTCODE USAGE:
+ * [related_posts]
+ *
+ * FUNCTIONALITY:
+ * - Finds posts that share tags with the current post
+ * - Displays up to 8 related posts
+ * - Shows featured image thumbnail and post title for each
+ * - Responsive grid: 4 columns on desktop, 2 on tablet/mobile
+ * - Only appears on single post pages
+ *
+ * DISPLAY:
+ * - Section heading: "Related Posts"
+ * - Grid of clickable post thumbnails
+ * - Thumbnails are square (1:1 aspect ratio)
+ * - Styled with .monospace-related-posts CSS class
+ *
+ * ALGORITHM:
+ * - Queries posts with matching tags
+ * - Excludes current post
+ * - Orders by publish date (newest first)
+ * - No caching - always shows current data
  *
  * @package astra-child-theme-for-monospace-art
  */

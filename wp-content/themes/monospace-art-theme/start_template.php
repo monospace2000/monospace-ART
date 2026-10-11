@@ -80,6 +80,16 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
     flex: 1;
 }
 
+#feed.box {
+    --bg: url('<?php
+        echo esc_url(
+            $feed_bg_image
+            ?: get_stylesheet_directory_uri() . '/assets/images/backgrounds/bigbrook1.jpg'
+        );
+    ?>');
+    flex: 1;
+}
+
 #paintings.box {
     --bg: url('<?php echo get_stylesheet_directory_uri(); ?>/assets/images/backgrounds/sunset.jpg');
     flex: 1;
@@ -92,19 +102,14 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
     --bg: url('<?php echo get_stylesheet_directory_uri(); ?>/assets/images/backgrounds/steps.jpg');
     flex: 1;
 }
+#prints.box {
+    --bg: url('<?php echo get_stylesheet_directory_uri(); ?>/assets/images/backgrounds/ducks.jpg');
+    flex: 2;
+}
 
 #commissions.box {
     --bg: url('<?php echo get_stylesheet_directory_uri(); ?>/assets/images/backgrounds/custom_paint.jpg');
     flex: 2;
-}
-#feed.box {
-    --bg: url('<?php
-        echo esc_url(
-            $feed_bg_image
-            ?: get_stylesheet_directory_uri() . '/assets/images/backgrounds/bigbrook1.jpg'
-        );
-    ?>');
-    flex: 3;
 }
 
 
@@ -117,7 +122,7 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
     --bg: url('<?php echo get_stylesheet_directory_uri(); ?>/assets/images/backgrounds/fritz.jpg');
     flex: 2;
 }
-#illustration.box {
+#interactive.box {
     --bg: url('<?php echo get_stylesheet_directory_uri(); ?>/assets/images/backgrounds/illustration.png');
     flex: 2;
 }
@@ -171,6 +176,13 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
 
 
 
+            <div class="flex-break"></div>
+
+            <div class="box link" id="feed" onclick="document.location.href='art-feed'">
+                <div class="box-title">The Art Feed</div>
+                <div class="box-content bottom-align">A live chronological feed of new artworks, studio updates, and blog posts.</div>
+            </div>
+
 
 
             <div class="flex-break"></div>
@@ -193,14 +205,17 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
 
             <div class="flex-break"></div>
 
+            <div class="box link" id="prints" onclick="document.location.href='category/print'">
+                <div class="box-title"><span style="color: #ffcc00; font-weight: bold">NEW! </span>Print on Demand</div>
+                <div class="box-content bottom-align">Browse a curated selection of works available as print on demand.</div>
+            </div>
+
             <div class="box link" id="commissions" onclick="document.location.href='services/custom-work'">
                 <div class="box-title">Custom Orders</div>
                 <div class="box-content bottom-align">Commission a custom artwork designed specifically for your space and ideas.</div>
             </div>
-            <div class="box link" id="feed" onclick="document.location.href='art-feed'">
-                <div class="box-title">The Art Feed</div>
-                <div class="box-content bottom-align">A live chronological feed of new artworks, studio updates, and blog posts.</div>
-            </div>
+
+
 
 
 
@@ -219,8 +234,8 @@ $feed_bg_image = ms_get_latest_artwork_image_url();
                 <div class="box-content bottom-align">Personalized art instruction focused on technique, confidence, and creative development.</div>
             </div>
 
-            <div class="box link" id="illustration" onclick="document.location.href='illustration'">
-                <div class="box-title">Illustrations</div>
+            <div class="box link" id="interactive" onclick="document.location.href='illustration'">
+                <div class="box-title">Interactive</div>
                 <div class="box-content bottom-align">
                     Selected illustration projects spanning games, publications, and interactive media.
                 </div>

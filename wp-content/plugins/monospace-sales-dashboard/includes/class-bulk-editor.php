@@ -8,15 +8,41 @@ if (!defined('ABSPATH')) exit;
 class MSD_Bulk_Editor {
 
     public static function init() {
-        add_action('admin_post_msd_bulk_edit', [__CLASS__, 'handle_bulk_edit']);
+        // Handle bulk edit via admin_init (admin_post hook wasn't firing reliably)
+        add_action('admin_init', [__CLASS__, 'maybe_handle_bulk_edit']);
+
         add_action('wp_ajax_msd_search_products', [__CLASS__, 'ajax_search_products']);
         add_action('wp_ajax_msd_load_products_bulk', [__CLASS__, 'ajax_load_products']);
+    }
+
+    /**
+     * Check if this is a bulk edit request and handle it
+     */
+    public static function maybe_handle_bulk_edit() {
+        if (isset($_POST['action']) && $_POST['action'] === 'msd_bulk_edit') {
+            self::handle_bulk_edit();
+        }
     }
 
     /**
      * Output section
      */
     public static function output_section() {
+        // Show success/error messages
+        if (isset($_GET['success']) && isset($_GET['updated'])) {
+            $count = intval($_GET['updated']);
+            echo '<div class="notice notice-success is-dismissible"><p>';
+            printf(__('Successfully updated %d product(s).', 'monospace-sales'), $count);
+            if (isset($_GET['debug_pct'])) {
+                echo '<br><strong>Debug:</strong> Percentage value from form: ' . esc_html($_GET['debug_pct']);
+            }
+            echo '</p></div>';
+        }
+        if (isset($_GET['error'])) {
+            echo '<div class="notice notice-error is-dismissible"><p>';
+            echo __('Error: No products selected.', 'monospace-sales');
+            echo '</p></div>';
+        }
         ?>
         <div class="msd-bulk-editor-wrap">
             <h3><?php _e('Bulk Product Editor', 'monospace-sales'); ?></h3>
@@ -39,6 +65,7 @@ class MSD_Bulk_Editor {
                                     <option value="search"><?php _e('Search Products', 'monospace-sales'); ?></option>
                                     <option value="manual"><?php _e('Manual Selection', 'monospace-sales'); ?></option>
                                     <option value="all"><?php _e('All Products', 'monospace-sales'); ?></option>
+                                    <option value="has_additional"><?php _e('Has Additional % Set', 'monospace-sales'); ?></option>
                                 </select>
                             </td>
                         </tr>
@@ -80,7 +107,8 @@ class MSD_Bulk_Editor {
                         <tr class="msd-filter-manual">
                             <th><?php _e('Product IDs', 'monospace-sales'); ?></th>
                             <td>
-                                <textarea name="filter_manual" rows="3" style="width:50%;" placeholder="<?php _e('Enter product IDs, one per line or comma-separated', 'monospace-sales'); ?>"></textarea>
+                                <textarea name="filter_manual" rows="5" style="width:50%;" placeholder="<?php _e('Enter product IDs, one per line or comma-separated (e.g., 123, 456 or one ID per line)', 'monospace-sales'); ?>"></textarea>
+                                <p class="description"><?php _e('Paste your list of product IDs here. Supports both newline-separated and comma-separated formats.', 'monospace-sales'); ?></p>
                             </td>
                         </tr>
                     </table>
@@ -125,9 +153,24 @@ class MSD_Bulk_Editor {
                         <tr>
                             <th><?php _e('Price Adjustments', 'monospace-sales'); ?></th>
                             <td>
-                                <label>
-                                    <input type="checkbox" name="bulk_exclude_price_adj" value="1">
-                                    <?php _e('Exclude from global price adjustments', 'monospace-sales'); ?>
+                                <select name="bulk_exclude_price_adj">
+                                    <option value=""><?php _e('— No Change —', 'monospace-sales'); ?></option>
+                                    <option value="no"><?php _e('Include (apply adjustments)', 'monospace-sales'); ?></option>
+                                    <option value="yes"><?php _e('Exclude (skip adjustments)', 'monospace-sales'); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php _e('Additional Price Increase (%)', 'monospace-sales'); ?></th>
+                            <td>
+                                <input type="number" name="bulk_additional_percentage" id="bulk_additional_percentage" step="0.01" min="-100" max="1000" placeholder="0" style="width:100px;">
+                                <span class="description">
+                                    <?php _e('Add extra % on top of global adjustment (stacks with global %)', 'monospace-sales'); ?>
+                                </span>
+                                <br>
+                                <label style="margin-top: 5px; display: inline-block;">
+                                    <input type="checkbox" name="bulk_reset_additional_percentage" value="1">
+                                    <?php _e('Reset to 0% (remove additional increase)', 'monospace-sales'); ?>
                                 </label>
                             </td>
                         </tr>
@@ -186,6 +229,13 @@ class MSD_Bulk_Editor {
 
         $updated = 0;
 
+        // Debug: Log what we received
+        error_log('MSD Bulk Edit - POST data: ' . print_r([
+            'bulk_additional_percentage' => $_POST['bulk_additional_percentage'] ?? 'NOT SET',
+            'bulk_reset_additional_percentage' => $_POST['bulk_reset_additional_percentage'] ?? 'NOT SET',
+            'product_ids' => $product_ids,
+        ], true));
+
         foreach ($product_ids as $product_id) {
             // Sale override
             if (!empty($_POST['bulk_enable_sale'])) {
@@ -206,8 +256,21 @@ class MSD_Bulk_Editor {
             }
 
             // Price adjustment exclusion
-            if (isset($_POST['bulk_exclude_price_adj'])) {
-                update_post_meta($product_id, '_msd_exclude_price_adj', 'yes');
+            if (!empty($_POST['bulk_exclude_price_adj'])) {
+                update_post_meta($product_id, '_msd_exclude_price_adj', sanitize_text_field($_POST['bulk_exclude_price_adj']));
+            }
+
+            // Additional percentage increase
+            if (isset($_POST['bulk_reset_additional_percentage']) && $_POST['bulk_reset_additional_percentage'] == '1') {
+                delete_post_meta($product_id, '_msd_additional_percentage');
+                error_log("MSD: Deleted additional % for product $product_id");
+            } elseif (isset($_POST['bulk_additional_percentage']) && $_POST['bulk_additional_percentage'] !== '') {
+                $additional_percentage = floatval($_POST['bulk_additional_percentage']);
+                error_log("MSD: Processing product $product_id - percentage value: {$_POST['bulk_additional_percentage']}, float: $additional_percentage");
+                $result = update_post_meta($product_id, '_msd_additional_percentage', $additional_percentage);
+                error_log("MSD: Saved additional % ($additional_percentage) for product $product_id - Result: " . ($result ? 'SUCCESS' : 'FAILED'));
+            } else {
+                error_log("MSD: Skipped product $product_id - field not set or empty");
             }
 
             // Volume exclusion
@@ -220,16 +283,31 @@ class MSD_Bulk_Editor {
                 update_post_meta($product_id, '_msd_custom_badge', sanitize_text_field($_POST['bulk_custom_badge']));
             }
 
+            // Clear product cache
+            $product = wc_get_product($product_id);
+            if ($product) {
+                wc_delete_product_transients($product_id);
+                $product->read_meta_data(true); // Force reload meta
+            }
+
             $updated++;
         }
 
-        wp_redirect(add_query_arg([
+        // Add debug info to redirect
+        $redirect_args = [
             'page' => 'wc-settings',
             'tab' => 'msd',
             'section' => 'bulk_editor',
             'success' => '1',
             'updated' => $updated,
-        ], admin_url('admin.php')));
+        ];
+
+        // Debug: Add form values to URL
+        if (isset($_POST['bulk_additional_percentage'])) {
+            $redirect_args['debug_pct'] = $_POST['bulk_additional_percentage'];
+        }
+
+        wp_redirect(add_query_arg($redirect_args, admin_url('admin.php')));
         exit;
     }
 
@@ -298,17 +376,33 @@ class MSD_Bulk_Editor {
 
         // Manual IDs
         if (!empty($_POST['ids'])) {
-            $ids = preg_split('/[\s,]+/', $_POST['ids']);
-            $args['post__in'] = array_map('intval', $ids);
+            $ids = preg_split('/[\s,]+/', trim($_POST['ids']));
+            $ids = array_filter(array_map('intval', $ids)); // Remove empty values
+            if (!empty($ids)) {
+                $args['post__in'] = $ids;
+            }
+        }
+
+        // Note: 'all' method doesn't need special handling - default args will get all products
+
+        // Filter to products with additional percentage set
+        if (!empty($_POST['has_additional'])) {
+            $args['meta_query'] = [[
+                'key'     => '_msd_additional_percentage',
+                'value'   => '',
+                'compare' => '!=',
+            ]];
         }
 
         $query = new WP_Query($args);
         $products = [];
 
         foreach ($query->posts as $id) {
+            $additional_pct = get_post_meta($id, '_msd_additional_percentage', true);
             $products[] = [
                 'id' => $id,
                 'title' => get_the_title($id),
+                'additional_pct' => $additional_pct !== '' ? floatval($additional_pct) : null,
             ];
         }
 
