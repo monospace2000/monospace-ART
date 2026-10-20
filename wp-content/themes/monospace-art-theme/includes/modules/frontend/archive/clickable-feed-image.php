@@ -18,17 +18,14 @@
  *    - Exception: Posts in "blog" category are NOT made clickable
  *    - Handles miniature-set blocks (multiple images) specially
  *
- * 3. PRODUCT ATTRIBUTE LABELS (Bottom-Right)
- *    - Displays size (e.g., "10x8"), medium (e.g., "casein"), and type (painting/drawing)
- *    - Example: "10x8 casein painting" or "4x4 miniature drawing"
- *    - Pulls data from WooCommerce product attributes (pa_size, pa_medium)
- *    - Visual styling: .ms-attribute-label
+ * 3. INFO LINES (under the caption)
+ *    - Small right-aligned lines, one item each: original availability, medium on surface, size, prints
+ *    - e.g. "Original available" / "Casein on paper" / "10" × 8"" / "Prints available"
+ *    - Availability uses the price card's labels and colors (.status-label)
+ *    - Visual styling: .ms-feed-info (hidden in grid view)
  *
- * 4. AVAILABILITY BADGES (Bottom-Left)
- *    - Shows "Available" (yellow) or "Gallery" (white) based on product status
- *    - Only shown when WooCommerce product has stock > 0
- *    - Respects ACF field 'painting_availability_status'
- *    - No badge for sold/private items
+ * 4. AVAILABILITY BADGES
+ *    - Only used as the grid view's green dot (Available / Gallery); hidden in list view
  *    - Visual styling: .ms-availability-badge .ms-available or .ms-gallery
  *
  * 5. CATEGORY EXCLUSION
@@ -42,7 +39,6 @@
  *   <a href="[post-url]" class="ms-archive-image-link">
  *     <div class="ms-image-container">
  *       <img...>
- *       <div class="ms-attribute-label">10x8 casein painting</div>
  *       <div class="ms-availability-badge ms-available">Available</div>
  *     </div>
  *   </a>
@@ -56,7 +52,6 @@
  *       <div class="ms-miniature-image-container">
  *         <img...>
  *       </div>
- *       <div class="ms-attribute-label">4x4 miniature painting</div>
  *       <div class="ms-availability-badge ms-available">Available</div>
  *     </div>
  *   </a>
@@ -123,16 +118,12 @@ function monospace_get_product_info($post_id) {
         'type' => '',
         'status' => '',
         'label_text' => '',
+        'info_line' => '',
     ];
 
-    // Look for product ID in painting_buy_button shortcode
-    $post_content = get_post_field('post_content', $post_id);
-    if (!preg_match('/\[painting_buy_button[^\]]*id=["\']?(\d+)["\']?[^\]]*\]/i', $post_content, $m)) {
-        return $info;
-    }
-
-    $product_id = intval($m[1]);
-    if (!$product_id || !function_exists('wc_get_product')) {
+    // The post's linked product (saved by the Quick Product editor)
+    $product_id = monospace_get_post_product_id($post_id);
+    if (!$product_id) {
         return $info;
     }
 
@@ -184,7 +175,7 @@ function monospace_get_product_info($post_id) {
     if ($acf_status === 'sold' || $acf_status === 'private') {
         // No badge for sold/private items
         $info['status'] = '';
-    } elseif ($acf_status === 'gallery') {
+    } elseif ($acf_status === 'gallery' || $acf_status === 'gallery-reserved') {
         $info['status'] = 'Gallery';
     } elseif ($acf_status === 'reserved') {
         $info['status'] = 'Reserved';
@@ -192,7 +183,69 @@ function monospace_get_product_info($post_id) {
         $info['status'] = 'Available';
     }
 
+    $info['info_line'] = monospace_build_feed_info($post_id, $product, $acf_status);
+
     return $info;
+}
+
+/* ============================================================
+ * BUILD - Info line under the caption
+ * ============================================================ */
+
+/**
+ * One small line under the feed image's caption:
+ *   original availability · medium on surface · size · prints
+ * Availability uses the price card's wording and colors (monospace_render_buy_button()).
+ */
+function monospace_build_feed_info($post_id, $product, $status) {
+    $product_id = $product->get_id();
+    $parts = [];
+
+    // Original availability - same label as the price card, or "Original available" when for sale
+    $availability = monospace_render_buy_button(
+        $product,
+        $status,
+        get_post_meta($product_id, 'painting_gallery_url', true),
+        get_post_meta($product_id, 'painting_gallery_name', true)
+    );
+    $parts[] = $availability !== ''
+        ? $availability
+        : '<span class="status-label status-available">Original available</span>';
+
+    $term_names = function ($taxonomy) use ($product_id) {
+        $names = wp_get_post_terms($product_id, $taxonomy, ['fields' => 'names']);
+        return is_wp_error($names) ? '' : implode(', ', $names);
+    };
+
+    // Medium / materials: "Casein on paper"
+    $medium  = $term_names('pa_medium');
+    $surface = $term_names('pa_surface');
+    if ($medium || $surface) {
+        // "Paper" -> "paper", but leave abbreviations alone ("MDF board")
+        $surface_lc = preg_match('/^[A-Z]{2}/', $surface) ? $surface : lcfirst($surface);
+        $parts[] = esc_html($medium && $surface ? $medium . ' on ' . $surface_lc : ($medium ?: $surface));
+    }
+
+    // Size, as written on the price card (e.g. 10" × 8"); 4" × 4" gets "(miniature)" after it
+    if ($size = $term_names('pa_size')) {
+        if (has_term('4x4', 'pa_size', $product_id)) {
+            $size .= ' (miniature)';
+        }
+        $parts[] = esc_html($size);
+    }
+
+    // Print on demand - green, like "Original available" (only while the Prints plugin is on)
+    foreach (function_exists('monospace_feature') && monospace_feature('prints') ? ['_print_product_id', '_framed_print_product_id'] : [] as $key) {
+        $print_id = intval(get_post_meta($post_id, $key, true));
+        if ($print_id && wc_get_product($print_id)) {
+            $parts[] = '<span class="status-label status-available">Prints available</span>';
+            break;
+        }
+    }
+
+    // One item per line
+    $items = array_map(function ($part) { return '<span class="ms-feed-info-item">' . $part . '</span>'; }, $parts);
+    return '<div class="ms-feed-info">' . implode('', $items) . '</div>';
 }
 
 /* ============================================================
@@ -209,7 +262,7 @@ function monospace_process_miniature_set($content, $is_blog) {
     // Find miniature-set grid (div inside figure)
     $pattern = '/(<div[^>]*class="[^"]*miniature-set-grid[^"]*"[^>]*>)(.*?)(<\/div>)/is';
 
-    return preg_replace_callback($pattern, function($matches) use ($permalink, $product_info) {
+    $content = preg_replace_callback($pattern, function($matches) use ($permalink, $product_info) {
         $grid_open = $matches[1];
         $grid_content = $matches[2];
         $grid_close = $matches[3];
@@ -224,13 +277,19 @@ function monospace_process_miniature_set($content, $is_blog) {
         $labels = monospace_build_labels($product_info);
 
         // Wrap grid in positioned container with labels overlaying
-        return '<div style="position: relative; display: inline-block; width: 100%;">'
+        return '<div class="ms-miniature-set-wrapper" style="position: relative; display: inline-block; width: 100%;">'
             . $grid_open
             . $grid_content
             . $grid_close
             . $labels
             . '</div>';
-    }, $content);
+    }, $content, 1);
+
+    // Info lines (availability, materials, size, prints) after the set's caption, like single images
+    if ($product_info['info_line']) {
+        $content = preg_replace('/(<figure[^>]*monospace-miniature-set.*?)(<\/figure>)/s', '$1' . str_replace('$', '\\$', $product_info['info_line']) . '$2', $content, 1);
+    }
+    return $content;
 }
 
 /* ============================================================
@@ -280,8 +339,9 @@ function monospace_process_first_image($content, $is_miniature, $is_blog, $produ
                 $wrapper = monospace_build_standard_image($img_tag, $product_info, $is_blog ? '' : $permalink);
             }
 
-            // Rebuild figure
-            $new_figure = '<figure>';
+            // Rebuild figure, keeping block style classes (e.g. is-style-no-shadow)
+            preg_match_all('/\bis-style-[\w-]+/', substr($figure_html, 0, strpos($figure_html, '>')), $style_classes);
+            $new_figure = $style_classes[0] ? '<figure class="' . esc_attr(implode(' ', $style_classes[0])) . '">' : '<figure>';
             $new_figure .= $wrapper;
 
             if ($caption_text) {
@@ -294,6 +354,7 @@ function monospace_process_first_image($content, $is_miniature, $is_blog, $produ
                 }
             }
 
+            $new_figure .= $product_info['info_line'];
             $new_figure .= '</figure>';
 
             return str_replace($figure_html, $new_figure, $content);
@@ -308,12 +369,20 @@ function monospace_process_first_image($content, $is_miniature, $is_blog, $produ
     }
 
     // Replace first image
-    return preg_replace('/<img[^>]+>/i', $wrapper, $content, 1);
+    return preg_replace('/<img[^>]+>/i', $wrapper . $product_info['info_line'], $content, 1);
 }
 
 /* ============================================================
  * BUILD - Miniature cover wrapper
  * ============================================================ */
+
+// The blurred background only needs a resized copy - the original upload can be several MB.
+// Falls back to the given URL when it isn't a media library image.
+function monospace_cover_background_url($src, $size) {
+    $attachment_id = attachment_url_to_postid(preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $src));
+    if (!$attachment_id) return $src;
+    return wp_get_attachment_image_url($attachment_id, $size) ?: $src;
+}
 
 function monospace_build_miniature_cover($src, $img_tag, $product_info, $permalink) {
     $labels = monospace_build_labels($product_info);
@@ -324,7 +393,7 @@ function monospace_build_miniature_cover($src, $img_tag, $product_info, $permali
     return '
     <div class="ms-archive-image-wrapper ms-miniature-cover">
         ' . $link_open . '
-        <div class="ms-miniature-background" style="background-image:url(' . esc_url($src) . ');">
+        <div class="ms-miniature-background" style="background-image:url(' . esc_url(monospace_cover_background_url($src, 'medium_large')) . ');">
             <div class="ms-miniature-overlay"></div>
             <div class="ms-miniature-image-container">
                 ' . $img_tag . '
@@ -333,6 +402,40 @@ function monospace_build_miniature_cover($src, $img_tag, $product_info, $permali
         </div>
         ' . $link_close . '
     </div>';
+}
+
+/* ============================================================
+ * SINGLE POST - Miniature cover on the post page too
+ * ============================================================ */
+
+// A miniature's post page shows its first image as in the feed: centred on a blurred, darkened copy
+// of itself (the cover above, minus the badge and post link). Desktop only - on phones CSS undoes the
+// cover (.ms-miniature-cover-single, _main-feed-images.scss) so the image shows as before. Runs
+// before the lightbox (lightbox.php, priority 20), which still wraps the image, so clicking it opens
+// the lightbox as usual. Posts whose first image is a miniature-set block are left alone.
+add_filter('the_content', 'monospace_single_miniature_cover', 10);
+
+function monospace_single_miniature_cover($content) {
+    if (!is_single() || !in_the_loop() || !is_main_query()) return $content;
+
+    global $post;
+    if (!$post || !has_category('miniature', $post)) return $content;
+    if (preg_match('/<div[^>]*class="[^"]*miniature-set[^"]*"[^>]*>/', $content)) return $content;
+
+    if (!preg_match('/<img[^>]+>/i', $content, $img_match, PREG_OFFSET_CAPTURE)) return $content;
+    list($img_tag, $img_pos) = $img_match[0];
+
+    // Already linked (e.g. to a custom URL): leave it
+    if (preg_match('/<a\b[^>]*>\s*$/i', substr($content, 0, $img_pos))) return $content;
+    if (!preg_match('/src=["\']([^"\']+)["\']/i', $img_tag, $src_match)) return $content;
+
+    $cover = '<div class="ms-archive-image-wrapper ms-miniature-cover ms-miniature-cover-single">'
+           . '<div class="ms-miniature-background" style="background-image:url(' . esc_url(monospace_cover_background_url($src_match[1], 'large')) . ');">'
+           . '<div class="ms-miniature-overlay"></div>'
+           . '<div class="ms-miniature-image-container">' . $img_tag . '</div>'
+           . '</div></div>';
+
+    return substr_replace($content, $cover, $img_pos, strlen($img_tag));
 }
 
 /* ============================================================
@@ -363,12 +466,8 @@ function monospace_build_standard_image($img_tag, $product_info, $permalink) {
 function monospace_build_labels($product_info) {
     $html = '';
 
-    // Attribute label (bottom-right)
-    if ($product_info['label_text']) {
-        $html .= '<div class="ms-attribute-label">' . esc_html($product_info['label_text']) . '</div>';
-    }
-
-    // Availability badge (bottom-left)
+    // Size / medium now live in the info line under the caption (monospace_build_feed_info()).
+    // The availability badge stays only for the grid view's green dot - list view hides it.
     if ($product_info['status']) {
         $badge_class = 'ms-' . strtolower($product_info['status']);
         if ($product_info['status'] === 'Available') {

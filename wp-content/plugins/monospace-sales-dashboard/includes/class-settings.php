@@ -34,8 +34,9 @@ class MSD_Settings {
             return;
         }
 
-        wp_enqueue_style('msd-admin', MSD_PLUGIN_URL . 'assets/admin.css', [], MSD_VERSION);
-        wp_enqueue_script('msd-admin', MSD_PLUGIN_URL . 'assets/admin.js', ['jquery'], MSD_VERSION, true);
+        // Versioned by file date, so a style change reaches the browser at once
+        wp_enqueue_style('msd-admin', MSD_PLUGIN_URL . 'assets/admin.css', [], MSD_VERSION . '.' . filemtime(MSD_PLUGIN_DIR . 'assets/admin.css'));
+        wp_enqueue_script('msd-admin', MSD_PLUGIN_URL . 'assets/admin.js', ['jquery'], MSD_VERSION . '.' . filemtime(MSD_PLUGIN_DIR . 'assets/admin.js'), true);
 
         // Localize script with AJAX URL
         wp_localize_script('msd-admin', 'msdAdmin', [
@@ -58,7 +59,7 @@ class MSD_Settings {
             'volume_discounts' => __('Volume Discounts', 'monospace-sales'),
             'free_shipping' => __('Free Shipping', 'monospace-sales'),
             'scheduling' => __('Scheduling', 'monospace-sales'),
-            'badges' => __('Badges & Messages', 'monospace-sales'),
+            'messages' => __('Messages', 'monospace-sales'),
             'bulk_editor' => __('Bulk Editor', 'monospace-sales'),
             'additional_tracker' => __('Additional % Tracker', 'monospace-sales'),
             'import_export' => __('Import/Export', 'monospace-sales'),
@@ -117,8 +118,10 @@ class MSD_Settings {
             case 'scheduling':
                 self::output_scheduling_section();
                 break;
-            case 'badges':
-                self::output_badges_section();
+            case 'messages':
+            case 'badges':          // old links
+            case 'card_messages':   // old links
+                MSD_Card_Messages::output_section();
                 break;
             case 'bulk_editor':
                 MSD_Bulk_Editor::output_section();
@@ -263,53 +266,6 @@ class MSD_Settings {
         // Hidden field
         echo '<input type="hidden" id="msd_freeship_rules" name="msd_freeship_rules" value="' . esc_attr(get_option('msd_freeship_rules', '')) . '">';
 
-        echo '<hr style="margin:40px 0;">';
-
-        // Cart Hints
-        $hint_settings = [
-            [
-                'title' => __('Cart Messages', 'monospace-sales'),
-                'type' => 'title',
-                'desc' => __('Messages displayed in cart using WooCommerce notice styles', 'monospace-sales'),
-                'id' => 'msd_freeship_hints_title',
-            ],
-            [
-                'title' => __('Enable Cart Messages', 'monospace-sales'),
-                'id' => 'msd_freeship_hints_enable',
-                'type' => 'checkbox',
-                'default' => 'yes',
-            ],
-            [
-                'title' => __('Active Message', 'monospace-sales'),
-                'desc' => __('Shown when free shipping is applied', 'monospace-sales'),
-                'id' => 'msd_freeship_hint_active',
-                'type' => 'text',
-                'default' => 'Free shipping applied! ✓',
-                'css' => 'width:400px;',
-            ],
-            [
-                'title' => __('Almost There (Amount)', 'monospace-sales'),
-                'desc' => __('Use {amount} for remaining amount needed', 'monospace-sales'),
-                'id' => 'msd_freeship_hint_almost_amount',
-                'type' => 'text',
-                'default' => 'Add {amount} more for free shipping',
-                'css' => 'width:400px;',
-            ],
-            [
-                'title' => __('Almost There (Quantity)', 'monospace-sales'),
-                'desc' => __('Use {qty} for remaining items needed', 'monospace-sales'),
-                'id' => 'msd_freeship_hint_almost_qty',
-                'type' => 'text',
-                'default' => 'Add {qty} more items for free shipping',
-                'css' => 'width:400px;',
-            ],
-            [
-                'type' => 'sectionend',
-                'id' => 'msd_freeship_hints_end',
-            ],
-        ];
-
-        woocommerce_admin_fields($hint_settings);
 
         echo '</div>';
     }
@@ -782,6 +738,11 @@ class MSD_Settings {
 
         $current_section = isset($_GET['section']) ? sanitize_text_field($_GET['section']) : 'global';
 
+        if (in_array($current_section, ['messages', 'badges', 'card_messages'], true)) {
+            MSD_Card_Messages::save();
+            return;
+        }
+
         // Skip for sections that handle their own saving or are read-only
         if (in_array($current_section, ['dashboard', 'bulk_editor', 'additional_tracker', 'import_export'])) {
             return;
@@ -891,6 +852,54 @@ class MSD_Settings {
     }
 
     /**
+     * Cart messages (free shipping notices in the cart). Shown and saved on the Messages screen.
+     */
+    public static function get_cart_message_fields() {
+        return [
+            [
+                'title' => __('Cart', 'monospace-sales'),
+                'type' => 'title',
+                'desc' => __('Free shipping notices shown in the cart (rules: Free Shipping section)', 'monospace-sales'),
+                'id' => 'msd_freeship_hints_title',
+            ],
+            [
+                'title' => __('Enable Cart Messages', 'monospace-sales'),
+                'id' => 'msd_freeship_hints_enable',
+                'type' => 'checkbox',
+                'default' => 'yes',
+            ],
+            [
+                'title' => __('Active Message', 'monospace-sales'),
+                'desc' => __('Shown when free shipping is applied', 'monospace-sales'),
+                'id' => 'msd_freeship_hint_active',
+                'type' => 'text',
+                'default' => 'Free shipping applied! ✓',
+                'css' => 'width:400px;',
+            ],
+            [
+                'title' => __('Almost There (Amount)', 'monospace-sales'),
+                'desc' => __('Use {amount} for remaining amount needed', 'monospace-sales'),
+                'id' => 'msd_freeship_hint_almost_amount',
+                'type' => 'text',
+                'default' => 'Add {amount} more for free shipping',
+                'css' => 'width:400px;',
+            ],
+            [
+                'title' => __('Almost There (Quantity)', 'monospace-sales'),
+                'desc' => __('Use {qty} for remaining items needed', 'monospace-sales'),
+                'id' => 'msd_freeship_hint_almost_qty',
+                'type' => 'text',
+                'default' => 'Add {qty} more items for free shipping',
+                'css' => 'width:400px;',
+            ],
+            [
+                'type' => 'sectionend',
+                'id' => 'msd_freeship_hints_end',
+            ],
+        ];
+    }
+
+    /**
      * Get free shipping fields
      */
     private static function get_free_shipping_fields() {
@@ -900,14 +909,6 @@ class MSD_Settings {
             ['title' => 'Coupon Code', 'id' => 'msd_freeship_coupon', 'type' => 'text', 'default' => '_admin_freeshipping'],
             ['title' => 'Rules JSON', 'id' => 'msd_freeship_rules', 'type' => 'textarea'],
             ['type' => 'sectionend', 'id' => 'msd_freeship_basic_end'],
-
-            // Hints
-            ['title' => 'Cart Messages', 'type' => 'title', 'desc' => 'Messages displayed in cart using WooCommerce notice styles', 'id' => 'msd_freeship_hints_title'],
-            ['title' => 'Enable Cart Messages', 'id' => 'msd_freeship_hints_enable', 'type' => 'checkbox', 'default' => 'yes'],
-            ['title' => 'Active Message', 'id' => 'msd_freeship_hint_active', 'type' => 'text', 'default' => 'Free shipping applied! ✓'],
-            ['title' => 'Almost There (Amount)', 'id' => 'msd_freeship_hint_almost_amount', 'type' => 'text', 'default' => 'Add {amount} more for free shipping'],
-            ['title' => 'Almost There (Quantity)', 'id' => 'msd_freeship_hint_almost_qty', 'type' => 'text', 'default' => 'Add {qty} more items for free shipping'],
-            ['type' => 'sectionend', 'id' => 'msd_freeship_hints_end'],
         ];
     }
 

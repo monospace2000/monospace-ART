@@ -11,6 +11,10 @@
  *   - For posts/pages/products: Returns default or overridden sidebar
  *   - Handles mirror checkbox logic and responsive content wrapping
  *
+ * The box (2026-10-20) is in the admin UI style (CLAUDE.md "Admin UI style"): a small map of this page and
+ * panels - Header & title, Top content, Sidebar - each open when this page overrides the default. Same fields
+ * and names as before, saved below.
+ *
  * Override Modes:
  * - Replace: Use only custom content
  * - Append: Show default content, then custom content
@@ -34,7 +38,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 add_action('add_meta_boxes', function() {
     add_meta_box(
         'monospace_sidebar_override',
-        __('Sidebar Override', 'monospace-art-theme'),
+        __('This page’s layout', 'monospace-art-theme'), // was "Sidebar Override" (2026-10-20: it also sets logo, title, top content)
         'monospace_sidebar_override_metabox_callback',
         ['post', 'page', 'product'],
         'side',
@@ -51,7 +55,9 @@ function monospace_sidebar_override_metabox_callback($post) {
     $override_mode  = get_post_meta($post->ID, '_monospace_override_mode', true) ?: 'replace';
     $custom_content = get_post_meta($post->ID, '_monospace_custom_sidebar', true);
     $mobile_content = get_post_meta($post->ID, '_monospace_mobile_sidebar', true);
-    $hide_sidebar   = get_post_meta($post->ID, '_monospace_hide_sidebar', true);
+    $sidebar_choice = monospace_sidebar_override_choice($post->ID);
+    $top_mode       = get_post_meta($post->ID, '_monospace_top_mode', true);
+    $top_content    = get_post_meta($post->ID, '_monospace_top_content', true);
     $hide_header    = get_post_meta($post->ID, '_monospace_hide_header', true);
     $hide_title     = get_post_meta($post->ID, '_monospace_hide_title', true);
 
@@ -59,99 +65,134 @@ function monospace_sidebar_override_metabox_callback($post) {
     $mirror_sidebar = get_post_meta($post->ID, '_monospace_mirror_sidebar', true);
     $mirror_sidebar = ($mirror_sidebar === '') ? '1' : $mirror_sidebar;
 
+    // The page type's defaults (Layout Manager > Headers & Sidebars)
+    $type       = $post->post_type === 'post' ? 'posts' : ($post->post_type === 'product' ? 'products' : 'pages');
+    $show_def   = monospace_sidebar_default_visible($type);
+    $top_def    = trim((string) get_option('monospace_' . $type . '_top_content', '')) !== '';
+    $lm         = admin_url('admin.php?page=monospace-layout-manager&tab=' . $type);
+    $preview    = function_exists('monospace_lm_preview') ? 'monospace_lm_preview' : fn($t) => wp_strip_all_tags($t);
+
+    // Each area's state on this page: what the map and the title lines say
+    $h_state  = ($hide_header || $hide_title) ? 'on' : 'empty';
+    $h_chip   = $hide_header && $hide_title ? 'Logo and title hidden' : ($hide_header ? 'Logo hidden' : ($hide_title ? 'Title hidden' : 'As usual'));
+    $t_state  = $top_mode === 'custom' ? 'on' : ($top_mode === 'none' ? 'off' : 'empty');
+    $t_chip   = $top_mode === 'custom' ? 'Its own' : ($top_mode === 'none' ? 'None' : 'Default' . ($top_def ? '' : ' (empty)'));
+    $s_shown  = $sidebar_choice ? $sidebar_choice === 'show' : $show_def;
+    $s_state  = ! $s_shown ? 'off' : ($use_override ? 'on' : 'empty');
+    $s_chip   = (! $s_shown ? 'Hidden' : ($use_override ? 'Own content' : 'Default content')) . ($sidebar_choice ? '' : ' (default)');
+    $modes    = ['replace' => 'instead of the default', 'append' => 'after the default', 'prepend' => 'before the default'];
+
+    $chip = fn($state, $text) => '<span class="lm-chip is-' . esc_attr($state) . '">' . esc_html($text) . '</span>';
+    $open = fn($state) => $state === 'on' ? ' open' : '';
+
     wp_nonce_field('monospace_sidebar_override_nonce', 'monospace_sidebar_override_nonce_field');
     ?>
+    <div class="lm-areas lm-compact">
+        <!-- This page, as a map: what it overrides -->
+        <figure class="lm-map" aria-label="This page's layout">
+            <div class="lm-r lm-fixed">Menu bar</div>
+            <button type="button" class="lm-r lm-area lm-logo is-<?php echo $hide_header ? 'off' : 'empty'; ?>" data-panel="header">Logo &amp; tagline</button>
+            <button type="button" class="lm-r lm-area is-<?php echo esc_attr($t_state); ?>" data-panel="top">Top content</button>
+            <div class="lm-cols">
+                <div class="lm-main">
+                    <button type="button" class="lm-r lm-area is-<?php echo $hide_title ? 'off' : 'empty'; ?>" data-panel="header">Title</button>
+                    <div class="lm-r lm-fixed lm-content">Content</div>
+                </div>
+                <button type="button" class="lm-r lm-area lm-side is-<?php echo esc_attr($s_state); ?>" data-panel="sidebar">Sidebar</button>
+            </div>
+            <figcaption><span class="lm-key is-on"></span> this page's own <span class="lm-key is-empty"></span> default <span class="lm-key is-off"></span> hidden</figcaption>
+        </figure>
 
-    <h4 style="margin: 0 0 10px 0;"><?php esc_html_e('Layout Options', 'monospace-art-theme'); ?></h4>
+        <div class="lm-panels">
+            <!-- HEADER & TITLE -->
+            <details class="lm-panel" data-panel="header"<?php echo $open($h_state); ?>>
+                <summary><span class="lm-t">Header &amp; title</span> <?php echo $chip($h_state, $h_chip); ?></summary>
+                <div class="lm-body">
+                    <p><label><input type="checkbox" name="monospace_hide_header" value="1" <?php checked($hide_header, '1'); ?>> Hide the logo &amp; tagline</label></p>
+                    <p><label><input type="checkbox" name="monospace_hide_title" value="1" <?php checked($hide_title, '1'); ?>> Hide the page / post title</label></p>
+                </div>
+            </details>
 
-    <p>
-        <label>
-            <input type="checkbox" name="monospace_hide_header" value="1" <?php checked($hide_header, '1'); ?>>
-            <?php esc_html_e('Hide site header (logo & tagline)', 'monospace-art-theme'); ?>
-        </label>
-    </p>
+            <!-- TOP CONTENT -->
+            <details class="lm-panel" data-panel="top"<?php echo $top_mode ? ' open' : ''; ?>>
+                <summary><span class="lm-t">Top content</span> <?php echo $chip($t_state, $t_chip); ?>
+                    <span class="lm-sub">Full width, under the logo<?php echo $top_mode === 'custom' && trim((string) $top_content) !== '' ? ' · ' . esc_html($preview($top_content)) : ''; ?></span></summary>
+                <div class="lm-body">
+                    <select name="monospace_top_mode" id="monospace_top_mode" style="width: 100%;"
+                            onchange="document.getElementById('monospace_top_custom').style.display = this.value === 'custom' ? '' : 'none';">
+                        <option value="" <?php selected($top_mode, ''); ?>>Default<?php echo $top_def ? '' : ' (empty)'; ?> - Layout Manager</option>
+                        <option value="custom" <?php selected($top_mode, 'custom'); ?>>Its own</option>
+                        <option value="none" <?php selected($top_mode, 'none'); ?>>None</option>
+                    </select>
+                    <textarea name="monospace_top_content" id="monospace_top_custom" rows="5" style="width: 100%; margin-top: 6px;<?php echo $top_mode === 'custom' ? '' : ' display: none;'; ?>" placeholder="HTML and shortcodes allowed"><?php echo esc_textarea($top_content); ?></textarea>
+                    <p class="description"><a href="<?php echo esc_url($lm); ?>">The default for every <?php echo esc_html(rtrim($type, 's')); ?></a></p>
+                </div>
+            </details>
 
-    <p>
-        <label>
-            <input type="checkbox" name="monospace_hide_sidebar" value="1" <?php checked($hide_sidebar, '1'); ?>>
-            <?php esc_html_e('Hide sidebar entirely', 'monospace-art-theme'); ?>
-        </label>
-    </p>
-
-    <p>
-        <label>
-            <input type="checkbox" name="monospace_hide_title" value="1" <?php checked($hide_title, '1'); ?>>
-            <?php esc_html_e('Hide page/post title', 'monospace-art-theme'); ?>
-        </label>
-    </p>
-
-    <hr style="margin: 15px 0;">
-
-    <h4 style="margin: 0 0 10px 0;"><?php esc_html_e('Custom Sidebar', 'monospace-art-theme'); ?></h4>
-
-    <p>
-        <label>
-            <input type="checkbox" name="monospace_sidebar_override" value="1" <?php checked($use_override, '1'); ?>>
-            <?php esc_html_e('Use custom sidebar for this content', 'monospace-art-theme'); ?>
-        </label>
-    </p>
-
-    <p>
-        <label for="monospace_override_mode"><?php esc_html_e('Override Mode', 'monospace-art-theme'); ?></label>
-        <select name="monospace_override_mode" id="monospace_override_mode" style="width: 100%;">
-            <option value="replace" <?php selected($override_mode, 'replace'); ?>>Replace default sidebar</option>
-            <option value="append" <?php selected($override_mode, 'append'); ?>>Append to default sidebar</option>
-            <option value="prepend" <?php selected($override_mode, 'prepend'); ?>>Prepend to default sidebar</option>
-        </select>
-    </p>
-
-    <p style="font-size:0.85em; color:#666; margin-top: 5px;">
-        <strong>Replace:</strong> Use only this custom content<br>
-        <strong>Append:</strong> Show default content, then this custom content<br>
-        <strong>Prepend:</strong> Show this custom content, then default content
-    </p>
-
-    <p>
-        <label for="monospace_custom_sidebar">
-            <?php esc_html_e('Desktop Sidebar', 'monospace-art-theme'); ?>
-        </label>
-        <?php
-        wp_editor($custom_content, 'monospace_custom_sidebar', [
-            'textarea_name' => 'monospace_custom_sidebar',
-            'media_buttons' => true,
-            'textarea_rows' => 10,
-            'teeny'         => false,
-            'quicktags'     => true,
-        ]);
-        ?>
-    </p>
-
-    <p>
-        <label for="monospace_mobile_sidebar">
-            <?php esc_html_e('Mobile & Tablet Sidebar', 'monospace-art-theme'); ?>
-        </label>
-        <?php
-        wp_editor($mobile_content, 'monospace_mobile_sidebar', [
-            'textarea_name' => 'monospace_mobile_sidebar',
-            'media_buttons' => true,
-            'textarea_rows' => 10,
-            'teeny'         => false,
-            'quicktags'     => true,
-        ]);
-        ?>
-    </p>
-
-    <p>
-        <label>
-            <input type="checkbox" name="monospace_mirror_sidebar" value="1" <?php checked($mirror_sidebar, '1'); ?>>
-            <?php esc_html_e('Mirror desktop content to mobile (ignore mobile field above)', 'monospace-art-theme'); ?>
-        </label>
-    </p>
-
-    <p style="font-size:0.85em; color:#666;">
-        <?php esc_html_e('If mobile/tablet is empty, desktop content will be used. HTML and shortcodes allowed. See Layout Manager → Shortcodes for options.', 'monospace-art-theme'); ?>
-    </p>
+            <!-- SIDEBAR -->
+            <details class="lm-panel" data-panel="sidebar"<?php echo ($sidebar_choice || $use_override) ? ' open' : ''; ?>>
+                <summary><span class="lm-t">Sidebar</span> <?php echo $chip($s_state, $s_chip); ?>
+                    <span class="lm-sub"><?php echo $use_override && $s_shown ? esc_html($modes[$override_mode] ?? '') . ($custom_content ? ' · ' . esc_html($preview($custom_content)) : '') : 'Right of the content (phones: above it)'; ?></span></summary>
+                <div class="lm-body">
+                    <p><label class="lm-label" for="monospace_sidebar_visibility">Show</label>
+                        <select name="monospace_sidebar_visibility" id="monospace_sidebar_visibility">
+                            <option value="" <?php selected($sidebar_choice, ''); ?>>Default (<?php echo $show_def ? 'shown' : 'hidden'; ?>)</option>
+                            <option value="show" <?php selected($sidebar_choice, 'show'); ?>>Always show</option>
+                            <option value="hide" <?php selected($sidebar_choice, 'hide'); ?>>Always hide</option>
+                        </select></p>
+                    <p><label><input type="checkbox" name="monospace_sidebar_override" value="1" class="lm-show-sidebar" <?php checked($use_override, '1'); ?>> Use a custom sidebar here</label></p>
+                    <div class="lm-sidebar-fields"<?php echo $use_override ? '' : ' hidden'; ?>>
+                        <p><label class="lm-label" for="monospace_override_mode">Where</label>
+                            <select name="monospace_override_mode" id="monospace_override_mode">
+                                <option value="replace" <?php selected($override_mode, 'replace'); ?>>Instead of the default sidebar</option>
+                                <option value="append" <?php selected($override_mode, 'append'); ?>>After the default sidebar</option>
+                                <option value="prepend" <?php selected($override_mode, 'prepend'); ?>>Before the default sidebar</option>
+                            </select></p>
+                        <?php
+                        wp_editor($custom_content, 'monospace_custom_sidebar', [
+                            'textarea_name' => 'monospace_custom_sidebar',
+                            'media_buttons' => true,
+                            'textarea_rows' => 8,
+                            'teeny'         => false,
+                            'quicktags'     => true,
+                        ]);
+                        ?>
+                        <label class="lm-mirror"><input type="checkbox" name="monospace_mirror_sidebar" value="1" <?php checked($mirror_sidebar, '1'); ?>> Same on phones &amp; tablets</label>
+                        <div class="lm-mobile"<?php echo $mirror_sidebar === '1' ? ' hidden' : ''; ?>>
+                            <p class="lm-label">Sidebar on phones &amp; tablets <span class="description">(empty = the one above)</span></p>
+                            <?php
+                            wp_editor($mobile_content, 'monospace_mobile_sidebar', [
+                                'textarea_name' => 'monospace_mobile_sidebar',
+                                'media_buttons' => true,
+                                'textarea_rows' => 8,
+                                'teeny'         => false,
+                                'quicktags'     => true,
+                            ]);
+                            ?>
+                        </div>
+                        <p class="description">HTML and shortcodes allowed - see Layout Manager → Shortcodes.</p>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </div>
+    <style>
+        /* The admin UI style in the editor's side column: map on top, panels below, one column */
+        .lm-compact { max-width: none; }
+        .lm-compact .lm-map { position: static; margin-bottom: 10px; }
+        .lm-compact .lm-panel > summary { padding: 9px 10px; }
+        .lm-compact .lm-body { padding: 10px; }
+        .lm-compact .lm-label { min-width: 0; margin-right: 6px; }
+        .lm-compact .lm-cols { grid-template-columns: 1fr 52px; }
+        .lm-compact .lm-content { padding: 22px 8px; }
+        .lm-compact select { max-width: 100%; }
+        .lm-compact .lm-panels, .lm-compact .lm-panel, .lm-compact .lm-body { min-width: 0; max-width: 100%; box-sizing: border-box; }
+        .lm-compact .lm-panel { overflow: hidden; }
+        .lm-compact .lm-sub { white-space: normal; }
+        .lm-compact .lm-body select, .lm-compact .lm-body textarea { width: 100%; }
+    </style>
     <?php
+    if (function_exists('monospace_lm_area_assets')) monospace_lm_area_assets();
 }
 
 /* ============================================================
@@ -176,10 +217,26 @@ add_action('save_post', function($post_id) {
         delete_post_meta($post_id, '_monospace_hide_header');
     }
 
-    if (isset($_POST['monospace_hide_sidebar'])) {
-        update_post_meta($post_id, '_monospace_hide_sidebar', '1');
+    // Sidebar: '' = Layout Manager default, 'show' / 'hide' = override
+    $visibility = in_array($_POST['monospace_sidebar_visibility'] ?? '', ['show', 'hide'], true) ? $_POST['monospace_sidebar_visibility'] : '';
+    if ($visibility) {
+        update_post_meta($post_id, '_monospace_sidebar_visibility', $visibility);
     } else {
-        delete_post_meta($post_id, '_monospace_hide_sidebar');
+        delete_post_meta($post_id, '_monospace_sidebar_visibility');
+    }
+    delete_post_meta($post_id, '_monospace_hide_sidebar'); // replaced by _monospace_sidebar_visibility
+
+    // Top content: '' = Layout Manager default, 'custom' = own content, 'none' = no top content
+    $top_mode = in_array($_POST['monospace_top_mode'] ?? '', ['custom', 'none'], true) ? $_POST['monospace_top_mode'] : '';
+    if ($top_mode) {
+        update_post_meta($post_id, '_monospace_top_mode', $top_mode);
+    } else {
+        delete_post_meta($post_id, '_monospace_top_mode');
+    }
+    if ($top_mode === 'custom') {
+        update_post_meta($post_id, '_monospace_top_content', wp_kses_post(wp_unslash($_POST['monospace_top_content'] ?? '')));
+    } else {
+        delete_post_meta($post_id, '_monospace_top_content');
     }
 
     if (isset($_POST['monospace_hide_title'])) {
@@ -393,11 +450,6 @@ add_filter('body_class', function($classes) {
             $classes[] = 'hide-header';
         }
 
-        $hide_sidebar = get_post_meta(get_the_ID(), '_monospace_hide_sidebar', true);
-        if ($hide_sidebar) {
-            $classes[] = 'hide-sidebar';
-        }
-
         $hide_title = get_post_meta(get_the_ID(), '_monospace_hide_title', true);
         if ($hide_title) {
             $classes[] = 'hide-title';
@@ -405,9 +457,76 @@ add_filter('body_class', function($classes) {
     }
 
     if (function_exists('is_woocommerce') && is_woocommerce()) {
-        $classes[] = 'hide-sidebar';
         $classes[] = 'wc-fullwidth';
+    }
+
+    if (! monospace_sidebar_visible()) {
+        $classes[] = 'hide-sidebar';
     }
 
     return $classes;
 });
+
+/* ============================================================
+ * SIDEBAR VISIBILITY
+ * Layout Manager sets a default per page type ("Show the sidebar"); a post, page or
+ * product can override it here ("Always show" / "Always hide").
+ * ============================================================ */
+
+/** The Layout Manager page type for the current request, or null */
+function monospace_layout_context() {
+    if (is_404()) return '404';
+    if (is_search()) return 'search';
+    if ((function_exists('is_woocommerce') && is_woocommerce()) || is_singular('product')) return 'products';
+    if (is_singular('post')) return 'posts';
+    if (is_singular('page')) return 'pages';
+    if (is_home()) return 'blog-feed';
+    if (is_archive()) return 'categories';
+    return null;
+}
+
+/** Layout Manager default for a page type (products: hidden, like before) */
+function monospace_sidebar_default_visible($context) {
+    $option = 'monospace_' . str_replace('-', '_', $context) . '_show_sidebar';
+    return get_option($option, $context === 'products' ? '0' : '1') === '1';
+}
+
+/** A post's own choice: 'show', 'hide' or '' (use default). Reads the old "Hide sidebar" flag too. */
+function monospace_sidebar_override_choice($post_id) {
+    $choice = get_post_meta($post_id, '_monospace_sidebar_visibility', true);
+    if ($choice === 'show' || $choice === 'hide') return $choice;
+    return get_post_meta($post_id, '_monospace_hide_sidebar', true) ? 'hide' : '';
+}
+
+/**
+ * The full-width top content area (index.php / 404.php, above .two-column-layout):
+ * the post's own choice (Custom / None) first, else the Layout Manager default for the page type.
+ */
+function monospace_render_top_content() {
+    $context = monospace_layout_context();
+    if (! $context) return;
+
+    $content = null;
+    if (is_singular(['post', 'page', 'product'])) {
+        $mode = get_post_meta(get_the_ID(), '_monospace_top_mode', true);
+        if ($mode === 'none') return;
+        if ($mode === 'custom') $content = get_post_meta(get_the_ID(), '_monospace_top_content', true);
+    }
+    if ($content === null) {
+        $content = get_option('monospace_' . str_replace('-', '_', $context) . '_top_content', '');
+    }
+    if (trim((string) $content) === '') return;
+
+    echo '<div class="top-content-area">' . do_shortcode(wpautop($content)) . '</div>';
+}
+
+function monospace_sidebar_visible() {
+    $context = monospace_layout_context();
+    if (! $context) return true;
+
+    if (is_singular(['post', 'page', 'product'])) {
+        $choice = monospace_sidebar_override_choice(get_the_ID());
+        if ($choice) return $choice === 'show';
+    }
+    return monospace_sidebar_default_visible($context);
+}

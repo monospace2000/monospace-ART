@@ -204,20 +204,20 @@ function monospace_related_build_html( $related_ids, $settings ) {
  */
 function monospace_related_get_thumbnail( $post_id, $title, $fallback_url ) {
     if ( has_post_thumbnail( $post_id ) ) {
-        return get_the_post_thumbnail( $post_id, 'medium', array( 'class' => 'monospace-related-img data-nolightbox' ) );
+        return get_the_post_thumbnail( $post_id, 'medium', array( 'class' => 'monospace-related-img nolightbox', 'data-nolightbox' => '1' ) );
     }
 
     $content_image = monospace_related_get_first_content_image( $post_id );
     if ( $content_image ) {
         return sprintf(
-            '<img src="%s" alt="%s" class="monospace-related-img data-nolightbox" loading="lazy" />',
+            '<img src="%s" alt="%s" class="monospace-related-img nolightbox" data-nolightbox="1" loading="lazy" />',
             esc_url( $content_image ),
             esc_attr( $title )
         );
     }
 
     return sprintf(
-        '<img src="%s" alt="No image" class="monospace-related-img data-nolightbox" loading="lazy" />',
+        '<img src="%s" alt="No image" class="monospace-related-img nolightbox" data-nolightbox="1" loading="lazy" />',
         esc_url( $fallback_url )
     );
 }

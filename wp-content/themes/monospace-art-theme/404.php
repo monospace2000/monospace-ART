@@ -1,5 +1,7 @@
 <?php get_header(); ?>
 
+<?php if (function_exists('monospace_render_top_content')) monospace_render_top_content(); ?>
+
 <div class="two-column-layout">
 
     <!-- Main Content -->

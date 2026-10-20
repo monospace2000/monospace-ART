@@ -18,6 +18,10 @@ require_once MONOSPACE_ART_THEME_DIR . '/includes/core/setup.php';
 require_once MONOSPACE_ART_THEME_DIR . '/includes/core/sidebars.php';
 require_once MONOSPACE_ART_THEME_DIR . '/includes/core/editor.php';
 
+// Facebook for WooCommerce held until consent, its Pixel off: plugins/monospace-privacy. Jetpack's SEO tags off:
+// plugins/monospace-seo. (In this file until the 2026-10-19 restructure - the theme is appearance only now:
+// ARCHITECTURE.md.)
+
 
 /**
  * ------------------------------
@@ -25,6 +29,7 @@ require_once MONOSPACE_ART_THEME_DIR . '/includes/core/editor.php';
  * ------------------------------
  */
 define( 'MONOSPACE_MODULE_DEBUG', false ); // Set to false to disable loader logging
+// Theme modules = appearance. Site functions are in monospace ART - Core (mu-plugins) and the feature plugins.
 
 function monospace_log( $message ) {
     if ( defined( 'MONOSPACE_MODULE_DEBUG' ) && MONOSPACE_MODULE_DEBUG ) {

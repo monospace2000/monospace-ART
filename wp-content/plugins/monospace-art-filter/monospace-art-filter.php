@@ -1,12 +1,16 @@
 <?php
 /*
 Plugin Name: monospace ART - Product Filter
+Update URI: false
 Description: Filter WooCommerce products by custom attributes (medium, surface, size, year, format), availability, and price, with NOT logic, custom availability logic.
 Version: 2.2.1
 Author: Hens Breet
 */
 
 if(!defined('ABSPATH')) exit;
+
+// monospace_feature( 'art-filter' ) - while it's off, Core hides the Art Filter page's menu items and redirects it
+add_filter('monospace_feature_art-filter', '__return_true');
 
 // =====================================================
 //  SHORTCODE: Filter UI + Results

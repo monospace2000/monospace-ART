@@ -41,40 +41,41 @@ class MSD_Dashboard_Overview {
                     gap: 20px;
                     margin-top: 20px;
                 }
+                /* Admin UI style (2026-10-20, ARCHITECTURE.md 6b): white panels, state chips */
                 .msd-status-card {
                     background: #fff;
-                    border: 1px solid #ddd;
-                    border-radius: 4px;
-                    padding: 20px;
-                    box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+                    border: 1px solid #c3c4c7;
+                    border-radius: 6px;
+                    padding: 14px 16px;
                 }
                 .msd-status-card h3 {
-                    margin: 0 0 15px 0;
+                    margin: 0 0 10px 0;
                     padding-bottom: 10px;
-                    border-bottom: 2px solid #2271b1;
+                    border-bottom: 1px solid #f0f0f1;
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
+                    font-size: 14px;
                 }
                 .msd-status-badge {
                     display: inline-block;
-                    padding: 3px 10px;
-                    border-radius: 3px;
-                    font-size: 12px;
-                    font-weight: 600;
-                    text-transform: uppercase;
+                    padding: 0 8px;
+                    border-radius: 9px;
+                    font-size: 11px;
+                    font-weight: 400;
+                    line-height: 1.7;
                 }
                 .msd-status-badge.active {
-                    background: #00a32a;
-                    color: #fff;
+                    background: #e7f0fa;
+                    color: #135e96;
                 }
                 .msd-status-badge.inactive {
-                    background: #dba617;
-                    color: #fff;
+                    background: #fcf9e8;
+                    color: #6e4e00;
                 }
                 .msd-status-badge.disabled {
-                    background: #999;
-                    color: #fff;
+                    background: #f6f7f7;
+                    color: #8c8f94;
                 }
                 .msd-status-item {
                     display: flex;
@@ -90,12 +91,11 @@ class MSD_Dashboard_Overview {
                     color: #333;
                 }
                 .msd-status-value {
-                    color: #666;
-                    font-family: monospace;
+                    color: #50575e;
                 }
                 .msd-status-value.highlight {
-                    color: #d63638;
-                    font-weight: bold;
+                    color: #135e96;
+                    font-weight: 600;
                 }
                 .msd-quick-links {
                     margin-top: 15px;

@@ -70,13 +70,31 @@ function monospace_miniature_set_render($attributes) {
         return '';
     }
 
+    // Each image is a column of the content width (660px on feeds, 1000px on posts - see
+    // image-sizes.php), on phones too. The wp-image-* class lets the lightbox open the
+    // full-size original.
+    $columns = max(1, count($images));
+    $column_width = (int) round((is_singular() ? 1000 : 660) / $columns);
+    $style = 'width: 100%; height: auto; display: block; border-radius: 5px;';
+
     ob_start();
     ?>
     <figure class="monospace-miniature-set" style="padding: <?php echo $padding; ?>px;">
         <div class="miniature-set-grid" style="display: grid; grid-template-columns: repeat(<?php echo count($images); ?>, 1fr); gap: <?php echo $gap; ?>px;">
-            <?php foreach ($images as $image): ?>
-                <img class="miniature-set-image" src="<?php echo esc_url($image['url']); ?>" alt="<?php echo esc_attr($image['alt']); ?>" style="width: 100%; height: auto; display: block; border-radius: 5px;" />
-            <?php endforeach; ?>
+            <?php foreach ($images as $image):
+                $attachment_id = !empty($image['id']) ? (int) $image['id'] : attachment_url_to_postid($image['url'] ?? '');
+                $img = $attachment_id ? wp_get_attachment_image($attachment_id, 'large', false, [
+                    'class'   => 'miniature-set-image wp-image-' . $attachment_id,
+                    'alt'     => $image['alt'] ?? '',
+                    'style'   => $style,
+                    'sizes'   => '(max-width: 700px) ' . (int) round(100 / $columns) . 'vw, ' . $column_width . 'px',
+                    'loading' => 'lazy',
+                ]) : '';
+                if ($img):
+                    echo $img;
+                else: ?>
+                <img class="miniature-set-image" src="<?php echo esc_url($image['url']); ?>" alt="<?php echo esc_attr($image['alt']); ?>" style="<?php echo $style; ?>" loading="lazy" />
+            <?php endif; endforeach; ?>
         </div>
         <?php if ($caption): ?>
             <figcaption class="miniature-set-caption" style="margin-top: 12px; text-align: center; font-style: italic; color: #666;">

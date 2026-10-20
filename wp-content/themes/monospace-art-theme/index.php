@@ -1,5 +1,7 @@
 <?php get_header(); ?>
 
+<?php if (function_exists('monospace_render_top_content')) monospace_render_top_content(); ?>
+
 <div class="two-column-layout">
 
     <!-- Main Content -->
@@ -15,6 +17,11 @@
             if (!monospace_should_hide_title()) :
         ?>
             <h1 class="entry-title"><?php the_title(); ?></h1>
+        <?php
+            // Title hidden: the page's own heading block is its <h1> - if it has none, a hidden one
+            elseif (stripos(get_post_field('post_content', get_queried_object_id()), '<h1') === false) :
+        ?>
+            <h1 class="screen-reader-text"><?php the_title(); ?></h1>
         <?php
             endif;
         endif;
@@ -54,7 +61,7 @@
                 </article>
 
             <?php endwhile; ?>
-        <?php else : ?>
+        <?php elseif (!function_exists('monospace_archive_tools_empty') || !monospace_archive_tools_empty()) : ?>
             <h3 style="margin-left:0.5rem;">No posts found.</h3>
         <?php endif; ?>
 

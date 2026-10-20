@@ -663,3 +663,20 @@
     });
 
 })(jQuery);
+
+// Admin UI style (2026-10-20): wrap each settings group - WooCommerce's <h2>, its description and its field table -
+// in a panel, and put an On / Off chip on its title when the group starts with an "enable" switch (kept live)
+jQuery(function ($) {
+    $('.msd-settings-wrap h2').each(function () {
+        var $h = $(this);
+        if ($h.closest('.msd-dashboard-overview, .msd-panel').length) return;
+        var $group = $h.add($h.nextUntil('h2, p.submit'));
+        if (!$group.filter('table.form-table').length) return;
+        $group.wrapAll('<div class="msd-panel"></div>');
+        var $on = $h.parent().find('table.form-table input[type=checkbox][name*="enable"]').first();
+        if (!$on.length) return;
+        var $chip = $('<span class="msd-chip"></span>').appendTo($h);
+        var sync = function () { $chip.toggleClass('is-on', $on.is(':checked')).text($on.is(':checked') ? 'On' : 'Off'); };
+        $on.on('change', sync); sync();
+    });
+});

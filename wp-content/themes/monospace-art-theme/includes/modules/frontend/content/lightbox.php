@@ -1,14 +1,18 @@
 <?php
 /**
- * Enable GLightbox for images in single posts.
+ * The lightbox for images in posts (the site's own, assets/scripts/ms-lightbox.js; GLightbox until 2026-10-19).
  *
  * Automatically wraps <img> tags (that are not already links)
  * in <a> tags with data attributes for GLightbox.
  *
  * Features:
- * - Active only on single post pages (not archives or pages).
- * - Skips images already inside <a> tags.
- * - Skips images with `data-nolightbox` or class `nolightbox`.
+ * - Blog posts: every image opens in the lightbox, except images inside a link, images with the
+ *   class `nolightbox` (or `data-nolightbox`) or the data-nolightbox attribute, and the related posts
+ *   block ([related_posts]).
+ * - Opt-in, any page or post: the class `lightbox` on an image (Image block > Advanced > Additional
+ *   CSS class(es) - it lands on the block's <figure>, which counts too) opens it in the lightbox, even
+ *   if it's linked (the link then opens the full-size image in the lightbox instead). The lightbox
+ *   script only loads on pages that use the class (monospace_lightbox_mode()).
  * - Optional captions from WordPress image data or alt text.
  *
  * @package monospace-art-theme
@@ -23,35 +27,48 @@ define( 'LIGHTBOX_USE_CAPTIONS', true ); // Set false to disable captions
 
 
 // =========================================================
+//  WHERE THE LIGHTBOX RUNS
+// =========================================================
+
+/**
+ * 'all' on blog posts (every image), 'opt-in' on any other page whose content has an image with the
+ * class `lightbox` (only those images), '' elsewhere.
+ */
+function monospace_lightbox_mode() {
+    if ( is_single() ) return 'all';
+    if ( is_singular() ) {
+        $post = get_post();
+        if ( $post && preg_match( '/class="[^"]*\blightbox\b/', $post->post_content ) ) return 'opt-in';
+    }
+    return '';
+}
+
+/** The image, or its block's <figure>, has the class `lightbox` */
+function monospace_lightbox_opted_in( $img ) {
+    for ( $node = $img, $depth = 0; $node && $node->nodeType === XML_ELEMENT_NODE && $depth < 4; $node = $node->parentNode, $depth++ ) {
+        if ( preg_match( '/(^|\s)lightbox(\s|$)/', (string) $node->getAttribute( 'class' ) ) ) return true;
+        if ( $node->nodeName === 'figure' ) break;
+    }
+    return false;
+}
+
+
+// =========================================================
 //  FRONT-END SCRIPT ENQUEUE
 // =========================================================
 
-function monospace_enqueue_glightbox_assets() {
-
-    // Only enqueue on single blog posts
-    if ( ! is_single() ) {
-        return;
-    }
-
-    // Load GLightbox (from CDN)
-    wp_enqueue_style(
-        'glightbox',
-        'https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css',
-        array(),
-        null
-    );
-
-    wp_enqueue_script(
-        'glightbox',
-        'https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js',
-        array(),
-        null,
-        true
-    );
-
-
+/**
+ * The site's own lightbox (assets/scripts/ms-lightbox.js, 2026-10-19 - replaced GLightbox, which loaded
+ * ~60 KB from a CDN and left faded ghost images when swiping on phones). Registered everywhere - the
+ * price card's "See a preview" uses it too (print-order-shortcode.php enqueues it) - and loaded here on
+ * blog posts and pages that opt images in.
+ */
+function monospace_enqueue_lightbox_assets() {
+    $file = get_template_directory() . '/assets/scripts/ms-lightbox.js';
+    wp_register_script( 'ms-lightbox', get_template_directory_uri() . '/assets/scripts/ms-lightbox.js', [], filemtime( $file ), true );
+    if ( monospace_lightbox_mode() ) wp_enqueue_script( 'ms-lightbox' );
 }
-add_action( 'wp_enqueue_scripts', 'monospace_enqueue_glightbox_assets' );
+add_action( 'wp_enqueue_scripts', 'monospace_enqueue_lightbox_assets' );
 
 
 // =========================================================
@@ -60,8 +77,9 @@ add_action( 'wp_enqueue_scripts', 'monospace_enqueue_glightbox_assets' );
 
 function monospace_wrap_images_for_glightbox( $content ) {
 
-    // Only run on single posts
-    if ( ! is_single() ) {
+    // Blog posts (all images), and pages that opt images in (only those)
+    $mode = monospace_lightbox_mode();
+    if ( ! $mode ) {
         return $content;
     }
 
@@ -77,14 +95,35 @@ function monospace_wrap_images_for_glightbox( $content ) {
 
         // --- Skip Conditions ---
 
-        // 1. Image is already wrapped in a link
-        if ( $img->parentNode->nodeName === 'a' ) {
+        $opted_in = monospace_lightbox_opted_in( $img );
+
+        // 1. Pages: only images with the class `lightbox`
+        if ( $mode === 'opt-in' && ! $opted_in ) {
             continue;
         }
 
-        // 2. Image explicitly opted out
+        // 2. Image inside a link (directly or deeper, e.g. the related posts' <a><div><img>): left
+        //    alone, unless opted in - then a link right around it opens the lightbox instead (set up
+        //    below); a link further up is never touched (no link inside a link)
+        $existing_link = $img->parentNode->nodeName === 'a' ? $img->parentNode : null;
+        $inside_link   = false;
+        for ( $node = $img->parentNode; $node && $node->nodeType === XML_ELEMENT_NODE; $node = $node->parentNode ) {
+            if ( $node->nodeName === 'a' ) { $inside_link = true; break; }
+        }
+        if ( $inside_link && ! ( $opted_in && $existing_link ) ) {
+            continue;
+        }
+
+        // 3. Image explicitly opted out: class nolightbox (or the older data-nolightbox class), the
+        //    data-nolightbox attribute, or anything in the related posts block ([related_posts])
         $classes = $img->getAttribute( 'class' );
-        if ( strpos( $classes, 'nolightbox' ) !== false || $img->hasAttribute( 'data-nolightbox' ) ) {
+        if ( preg_match( '/(^|\s)(data-)?nolightbox(\s|$)/', $classes ) || $img->hasAttribute( 'data-nolightbox' ) ) {
+            continue;
+        }
+        for ( $node = $img->parentNode, $in_related = false; $node && $node->nodeType === XML_ELEMENT_NODE; $node = $node->parentNode ) {
+            if ( preg_match( '/(^|\s)monospace-related-posts(\s|$)/', (string) $node->getAttribute( 'class' ) ) ) { $in_related = true; break; }
+        }
+        if ( $in_related ) {
             continue;
         }
 
@@ -120,10 +159,11 @@ function monospace_wrap_images_for_glightbox( $content ) {
             }
         }
 
-        $link = $dom->createElement( 'a' );
+        $link = $existing_link ?: $dom->createElement( 'a' );
         $link->setAttribute( 'href', $full_src );
         $link->setAttribute( 'data-gallery', 'post-gallery' );
-        $link->setAttribute( 'class', 'glightbox' );
+        $link->setAttribute( 'class', trim( $link->getAttribute( 'class' ) . ' ms-lightbox-link' ) );
+        $link->removeAttribute( 'target' );
 
         // Add caption if enabled
         if ( defined( 'LIGHTBOX_USE_CAPTIONS' ) && LIGHTBOX_USE_CAPTIONS ) {
@@ -139,9 +179,11 @@ function monospace_wrap_images_for_glightbox( $content ) {
             }
         }
 
-        // Clone and wrap image
-        $link->appendChild( $img->cloneNode( true ) );
-        $img->parentNode->replaceChild( $link, $img );
+        // Clone and wrap image (an existing link already wraps it)
+        if ( ! $existing_link ) {
+            $link->appendChild( $img->cloneNode( true ) );
+            $img->parentNode->replaceChild( $link, $img );
+        }
     }
 
     // Convert DOM back to HTML
@@ -149,7 +191,7 @@ function monospace_wrap_images_for_glightbox( $content ) {
 
     // Clean up wrapper tags added by DOMDocument
     $new_content = preg_replace( '/^<!DOCTYPE.+?>/', '', $new_content );
-    $new_content = str_replace( array( '<html>', '</html>', '<body>', '</body>' ), '', $new_content );
+    $new_content = str_replace( array( '<?xml encoding="UTF-8">', '<html>', '</html>', '<body>', '</body>' ), '', $new_content );
 
     return $new_content;
 }
@@ -160,119 +202,20 @@ add_filter( 'the_content', 'monospace_wrap_images_for_glightbox', 20 );
 
 
 // =========================================================
-//  CUSTOM LIGHTBOX STYLES
+//  STYLES
 // =========================================================
 
-function monospace_glightbox_custom_styles() {
-    if ( ! is_single() ) {
-        return;
-    }
-
-    $custom_css = "
-        /* ----------------------------------------
-         * GLightbox Custom Minimalist Style
-         * ---------------------------------------- */
-
-        /* Cursor behavior for lightbox-enabled images */
-        a.glightbox img {
-            cursor: zoom-in;
-            transition: transform 0.15s ease;
-        }
-
-        /* When GLightbox is active, show zoom-out cursor */
-        .glightbox-open {
-            cursor: auto !important;
-        }
-
-        /* Override GLightbox container for full immersion */
-        .glightbox-container {
-            background-color: black !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-
-        /* Remove borders, shadows, and any styling */
-        .gslide-image img {
-            box-shadow: none !important;
-            border: none !important;
-            background: transparent !important;
-        }
-
-        /* Ensure image fills the screen while maintaining aspect ratio */
-        .gslide-image img {
-            max-width: 100vw !important;
-            max-height: 100vh !important;
-            width: auto !important;
-            height: auto !important;
-            object-fit: contain !important;
-        }
-
-        img.no-lightbox,
-        img[data-nolightbox] {
-           cursor: auto !important;
-        }
-
-        /* Disable all GLightbox animations */
-        .gslide,
-        .gslide-media {
-            transition: none !important;
-            animation: none !important;
-        }
-
-        /* Hide captions unless you want them (optional) */
-        .gdesc-inner {
-            display: none !important;
-        }
-        .glightbox-open {
-            cursor: zoom-out !important;
-        }
-    ";
-
-    wp_add_inline_style( 'glightbox', $custom_css );
-
-    // Inline script: configure GLightbox behavior
-    wp_add_inline_script( 'glightbox', "
-        document.addEventListener('DOMContentLoaded', function() {
-            const lightbox = GLightbox({
-                selector: 'a[data-gallery=\"post-gallery\"]',
-                loop: true,
-                autoplayVideos: false,
-                openEffect: 'none',
-                closeEffect: 'none',
-                slideEffect: 'none',
-                zoomable: false,
-                touchNavigation: false,    //  touch swipe
-                dragAutoSlide: false,      // desktop drag behavior
-                closeButton: true,         // show X button
-                closeOnOutsideClick: true  // click background to close
-            });
-
-
-
-
-            lightbox.on('open', () => {
-                // Use a slight delay to ensure the slide is fully rendered
-                setTimeout(() => {
-                const slideImage = document.querySelector('.gslide-image img');
-                if (slideImage) {
-                    slideImage.style.cursor = 'zoom-out';
-                    slideImage.addEventListener('click', () => {
-                    lightbox.close();
-                    });
-                }
-                }, 100);
-            });
-
-         });
-
-    " );
-}
-add_action( 'wp_enqueue_scripts', 'monospace_glightbox_custom_styles', 20 );
-
-
-
-
-
-
-
-
+/**
+ * Post images: the zoom cursor. The lightbox itself (black, the image as large as the screen allows,
+ * no captions) is ms-lightbox.js's base look - the post's links open it with skin ms-lb-post.
+ */
+add_action( 'wp_head', function () {
+    if ( ! monospace_lightbox_mode() ) return; ?>
+    <style>
+    a.ms-lightbox-link img { cursor: zoom-in; }
+    /* Images left out of the lightbox: no zoom cursor - the cursor of what's around them (the hand inside a
+       link, e.g. the related posts' thumbnails; the normal arrow elsewhere) */
+    img.no-lightbox, img.nolightbox, img[data-nolightbox] { cursor: inherit !important; }
+    </style>
+    <?php
+} );

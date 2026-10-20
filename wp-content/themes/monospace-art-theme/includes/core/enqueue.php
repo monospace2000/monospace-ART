@@ -46,6 +46,28 @@ function monospace_art_resource_hints($hints, $relation_type) {
 add_filter('wp_resource_hints', 'monospace_art_resource_hints', 10, 2);
 
 // -----------------------------------------------------------
+// Fewer render-blocking files (2026-10-16) - the page can't be drawn (or jump to a #anchor) until
+// every stylesheet / head script is in
+// -----------------------------------------------------------
+
+// MailPoet's form font picker loaded ~75 Google Fonts families on every page (3 stylesheets from
+// another server). Off - the one font the forms use, Montserrat (form "Clouds"), is in the theme's
+// own font request below.
+add_filter('mailpoet_display_custom_fonts', '__return_false');
+
+// The home page has no shop: no WooCommerce styles or scripts there (the menu's cart count is
+// printed server-side, cart-icon-shortcode.php)
+add_filter('woocommerce_enqueue_styles', function ($styles) {
+    return is_front_page() ? [] : $styles;
+});
+add_action('wp_enqueue_scripts', function () {
+    if (!is_front_page()) return;
+    foreach (['wc-add-to-cart', 'woocommerce', 'wc-jquery-blockui', 'jquery-blockui', 'wc-js-cookie', 'js-cookie'] as $handle) {
+        wp_dequeue_script($handle);
+    }
+}, 99);
+
+// -----------------------------------------------------------
 // Enqueue Styles & Scripts (early priority to load before block styles)
 // -----------------------------------------------------------
 add_action('wp_enqueue_scripts', 'monospace_art_enqueue_assets', 1);
@@ -60,7 +82,7 @@ function monospace_art_enqueue_assets() {
     // Google Fonts - using display=optional to prevent layout shift
     wp_enqueue_style(
         'monospace-art-google-fonts',
-        'https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Oswald:wght@200..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap',
+        'https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Montserrat:ital,wght@0,400;0,700;1,400;1,700&family=Oswald:wght@200..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap',
         array(),
         null
     );

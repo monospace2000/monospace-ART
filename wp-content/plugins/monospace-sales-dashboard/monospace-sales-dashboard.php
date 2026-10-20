@@ -1,6 +1,7 @@
 <?php
 /**
  * Plugin Name: monospace Sales Dashboard
+ * Update URI: false
  * Plugin URI: https://monospace.art
  * Description: Comprehensive sales management for WooCommerce - global pricing, taxonomy rules, volume discounts, and scheduling
  * Version: 1.0.0
@@ -19,6 +20,21 @@ if (!defined('ABSPATH')) exit;
 define('MSD_VERSION', '1.0.0');
 define('MSD_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MSD_PLUGIN_URL', plugin_dir_url(__FILE__));
+
+// A feature plugin of monospace ART (2026-10-19): monospace_feature( 'sales' ) is true while it's on
+add_filter('monospace_feature_sales', '__return_true');
+
+// Its sections in the Dashboard Shortcuts picker (the Dashboard Shortcuts plugin), right after the admin screens
+add_filter('dashboard_shortcuts_choices', function ($groups) {
+    if (!current_user_can('manage_woocommerce')) return $groups;
+    $sales = [];
+    foreach (['dashboard' => 'Sales Dashboard', 'messages' => 'Messages', 'volume_discounts' => 'Volume Discounts',
+              'free_shipping' => 'Free Shipping', 'bulk_editor' => 'Bulk Editor'] as $section => $label) {
+        $sales[] = ['label' => $label, 'url' => admin_url('admin.php?page=wc-settings&tab=msd&section=' . $section)];
+    }
+    $first = array_slice($groups, 0, 1, true);
+    return $first + ['Sales Dashboard' => $sales] + array_slice($groups, 1, null, true);
+});
 
 /**
  * Check if WooCommerce is active
@@ -63,6 +79,7 @@ function msd_init() {
     require_once MSD_PLUGIN_DIR . 'includes/class-import-export.php';
     require_once MSD_PLUGIN_DIR . 'includes/class-bulk-editor.php';
     require_once MSD_PLUGIN_DIR . 'includes/class-additional-tracker.php';
+    require_once MSD_PLUGIN_DIR . 'includes/class-card-messages.php';
 
     // Initialize
     MSD_Settings::init();
@@ -75,6 +92,7 @@ function msd_init() {
     MSD_Import_Export::init();
     MSD_Bulk_Editor::init();
     MSD_Additional_Tracker::init();
+    MSD_Card_Messages::init();
 }
 add_action('plugins_loaded', 'msd_init');
 

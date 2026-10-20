@@ -12,6 +12,7 @@ function monospace_art_setup() {
     // Primary Menu
     register_nav_menus(array(
         'primary' => __('Primary Menu', 'monospace-art'),
+        'footer'  => __('Footer Menu', 'monospace-art'),
     ));
 }
 add_action('after_setup_theme', 'monospace_art_setup');

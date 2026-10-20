@@ -18,3 +18,15 @@ add_action('enqueue_block_editor_assets', function() {
         filemtime(get_theme_file_path('/assets/css/editor.css'))
     );
 });
+
+/**
+ * Image block style "No shadow" (Image block > Styles): removes the image's drop shadow on
+ * posts, pages and in the feeds (the feed keeps is-style-* classes, clickable-feed-image.php).
+ * CSS: _global.scss.
+ */
+add_action('init', function() {
+    register_block_style('core/image', [
+        'name'  => 'no-shadow',
+        'label' => __('No shadow', 'monospace'),
+    ]);
+});

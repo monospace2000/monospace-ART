@@ -10,91 +10,13 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<?php
-// Dynamic title & description
-if (is_singular()) {
-    $page_title = get_the_title() . ' | monospace ART by Hens Breet';
-    $page_description = get_post_meta(get_the_ID(), '_yoast_wpseo_metadesc', true) ?: 'monospace ART by Hens Breet – landscape paintings and urban sketches.';
-} else {
-    $page_title = 'monospace ART | Landscape Paintings & Urban Sketches by Hens Breet';
-    $page_description = 'monospace ART by Hens Breet – landscape paintings and urban sketches.';
-}
-?>
-
-<title><?php echo esc_html($page_title); ?></title>
-<meta name="description" content="<?php echo esc_attr($page_description); ?>">
+<!-- Title, description, canonical, Open Graph, JSON-LD: wp_head() (includes/modules/frontend/seo/) -->
 
 <!-- Favicon -->
 <link rel="icon" href="/favicon.ico" sizes="16x16" type="image/x-icon">
-<link rel="canonical" href="<?php echo esc_url(get_permalink()); ?>">
-
-<!-- Open Graph -->
-<meta property="og:title" content="<?php echo esc_attr($page_title); ?>">
-<meta property="og:description" content="<?php echo esc_attr($page_description); ?>">
-<meta property="og:site_name" content="art.monospace.com">
-<meta property="og:locale" content="en_US">
-<meta property="og:type" content="website">
-<meta property="og:url" content="<?php echo esc_url(get_permalink()); ?>">
-<?php
-// Determine OG image based on context
-if (is_singular('post')) {
-    // For blog posts: use featured image, or extract first image from content
-    if (has_post_thumbnail()) {
-        $og_image = get_the_post_thumbnail_url(get_the_ID(), 'full');
-    } else {
-        // Extract first image from post content
-        $content = get_the_content();
-        if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $content, $matches)) {
-            $og_image = esc_url_raw($matches[1]);
-        } else {
-            // No image found, use default
-            $og_image = get_stylesheet_directory_uri() . '/assets/images/site-preview.png';
-        }
-    }
-} else {
-    // For home page, archives, and other pages: always use static preview
-    $og_image = get_stylesheet_directory_uri() . '/assets/images/site-preview.png';
-}
-?>
-<meta property="og:image" content="<?php echo esc_url($og_image); ?>">
-<meta property="og:image:secure_url" content="<?php echo esc_url($og_image); ?>">
-<meta property="og:image:type" content="image/png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="<?php echo esc_attr($page_title); ?>">
-
-<!-- Twitter -->
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="<?php echo esc_attr($page_title); ?>">
-<meta name="twitter:description" content="<?php echo esc_attr($page_description); ?>">
-<meta name="twitter:image" content="<?php echo esc_url($og_image); ?>">
-<meta name="twitter:image:alt" content="Artwork by Hens Breet">
 
 <!-- Theme color -->
 <meta name="theme-color" content="#c8c8c8">
-
-<!-- JSON-LD Structured Data -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Person",
-  "name": "Hens Breet",
-  "url": "https://art.monospace.com",
-  "sameAs": ["https://www.instagram.com/hens.breet"],
-  "jobTitle": "Artist"
-  <?php if (is_singular() && has_post_thumbnail()) : ?>,
-  "worksFeatured": [
-    {
-      "@type": "VisualArtwork",
-      "name": "<?php echo esc_js(get_the_title()); ?>",
-      "url": "<?php echo esc_url(get_permalink()); ?>",
-      "image": "<?php echo esc_url($og_image); ?>",
-      "creator": {"@type":"Person","name":"Hens Breet"}
-    }
-  ]
-  <?php endif; ?>
-}
-</script>
 
 <?php wp_head(); ?>
 
@@ -148,44 +70,57 @@ if (is_singular('post')) {
             <?php echo do_shortcode('[monospace_cart]'); ?>
         </div>
 
-        <div class="menu-bar-logo">
-            <a href="https://monospace.com"><img src="https://art.monospace.com/wp-content/uploads/logo_art_small.png" alt="monospace ART"></a>
-        </div>
-
 
     </div>
 
 </nav>
 
+<?php // Elastic scroll (rubber-scroll.js): GSAP moves this wrapper's content - closed in footer.php
+if ( function_exists( 'monospace_rubber_scroll_active' ) && monospace_rubber_scroll_active() ) echo '<div id="smooth-wrapper"><div id="smooth-content">'; ?>
 
 
-<div class="site-logo-wrapper">
+
+<?php // The home page's <h1>: the logo + tagline (reset to look the same in _header.scss)
+$logo_tag = is_front_page() ? 'h1' : 'div'; ?>
+<<?php echo $logo_tag; ?> class="site-logo-wrapper">
     <div class="site-logo">
         <?php
-        $logo_link = esc_url(home_url('/art-feed/'));
-        if (has_custom_logo()) {
+        // Link and hover text: Layout Manager > Appearance & Effects > Logo link (design/logo-link.php)
+        $logo      = function_exists('monospace_logo_link') ? monospace_logo_link() : ['url' => home_url('/category/available/'), 'title' => 'View available originals'];
+        $logo_link = esc_url($logo['url']);
+        $logo_title = $logo['title'] !== '' ? ' title="' . esc_attr($logo['title']) . '"' : '';
+        // The logo: assets/images/logo.svg (viewBox trimmed to the letters - 1437.76 x 202.31), sized by
+        // _header.scss to the column width, so it scales with the page
+        $logo_svg = '/assets/images/logo.svg';
+        if (file_exists(get_template_directory() . $logo_svg)) {
+            echo '<a' . $logo_title . ' href="' . $logo_link . '"><img class="custom-logo" src="' . esc_url(get_template_directory_uri() . $logo_svg . '?v=' . filemtime(get_template_directory() . $logo_svg)) . '" width="1437.76" height="202.31" alt="monospace ART"></a>';
+        } elseif (has_custom_logo()) {
             $logo_id  = get_theme_mod('custom_logo');
             $logo_img = wp_get_attachment_image($logo_id, 'full', false, array('class' => 'custom-logo'));
-            echo '<a title="Click to view the Art Feed" href="' . $logo_link . '">' . $logo_img . '</a>';
+            echo '<a' . $logo_title . ' href="' . $logo_link . '">' . $logo_img . '</a>';
         } else { ?>
             <a href="<?php echo $logo_link; ?>" class="logo-text"><?php bloginfo('name'); ?></a>
         <?php } ?>
     </div>
 
-    <?php if ( get_bloginfo('description') ) : ?>
-      <div
-            class="site-tagline"
-            data-fit-text
-            data-fit-width="100"
-            data-fit-font="Roboto"
-            data-fit-weight="300"
-            data-fit-padding="0"
-            data-fit-max-width="1000"
-            >
-            <?php  echo esc_html( get_bloginfo('description') );  ?>
-
-
-        </div>
+    <?php if ( get_bloginfo('description') ) :
+        // The tagline as SVG text, stretched to the logo's width: the viewBox uses the logo's own units
+        // (logo.svg, trimmed to its letters: 0 to 1437.75) and the SVG takes the logo's box
+        // (_header.scss), so the text starts and ends where the logo's letters do at any screen size.
+        // textLength locks the width. Font size from the text length (Roboto 200 averages 0.455em per
+        // character); the first / last letter's side bearings are allowed for.
+        $tagline = get_bloginfo('description');
+        $ink_l   = 0;
+        $ink_w   = 1437.75;
+        $font    = $ink_w / ( max( 1, mb_strlen( $tagline ) ) * 0.455 );
+        $pad     = 0.07 * $font;
+        $height  = ( 0.75 + 0.213 ) * $font + 2 * $pad;
+        $fmt     = function ( $n ) { return rtrim( rtrim( number_format( $n, 1, '.', '' ), '0' ), '.' ); };
+        ?>
+        <svg class="site-tagline" viewBox="0 0 1437.75 <?php echo $fmt( $height ); ?>" role="img" aria-label="<?php echo esc_attr( $tagline ); ?>">
+            <text x="<?php echo $fmt( $ink_l - 0.095 * $font ); ?>" y="<?php echo $fmt( $pad + 0.75 * $font ); ?>" font-size="<?php echo $fmt( $font ); ?>"
+                  textLength="<?php echo $fmt( $ink_w + 0.132 * $font ); ?>" lengthAdjust="spacingAndGlyphs"><?php echo esc_html( $tagline ); ?></text>
+        </svg>
     <?php endif; ?>
-</div>
+</<?php echo $logo_tag; ?>>
 

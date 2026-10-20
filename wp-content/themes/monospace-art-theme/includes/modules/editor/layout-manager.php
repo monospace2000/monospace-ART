@@ -5,11 +5,20 @@
  * Provides admin UI for configuring default headers and sidebars across the site.
  * Settings are saved as WordPress options and retrieved by feed-headers.php and sidebar-override.php.
  *
- * Configuration Tabs:
- * - Blog Feed - Home page header/sidebar
+ * Three sections (2026-10-19, owner's wish), the same tab row on each - monospace_layout_manager_nav():
+ * - Home Page            - the home page boxes (home-boxes-admin.php, its own page: monospace-home-boxes)
+ * - Headers & Sidebars   - this page, a second row for the page type (tab = blog-feed | categories |
+ *                          search | 404 | posts | pages | products, plus the shortcodes reference)
+ * - Appearance & Effects - this page, tab = effects
+ * Clicking "Layout Manager" (no tab) opens Home Page; the admin menu lists the same three.
+ *
+ * Headers & Sidebars (layout-manager-areas.php draws each page type: a map of the page and a panel per area):
+ * - Art Feed (blog-feed) - Home page header/sidebar
  * - Categories - Per-category customization (done in category edit screen)
  * - Search - Search results header/sidebar
  * - Posts/Pages/Products - Default sidebars for each post type
+ * - Appearance & Effects - drawn by the design modules (includes/modules/design/, registry in
+ *   design-modules.php): Appearance, Scroll effect
  *
  * Mirror Checkbox:
  * When checked: Desktop content displays on all devices
@@ -41,6 +50,87 @@ add_action( 'admin_menu', function () {
     );
 });
 
+/** The three sections: key => [ label, admin URL ] */
+function monospace_layout_manager_sections() {
+    return [
+        'home'    => [ 'Home Page',            'admin.php?page=monospace-home-boxes' ],
+        'headers' => [ 'Headers & Sidebars',   'admin.php?page=monospace-layout-manager&tab=blog-feed' ],
+        'effects' => [ 'Appearance & Effects', 'admin.php?page=monospace-layout-manager&tab=effects' ],
+    ];
+}
+
+/** Headers & Sidebars: the page types (tab slug => label) */
+function monospace_layout_manager_page_types() {
+    return [
+        'blog-feed'  => 'Art Feed',
+        'categories' => 'Categories',
+        'search'     => 'Search Results',
+        '404'        => '404 Page',
+        'posts'      => 'Posts',
+        'pages'      => 'Pages',
+        'products'   => 'Products',
+        'shortcodes' => 'Shortcodes (reference)',
+    ];
+}
+
+// The admin menu under Layout Manager = the three sections, in order (the Home Page item is added by
+// home-boxes-admin.php at priority 20; WordPress's own first item becomes Headers & Sidebars)
+add_action( 'admin_menu', function () {
+    global $submenu;
+    if ( empty( $submenu['monospace-layout-manager'] ) ) return;
+    $items = [];
+    foreach ( $submenu['monospace-layout-manager'] as $item ) $items[ $item[2] ] = $item;
+    $sections = monospace_layout_manager_sections();
+    $menu = [];
+    if ( isset( $items['monospace-home-boxes'] ) ) $menu[] = $items['monospace-home-boxes'];
+    foreach ( [ 'headers', 'effects' ] as $key ) {
+        $menu[] = [ $sections[ $key ][0], 'manage_options', $sections[ $key ][1], $sections[ $key ][0] ];
+    }
+    $submenu['monospace-layout-manager'] = $menu;
+}, 30 );
+
+// The menu item to highlight on this page
+add_filter( 'submenu_file', function ( $file ) {
+    if ( ( $_GET['page'] ?? '' ) !== 'monospace-layout-manager' ) return $file;
+    $sections = monospace_layout_manager_sections();
+    return ( $_GET['tab'] ?? '' ) === 'effects' ? $sections['effects'][1] : $sections['headers'][1];
+} );
+
+// "Layout Manager" itself (no tab) opens the first section, Home Page
+add_action( 'admin_init', function () {
+    if ( ( $_GET['page'] ?? '' ) === 'monospace-layout-manager' && empty( $_GET['tab'] ) && $_SERVER['REQUEST_METHOD'] === 'GET' ) {
+        wp_safe_redirect( admin_url( monospace_layout_manager_sections()['home'][1] ) );
+        exit;
+    }
+} );
+
+/**
+ * The page title and the section tabs - on Layout Manager and on the Home Page editor.
+ * $section: home | headers | effects; $tab: the page type, on Headers & Sidebars.
+ */
+function monospace_layout_manager_nav( $section, $tab = '' ) {
+    $intros = [
+        'home'    => '',
+        'headers' => 'The header above the content and the sidebar, for each kind of page. A post, page or product can override them in its Sidebar Override box.',
+        'effects' => 'How the whole site looks and moves - background, buttons, effects, a few links. Changes show on the site as soon as you save.',
+    ];
+    echo '<h1>Layout Manager</h1>';
+    echo '<nav class="nav-tab-wrapper wp-clearfix" style="margin-bottom:12px">';
+    foreach ( monospace_layout_manager_sections() as $key => [ $label, $url ] ) {
+        printf( '<a href="%s" class="nav-tab%s">%s</a>', esc_url( admin_url( $url ) ), $key === $section ? ' nav-tab-active' : '', esc_html( $label ) );
+    }
+    echo '</nav>';
+    if ( $section === 'headers' ) {
+        $types = monospace_layout_manager_page_types();
+        $links = [];
+        foreach ( $types as $slug => $label ) {
+            $links[] = sprintf( '<li><a href="%s"%s>%s</a></li>', esc_url( admin_url( 'admin.php?page=monospace-layout-manager&tab=' . $slug ) ), $slug === $tab ? ' class="current" aria-current="page"' : '', esc_html( $label ) );
+        }
+        echo '<ul class="subsubsub" style="float:none;margin:0 0 8px">' . implode( ' | ', $links ) . '</ul>';
+    }
+    if ( ! empty( $intros[ $section ] ) ) echo '<p class="description" style="max-width:760px">' . esc_html( $intros[ $section ] ) . '</p>';
+}
+
 /* ============================================================
  * SETTINGS PAGE WITH TABS
  * ============================================================ */
@@ -51,7 +141,8 @@ function monospace_layout_manager_page() {
     }
 
     // Get active tab
-    $active_tab = isset( $_GET['tab'] ) ? $_GET['tab'] : 'blog-feed';
+    $active_tab = sanitize_key( $_GET['tab'] ?? '' );
+    if ( $active_tab !== 'effects' && ! isset( monospace_layout_manager_page_types()[ $active_tab ] ) ) $active_tab = 'blog-feed';
 
     // Handle form submission
     if ( isset( $_POST['monospace_layout_manager_submit'] ) ) {
@@ -62,53 +153,23 @@ function monospace_layout_manager_page() {
 
     ?>
     <div class="wrap">
-        <h1>Layout Manager</h1>
-        <p>Configure default headers and sidebars for different content types across your site.</p>
-
-        <h2 class="nav-tab-wrapper">
-            <a href="?page=monospace-layout-manager&tab=blog-feed" class="nav-tab <?php echo $active_tab === 'blog-feed' ? 'nav-tab-active' : ''; ?>">Blog Feed</a>
-            <a href="?page=monospace-layout-manager&tab=categories" class="nav-tab <?php echo $active_tab === 'categories' ? 'nav-tab-active' : ''; ?>">Categories</a>
-            <a href="?page=monospace-layout-manager&tab=search" class="nav-tab <?php echo $active_tab === 'search' ? 'nav-tab-active' : ''; ?>">Search Results</a>
-            <a href="?page=monospace-layout-manager&tab=404" class="nav-tab <?php echo $active_tab === '404' ? 'nav-tab-active' : ''; ?>">404 Page</a>
-            <a href="?page=monospace-layout-manager&tab=posts" class="nav-tab <?php echo $active_tab === 'posts' ? 'nav-tab-active' : ''; ?>">Posts</a>
-            <a href="?page=monospace-layout-manager&tab=pages" class="nav-tab <?php echo $active_tab === 'pages' ? 'nav-tab-active' : ''; ?>">Pages</a>
-            <a href="?page=monospace-layout-manager&tab=products" class="nav-tab <?php echo $active_tab === 'products' ? 'nav-tab-active' : ''; ?>">Products</a>
-            <a href="?page=monospace-layout-manager&tab=shortcodes" class="nav-tab <?php echo $active_tab === 'shortcodes' ? 'nav-tab-active' : ''; ?>">📖 Shortcodes</a>
-        </h2>
+        <?php monospace_layout_manager_nav( $active_tab === 'effects' ? 'effects' : 'headers', $active_tab ); ?>
 
         <form method="post" action="">
             <?php wp_nonce_field( 'monospace_layout_manager_settings' ); ?>
 
             <?php
-            switch ( $active_tab ) {
-                case 'blog-feed':
-                    monospace_render_blog_feed_settings();
-                    break;
-                case 'categories':
-                    monospace_render_categories_settings();
-                    break;
-                case 'search':
-                    monospace_render_search_settings();
-                    break;
-                case '404':
-                    monospace_render_404_settings();
-                    break;
-                case 'posts':
-                    monospace_render_posts_settings();
-                    break;
-                case 'pages':
-                    monospace_render_pages_settings();
-                    break;
-                case 'products':
-                    monospace_render_products_settings();
-                    break;
-                case 'shortcodes':
-                    monospace_render_shortcodes_reference();
-                    break;
+            if ( $active_tab === 'effects' ) {
+                monospace_render_design_modules();   // includes/modules/design/
+            } elseif ( $active_tab === 'shortcodes' ) {
+                monospace_render_shortcodes_reference();
+            } else {
+                // A page type: the map of its areas and a panel for each (layout-manager-areas.php)
+                monospace_lm_render_areas( $active_tab );
             }
             ?>
 
-            <?php if ( $active_tab !== 'shortcodes' && $active_tab !== 'categories' ): ?>
+            <?php if ( $active_tab !== 'shortcodes' ): ?>
             <p class="submit">
                 <input type="submit" name="monospace_layout_manager_submit" class="button button-primary" value="Save Settings" />
             </p>
@@ -117,6 +178,26 @@ function monospace_layout_manager_page() {
     </div>
     <?php
 }
+
+/* ============================================================
+ * SIDEBAR VISIBILITY (every tab with a sidebar)
+ * Default per page type; posts, pages and products can override it in their Sidebar Override
+ * box. Read by monospace_sidebar_visible() (sidebar-override.php).
+ * ============================================================ */
+
+function monospace_sidebar_tabs() {
+    return [
+        'blog-feed'  => 'the blog feed',
+        'categories' => 'category and archive pages',
+        'search'     => 'search results',
+        '404'        => 'the 404 page',
+        'posts'      => 'single posts',
+        'pages'      => 'pages',
+        'products'   => 'product pages',
+    ];
+}
+
+// The sidebar visibility and top content fields are panels of layout-manager-areas.php (2026-10-20)
 
 /* ============================================================
  * TAB: SHORTCODES REFERENCE
@@ -210,560 +291,37 @@ function monospace_render_shortcodes_reference() {
 }
 
 /* ============================================================
- * TAB: BLOG FEED
+ * PAGE TYPES (Art Feed, Categories, Search, 404, Posts, Pages, Products)
+ * Drawn by monospace_lm_render_areas() (layout-manager-areas.php, 2026-10-20): a map of the page and a panel
+ * per area - top content, header, sidebar - with the same fields and names as before, saved below.
  * ============================================================ */
-
-function monospace_render_blog_feed_settings() {
-    $header_title = get_option( 'monospace_blog_feed_header_title', '' );
-    $header_desc_desktop = get_option( 'monospace_blog_feed_header_desc_desktop', '' );
-    $header_desc_mobile = get_option( 'monospace_blog_feed_header_desc_mobile', '' );
-    $header_location = get_option( 'monospace_blog_feed_header_location', 'top' );
-    $sidebar_desktop = get_option( 'monospace_blog_feed_sidebar_desktop', '' );
-    $sidebar_mobile = get_option( 'monospace_blog_feed_sidebar_mobile', '' );
-
-    // Mirror checkboxes - default to checked (1) if not set
-    $mirror_header = get_option( 'monospace_blog_feed_mirror_header', '1' );
-    $mirror_sidebar = get_option( 'monospace_blog_feed_mirror_sidebar', '1' );
-    ?>
-
-    <h3>Blog Feed (Home Page)</h3>
-    <p>Configure the header and sidebar that appears on your main blog feed.</p>
-
-    <table class="form-table">
-        <!-- HEADER SECTION -->
-        <tr>
-            <th colspan="2"><h4 style="margin: 1em 0 0.5em;">Feed Header</h4></th>
-        </tr>
-        <tr>
-            <th scope="row"><label for="header-title">Header Title</label></th>
-            <td>
-                <input type="text" name="header_title" id="header-title" value="<?php echo esc_attr( $header_title ); ?>" class="regular-text" />
-                <p class="description">Leave empty to hide the header.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"><label for="header-desc-desktop">Header Description (Desktop)</label></th>
-            <td>
-                <?php
-                wp_editor( $header_desc_desktop, 'header_desc_desktop', [
-                    'textarea_name' => 'header_desc_desktop',
-                    'media_buttons' => true,
-                    'textarea_rows' => 6,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"><label for="header-desc-mobile">Header Description (Mobile/Tablet)</label></th>
-            <td>
-                <?php
-                wp_editor( $header_desc_mobile, 'header_desc_mobile', [
-                    'textarea_name' => 'header_desc_mobile',
-                    'media_buttons' => true,
-                    'textarea_rows' => 6,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">If empty, desktop version will be used. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"></th>
-            <td>
-                <label>
-                    <input type="checkbox" name="mirror_header" value="1" <?php checked( $mirror_header, '1' ); ?> />
-                    Mirror desktop content to mobile (ignore mobile field above)
-                </label>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"><label for="header-location">Header Location</label></th>
-            <td>
-                <select name="header_location" id="header-location">
-                    <option value="top" <?php selected( $header_location, 'top' ); ?>>Above content</option>
-                    <option value="sidebar" <?php selected( $header_location, 'sidebar' ); ?>>In sidebar (use [archive_header] shortcode)</option>
-                    <option value="none" <?php selected( $header_location, 'none' ); ?>>Don't display</option>
-                </select>
-            </td>
-        </tr>
-
-        <!-- SIDEBAR SECTION -->
-        <tr>
-            <th colspan="2"><h4 style="margin: 1em 0 0.5em;">Feed Sidebar</h4></th>
-        </tr>
-        <tr>
-            <th scope="row"><label for="sidebar-desktop">Sidebar Content (Desktop)</label></th>
-            <td>
-                <?php
-                wp_editor( $sidebar_desktop, 'sidebar_desktop', [
-                    'textarea_name' => 'sidebar_desktop',
-                    'media_buttons' => true,
-                    'textarea_rows' => 10,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">Custom sidebar content. HTML and shortcodes allowed. See Shortcodes tab for available options.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"><label for="sidebar-mobile">Sidebar Content (Mobile/Tablet)</label></th>
-            <td>
-                <?php
-                wp_editor( $sidebar_mobile, 'sidebar_mobile', [
-                    'textarea_name' => 'sidebar_mobile',
-                    'media_buttons' => true,
-                    'textarea_rows' => 10,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">If empty, desktop version will be used. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"></th>
-            <td>
-                <label>
-                    <input type="checkbox" name="mirror_sidebar" value="1" <?php checked( $mirror_sidebar, '1' ); ?> />
-                    Mirror desktop content to mobile (ignore mobile field above)
-                </label>
-            </td>
-        </tr>
-    </table>
-
-    <p style="background: #f0f0f1; padding: 12px; border-left: 4px solid #72aee6;">
-        <strong>Tip:</strong> Check the Shortcodes tab to see available shortcodes for search, tags, recent posts, and menus.
-    </p>
-    <?php
-}
-
-/* ============================================================
- * TAB: CATEGORIES
- * ============================================================ */
-
-function monospace_render_categories_settings() {
-    ?>
-    <h3>Categories & Archives</h3>
-    <p>Category-specific headers are configured individually when editing each category. Sidebars use the same content as the blog feed.</p>
-
-    <div style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; margin-top: 20px;">
-        <h4>How to Customize Categories</h4>
-        <ol>
-            <li>Go to <strong>Posts → Categories</strong></li>
-            <li>Click on a category to edit it</li>
-            <li>Scroll down to find:
-                <ul>
-                    <li><strong>Archive Header Title</strong></li>
-                    <li><strong>Desktop/Mobile Header Descriptions</strong></li>
-                    <li><strong>Header Location</strong> (above content or in sidebar)</li>
-                    <li><strong>Archive View</strong> (list/grid toggle and starting view)</li>
-                </ul>
-            </li>
-            <li>Save the category</li>
-        </ol>
-
-        <p><a href="<?php echo admin_url( 'edit-tags.php?taxonomy=category' ); ?>" class="button button-secondary">Edit Categories</a></p>
-    </div>
-
-    <hr style="margin: 30px 0;">
-
-    <h4>Category Sidebars</h4>
-    <p>Category archive pages use the same sidebar content as the <strong>Blog Feed</strong> tab. To customize category sidebars, edit the Blog Feed sidebar settings.</p>
-    <?php
-}
-
-/* ============================================================
- * TAB: SEARCH RESULTS
- * ============================================================ */
-
-function monospace_render_search_settings() {
-    $header_title = get_option( 'monospace_search_header_title', 'Search Results' );
-    $header_desc_desktop = get_option( 'monospace_search_header_desc_desktop', '' );
-    $header_desc_mobile = get_option( 'monospace_search_header_desc_mobile', '' );
-    $sidebar_desktop = get_option( 'monospace_search_sidebar_desktop', '' );
-    $sidebar_mobile = get_option( 'monospace_search_sidebar_mobile', '' );
-
-    // Mirror checkboxes - default to checked (1) if not set
-    $mirror_header = get_option( 'monospace_search_mirror_header', '1' );
-    $mirror_sidebar = get_option( 'monospace_search_mirror_sidebar', '1' );
-    ?>
-
-    <h3>Search Results</h3>
-    <p>Configure the header and sidebar for search results pages.</p>
-
-    <table class="form-table">
-        <!-- HEADER SECTION -->
-        <tr>
-            <th colspan="2"><h4 style="margin: 1em 0 0.5em;">Search Header</h4></th>
-        </tr>
-        <tr>
-            <th scope="row"><label for="search-header-title">Header Title</label></th>
-            <td>
-                <input type="text" name="header_title" id="search-header-title" value="<?php echo esc_attr( $header_title ); ?>" class="regular-text" />
-                <p class="description">Use {search_term} to display the search query. Example: "Results for {search_term}"</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"><label for="search-header-desc-desktop">Header Description (Desktop)</label></th>
-            <td>
-                <?php
-                wp_editor( $header_desc_desktop, 'search_header_desc_desktop', [
-                    'textarea_name' => 'header_desc_desktop',
-                    'media_buttons' => true,
-                    'textarea_rows' => 6,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"><label for="search-header-desc-mobile">Header Description (Mobile/Tablet)</label></th>
-            <td>
-                <?php wp_editor( $header_desc_mobile, "search_header_desc_mobile", ["textarea_name" => "header_desc_mobile", "media_buttons" => true, "textarea_rows" => 6, "teeny" => false, "quicktags" => true]); ?>
-                <p class="description">If empty, desktop version will be used. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"></th>
-            <td>
-                <label>
-                    <input type="checkbox" name="mirror_header" value="1" <?php checked( $mirror_header, '1' ); ?> />
-                    Mirror desktop content to mobile (ignore mobile field above)
-                </label>
-            </td>
-        </tr>
-
-        <!-- SIDEBAR SECTION -->
-        <tr>
-            <th colspan="2"><h4 style="margin: 1em 0 0.5em;">Search Sidebar</h4></th>
-        </tr>
-        <tr>
-            <th scope="row"><label for="search-sidebar-desktop">Sidebar Content (Desktop)</label></th>
-            <td>
-                <?php
-                wp_editor( $sidebar_desktop, 'search_sidebar_desktop', [
-                    'textarea_name' => 'sidebar_desktop',
-                    'media_buttons' => true,
-                    'textarea_rows' => 10,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">Custom sidebar content. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"><label for="search-sidebar-mobile">Sidebar Content (Mobile/Tablet)</label></th>
-            <td>
-                <?php
-                wp_editor( $sidebar_mobile, 'search_sidebar_mobile', [
-                    'textarea_name' => 'sidebar_mobile',
-                    'media_buttons' => true,
-                    'textarea_rows' => 10,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">If empty, desktop version will be used. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"></th>
-            <td>
-                <label>
-                    <input type="checkbox" name="mirror_sidebar" value="1" <?php checked( $mirror_sidebar, '1' ); ?> />
-                    Mirror desktop content to mobile (ignore mobile field above)
-                </label>
-            </td>
-        </tr>
-    </table>
-    <?php
-}
-
-/* ============================================================
- * TAB: 404 PAGE
- * ============================================================ */
-
-function monospace_render_404_settings() {
-    $sidebar_desktop = get_option( 'monospace_404_sidebar_desktop', '' );
-    $sidebar_mobile = get_option( 'monospace_404_sidebar_mobile', '' );
-
-    // Mirror checkbox - default to checked (1) if not set
-    $mirror_sidebar = get_option( 'monospace_404_mirror_sidebar', '1' );
-    ?>
-
-    <h3>404 Page</h3>
-    <p>Configure the sidebar for 404 error pages. To edit the main 404 content, edit the <code>404.php</code> template file.</p>
-
-    <table class="form-table">
-        <tr>
-            <th scope="row"><label for="404-sidebar-desktop">Sidebar Content (Desktop)</label></th>
-            <td>
-                <?php
-                wp_editor( $sidebar_desktop, '404_sidebar_desktop', [
-                    'textarea_name' => 'sidebar_desktop',
-                    'media_buttons' => true,
-                    'textarea_rows' => 10,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">Custom sidebar content for 404 pages. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"><label for="404-sidebar-mobile">Sidebar Content (Mobile/Tablet)</label></th>
-            <td>
-                <?php
-                wp_editor( $sidebar_mobile, '404_sidebar_mobile', [
-                    'textarea_name' => 'sidebar_mobile',
-                    'media_buttons' => true,
-                    'textarea_rows' => 10,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">If empty, desktop version will be used. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"></th>
-            <td>
-                <label>
-                    <input type="checkbox" name="mirror_sidebar" value="1" <?php checked( $mirror_sidebar, '1' ); ?> />
-                    Mirror desktop content to mobile (ignore mobile field above)
-                </label>
-            </td>
-        </tr>
-    </table>
-
-    <p style="background: #f0f0f1; padding: 12px; border-left: 4px solid #72aee6;">
-        <strong>Tip:</strong> Check the Shortcodes tab to see available shortcodes for search, tags, recent posts, and menus.
-    </p>
-    <?php
-}
-
-/* ============================================================
- * TAB: POSTS
- * ============================================================ */
-
-function monospace_render_posts_settings() {
-    $sidebar_desktop = get_option( 'monospace_posts_sidebar_desktop', '' );
-    $sidebar_mobile = get_option( 'monospace_posts_sidebar_mobile', '' );
-
-    // Mirror checkbox - default to checked (1) if not set
-    $mirror_sidebar = get_option( 'monospace_posts_mirror_sidebar', '1' );
-    ?>
-
-    <h3>Single Posts</h3>
-    <p>Default sidebar content for all blog posts. Individual posts can override this in the Sidebar Override meta box.</p>
-
-    <table class="form-table">
-        <tr>
-            <th scope="row"><label for="posts-sidebar-desktop">Sidebar Content (Desktop)</label></th>
-            <td>
-                <?php
-                wp_editor( $sidebar_desktop, 'posts_sidebar_desktop', [
-                    'textarea_name' => 'sidebar_desktop',
-                    'media_buttons' => true,
-                    'textarea_rows' => 15,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">Default sidebar for all posts. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"><label for="posts-sidebar-mobile">Sidebar Content (Mobile/Tablet)</label></th>
-            <td>
-                <?php
-                wp_editor( $sidebar_mobile, 'posts_sidebar_mobile', [
-                    'textarea_name' => 'sidebar_mobile',
-                    'media_buttons' => true,
-                    'textarea_rows' => 15,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">If empty, desktop version will be used. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"></th>
-            <td>
-                <label>
-                    <input type="checkbox" name="mirror_sidebar" value="1" <?php checked( $mirror_sidebar, '1' ); ?> />
-                    Mirror desktop content to mobile (ignore mobile field above)
-                </label>
-            </td>
-        </tr>
-    </table>
-
-    <div style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; margin-top: 20px;">
-        <h4>Priority Order</h4>
-        <ol>
-            <li><strong>Post-specific content</strong> (set in Sidebar Override meta box) – highest priority</li>
-            <li><strong>These default settings</strong> (if no override enabled)</li>
-        </ol>
-    </div>
-    <?php
-}
-
-/* ============================================================
- * TAB: PAGES
- * ============================================================ */
-
-function monospace_render_pages_settings() {
-    $sidebar_desktop = get_option( 'monospace_pages_sidebar_desktop', '' );
-    $sidebar_mobile = get_option( 'monospace_pages_sidebar_mobile', '' );
-
-    // Mirror checkbox - default to checked (1) if not set
-    $mirror_sidebar = get_option( 'monospace_pages_mirror_sidebar', '1' );
-    ?>
-
-    <h3>Pages</h3>
-    <p>Default sidebar content for all pages. Individual pages can override this in the Sidebar Override meta box.</p>
-
-    <table class="form-table">
-        <tr>
-            <th scope="row"><label for="pages-sidebar-desktop">Sidebar Content (Desktop)</label></th>
-            <td>
-                <?php
-                wp_editor( $sidebar_desktop, 'pages_sidebar_desktop', [
-                    'textarea_name' => 'sidebar_desktop',
-                    'media_buttons' => true,
-                    'textarea_rows' => 15,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">Default sidebar for all pages. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"><label for="pages-sidebar-mobile">Sidebar Content (Mobile/Tablet)</label></th>
-            <td>
-                <?php
-                wp_editor( $sidebar_mobile, 'pages_sidebar_mobile', [
-                    'textarea_name' => 'sidebar_mobile',
-                    'media_buttons' => true,
-                    'textarea_rows' => 15,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">If empty, desktop version will be used. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"></th>
-            <td>
-                <label>
-                    <input type="checkbox" name="mirror_sidebar" value="1" <?php checked( $mirror_sidebar, '1' ); ?> />
-                    Mirror desktop content to mobile (ignore mobile field above)
-                </label>
-            </td>
-        </tr>
-    </table>
-
-    <div style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; margin-top: 20px;">
-        <h4>Priority Order</h4>
-        <ol>
-            <li><strong>Page-specific content</strong> (set in Sidebar Override meta box) – highest priority</li>
-            <li><strong>These default settings</strong> (if no override enabled)</li>
-        </ol>
-    </div>
-    <?php
-}
-
-/* ============================================================
- * TAB: PRODUCTS
- * ============================================================ */
-
-function monospace_render_products_settings() {
-    $sidebar_desktop = get_option( 'monospace_products_sidebar_desktop', '' );
-    $sidebar_mobile = get_option( 'monospace_products_sidebar_mobile', '' );
-
-    // Mirror checkbox - default to checked (1) if not set
-    $mirror_sidebar = get_option( 'monospace_products_mirror_sidebar', '1' );
-    ?>
-
-    <h3>Products (WooCommerce)</h3>
-    <p>Default sidebar content for all product pages. Individual products can override this in the Sidebar Override meta box.</p>
-
-    <table class="form-table">
-        <tr>
-            <th scope="row"><label for="products-sidebar-desktop">Sidebar Content (Desktop)</label></th>
-            <td>
-                <?php
-                wp_editor( $sidebar_desktop, 'products_sidebar_desktop', [
-                    'textarea_name' => 'sidebar_desktop',
-                    'media_buttons' => true,
-                    'textarea_rows' => 15,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">Default sidebar for all products. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"><label for="products-sidebar-mobile">Sidebar Content (Mobile/Tablet)</label></th>
-            <td>
-                <?php
-                wp_editor( $sidebar_mobile, 'products_sidebar_mobile', [
-                    'textarea_name' => 'sidebar_mobile',
-                    'media_buttons' => true,
-                    'textarea_rows' => 15,
-                    'teeny'         => false,
-                    'quicktags'     => true,
-                ]);
-                ?>
-                <p class="description">If empty, desktop version will be used. HTML and shortcodes allowed.</p>
-            </td>
-        </tr>
-        <tr>
-            <th scope="row"></th>
-            <td>
-                <label>
-                    <input type="checkbox" name="mirror_sidebar" value="1" <?php checked( $mirror_sidebar, '1' ); ?> />
-                    Mirror desktop content to mobile (ignore mobile field above)
-                </label>
-            </td>
-        </tr>
-    </table>
-
-    <div style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; margin-top: 20px;">
-        <h4>Priority Order</h4>
-        <ol>
-            <li><strong>Product-specific content</strong> (set in Sidebar Override meta box) – highest priority</li>
-            <li><strong>These default settings</strong> (if no override enabled)</li>
-        </ol>
-    </div>
-    <?php
-}
 
 /* ============================================================
  * SAVE SETTINGS
  * ============================================================ */
 function monospace_save_layout_settings( $tab ) {
+    // Appearance & Effects tab: the design modules save their own site-wide options (design-modules.php)
+    if ( $tab === 'effects' ) {
+        monospace_save_design_modules();
+        return;
+    }
+
     $prefix = 'monospace_' . str_replace( '-', '_', $tab ) . '_';
 
-    // DEBUG: Log what we're saving
-    if ( current_user_can( 'manage_options' ) ) {
-        error_log( 'SAVING TAB: ' . $tab );
-        error_log( 'PREFIX: ' . $prefix );
-        error_log( 'mirror_header in POST: ' . ( isset( $_POST['mirror_header'] ) ? 'YES' : 'NO' ) );
-        error_log( 'mirror_sidebar in POST: ' . ( isset( $_POST['mirror_sidebar'] ) ? 'YES' : 'NO' ) );
+    // Top content (every page-type tab)
+    if ( isset( $_POST['top_content'] ) ) {
+        update_option( $prefix . 'top_content', stripslashes( wp_kses_post( $_POST['top_content'] ) ) );
     }
+
+    // Sidebar visibility (only when the tab showed the field)
+    if ( isset( $_POST['sidebar_visibility_field'] ) ) {
+        update_option( $prefix . 'show_sidebar', isset( $_POST['show_sidebar'] ) ? '1' : '0' );
+    }
+    // Categories has nothing else to save
+    if ( $tab === 'categories' ) {
+        return;
+    }
+
 
     // Save header settings (if applicable)
     if ( isset( $_POST['header_title'] ) ) {
@@ -786,12 +344,6 @@ function monospace_save_layout_settings( $tab ) {
     update_option( $prefix . 'mirror_header', $mirror_header_value );
     update_option( $prefix . 'mirror_sidebar', $mirror_sidebar_value );
 
-    // DEBUG: Verify what was saved
-    if ( current_user_can( 'manage_options' ) ) {
-        error_log( 'SAVED mirror_header as: ' . $mirror_header_value . ' to key: ' . $prefix . 'mirror_header' );
-        error_log( 'SAVED mirror_sidebar as: ' . $mirror_sidebar_value . ' to key: ' . $prefix . 'mirror_sidebar' );
-        error_log( 'VERIFY mirror_sidebar: ' . get_option( $prefix . 'mirror_sidebar', 'NOT FOUND' ) );
-    }
 
     // Save sidebar settings
     if ( isset( $_POST['sidebar_desktop'] ) ) {

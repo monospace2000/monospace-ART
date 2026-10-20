@@ -18,6 +18,10 @@ class MSD_Price_Adjustments {
         add_filter('woocommerce_product_get_regular_price', [__CLASS__, 'adjust_price'], 99, 2);
         add_filter('woocommerce_product_variation_get_price', [__CLASS__, 'adjust_price'], 99, 2);
         add_filter('woocommerce_product_variation_get_regular_price', [__CLASS__, 'adjust_price'], 99, 2);
+
+        // The price a customer pays, for anything that asks Core (monospace_shop_price() - Artwork Sheets), in
+        // wp-admin too (2026-10-19)
+        add_filter('monospace_shop_price', [__CLASS__, 'calculate'], 10, 2);
     }
 
     /**
@@ -31,17 +35,27 @@ class MSD_Price_Adjustments {
             return $price;
         }
 
+        // Skip if volume discount has already set this product's price
+        if (!empty(MSD_Volume_Discounts::$discounted_product_ids[$product->get_id()])) {
+            return $price;
+        }
+
+        return self::calculate($price, $product);
+    }
+
+    /**
+     * The adjusted price - the rules themselves, without the admin / volume-discount checks of adjust_price()
+     * (also Core's monospace_shop_price filter)
+     */
+    public static function calculate($price, $product) {
+        if (!$price || !$product) return $price;
+
         // Global enable check
         if (get_option('msd_global_enable') !== 'yes') {
             return $price;
         }
 
         $product_id = $product->get_id();
-
-        // Skip if volume discount has already set this product's price
-        if (!empty(MSD_Volume_Discounts::$discounted_product_ids[$product_id])) {
-            return $price;
-        }
 
         // Check product-level exclusion first
         if (MSD_Product_Overrides::is_excluded_from_price_adj($product_id)) {

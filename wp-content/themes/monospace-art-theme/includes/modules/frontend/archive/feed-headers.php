@@ -39,7 +39,7 @@ define( 'MONOSPACE_ARCHIVE_TAXONOMIES', [
 
 add_action( 'admin_init', function () {
     foreach ( MONOSPACE_ARCHIVE_TAXONOMIES as $taxonomy ) {
-        add_action( "{$taxonomy}_edit_form_fields", 'monospace_render_term_fields', 10, 1 );
+        // The fields are drawn by editor/term-areas.php (2026-10-20, Layout Manager style); saved here
         add_action( "edited_{$taxonomy}", 'monospace_save_term_fields' );
     }
 });
@@ -160,9 +160,12 @@ function monospace_save_term_fields( $term_id ) {
         update_term_meta( $term_id, '_monospace_header_location', sanitize_text_field( $_POST['monospace_header_location'] ) );
     }
 
-    // Save mirror checkboxes
-    update_term_meta( $term_id, '_monospace_mirror_desc', isset( $_POST['monospace_mirror_desc'] ) ? '1' : '0' );
-    update_term_meta( $term_id, '_monospace_mirror_sidebar', isset( $_POST['monospace_mirror_sidebar'] ) ? '1' : '0' );
+    // Save mirror checkboxes - only from the edit screen (term-areas.php sends monospace_term_fields): Quick Edit
+    // in the list doesn't send them, and an unticked box isn't sent either, so it would switch both off
+    if ( isset( $_POST['monospace_term_fields'] ) ) {
+        update_term_meta( $term_id, '_monospace_mirror_desc', isset( $_POST['monospace_mirror_desc'] ) ? '1' : '0' );
+        update_term_meta( $term_id, '_monospace_mirror_sidebar', isset( $_POST['monospace_mirror_sidebar'] ) ? '1' : '0' );
+    }
 
     // Save sidebar fields
     if ( isset( $_POST['monospace_sidebar_desktop'] ) ) {
@@ -262,6 +265,7 @@ function monospace_get_category_sidebar_content( $term_id = null ) {
  * FRONTEND OUTPUT
  * ============================================================ */
 
+// The title is the page's <h1> (styled as before in _layout.scss)
 add_action( 'loop_start', function ( $query ) {
     if ( ! $query->is_main_query() ) return;
 
@@ -291,7 +295,7 @@ add_action( 'loop_start', function ( $query ) {
         if ( ! $title && ! $desc ) return;
 
         echo '<header class="feed-header">';
-        if ( $title ) echo '<h2 class="feed-title">' . esc_html( $title ) . '</h2>';
+        if ( $title ) { echo '<h1 class="feed-title">' . esc_html( $title ) . '</h1>'; $GLOBALS['monospace_feed_h1'] = true; }
         if ( $desc ) echo '<div class="feed-description">' . wp_kses_post( $desc ) . '</div>';
         echo '</header>';
         return;
@@ -308,7 +312,7 @@ add_action( 'loop_start', function ( $query ) {
         if ( ! $title && ! $desc ) return;
 
         echo '<header class="feed-header blog-feed-header">';
-        if ( $title ) echo '<h2 class="feed-title">' . esc_html( $title ) . '</h2>';
+        if ( $title ) { echo '<h1 class="feed-title">' . esc_html( $title ) . '</h1>'; $GLOBALS['monospace_feed_h1'] = true; }
         if ( $desc ) echo '<div class="feed-description">' . wp_kses_post( $desc ) . '</div>';
         echo '</header>';
     }
@@ -329,7 +333,7 @@ add_action( 'loop_start', function ( $query ) {
         if ( ! $title && ! $desc ) return;
 
         echo '<header class="feed-header search-header">';
-        if ( $title ) echo '<h2 class="feed-title">' . esc_html( $title ) . '</h2>';
+        if ( $title ) { echo '<h1 class="feed-title">' . esc_html( $title ) . '</h1>'; $GLOBALS['monospace_feed_h1'] = true; }
         if ( $desc ) echo '<div class="feed-description">' . wp_kses_post( $desc ) . '</div>';
         echo '</header>';
     }
