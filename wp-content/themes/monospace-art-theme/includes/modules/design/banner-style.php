@@ -194,7 +194,7 @@ function monospace_banner_fields( $name, $values, $area = false, $textarea_id = 
         function textOn(hex) { var h = hex.replace('#', ''), l = (0.299 * parseInt(h.substr(0, 2), 16) + 0.587 * parseInt(h.substr(2, 2), 16) + 0.114 * parseInt(h.substr(4, 2), 16)) / 255; return l > 0.62 ? '#111' : '#fff'; }
         // The inline part of the site's Markdown (monospace_markdown_lite): bold, italic, strike, links
         function md(h) {
-            return h.replace(/\*\*(?=\S)([\s\S]+?)(?<=\S)\*\*/g, '<strong>$1</strong>').replace(/~~(?=\S)([\s\S]+?)(?<=\S)~~/g, '<del>$1</del>')
+            return h.replace(/\*\*\s*(\S[\s\S]*?)\s*\*\*/g, '<strong>$1</strong>').replace(/~~\s*(\S[\s\S]*?)\s*~~/g, '<del>$1</del>')
                 .replace(/(?<![*\w])\*(?=[^\s*])([\s\S]+?)(?<=[^\s*])\*(?![*\w])/g, '<em>$1</em>').replace(/(?<![_\w])_(?=[^\s_])([\s\S]+?)(?<=[^\s_])_(?![_\w])/g, '<em>$1</em>')
                 .replace(/\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:|\/|#)[^\s)]*)\)/g, '<a href="$2">$1</a>');
         }
