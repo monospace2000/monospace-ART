@@ -16,7 +16,7 @@
  * The lightbox keeps opening the full-size original (see lightbox.php).
  *
  * Also turns off WordPress's `sizes="auto"` prefix for lazy images, which
- * browsers did not honour here (the original was still downloaded).
+ * browsers did not honor here (the original was still downloaded).
  */
 
 if ( ! defined( 'ABSPATH' ) ) {

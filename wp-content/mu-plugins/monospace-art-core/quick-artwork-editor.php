@@ -423,7 +423,7 @@ class MetaBox
 				background: currentColor;
 			}
 
-			/* Status colours, shared by the pill and the availability select */
+			/* Status colors, shared by the pill and the availability select */
 			.qp-box [data-status] { --qp-st-bg: #f0f0f1; --qp-st-bd: #8c8f94; --qp-st-fg: #50575e; }
 			.qp-box [data-status="available"] { --qp-st-bg: #edfaef; --qp-st-bd: #00a32a; --qp-st-fg: #00631f; }
 			.qp-box [data-status="reserved"] { --qp-st-bg: #fcf9e8; --qp-st-bd: #dba617; --qp-st-fg: #6e4e00; }
@@ -999,7 +999,7 @@ class MetaBox
 				}
 			}
 
-			/* Message wide enough for one line per tab: label, mode, text, colour */
+			/* Message wide enough for one line per tab: label, mode, text, color */
 			@container qp-sec (min-width: 640px) {
 				.qp-cm {
 					display: flex;
@@ -1399,6 +1399,27 @@ class MetaBox
 		return strpos($name, '"') !== false || strpos($name, '″') !== false || ! preg_match('/\d/', $name);
 	}
 
+	/**
+	 * The sizes a dropdown offers (owner, 2026-10-20: "Portrait should have the same sizes as landscape, just
+	 * rotated"): originals' sizes only, and a landscape or portrait size only when its rotated twin exists too -
+	 * so the two groups mirror each other. Square and Other sizes always; the value set now ($keep) always.
+	 */
+	public static function dropdown_size_terms($terms, $keep = '')
+	{
+		$dims = function ($name) {
+			$name = html_entity_decode((string) $name, ENT_QUOTES, 'UTF-8');
+			return preg_match('/^\s*(\d+(?:\.\d+)?)\s*["″]\s*[×x]\s*(\d+(?:\.\d+)?)\s*["″]\s*$/u', $name, $m) ? [(float) $m[1], (float) $m[2]] : null;
+		};
+		$have = [];
+		foreach ($terms as $t) if (self::is_original_size($t->name) && ($d = $dims($t->name))) $have[$d[0] . 'x' . $d[1]] = true;
+		return array_values(array_filter($terms, function ($t) use ($dims, $have, $keep) {
+			if ($keep !== '' && $t->slug === $keep) return true;
+			if (! self::is_original_size($t->name)) return false;
+			$d = $dims($t->name);
+			return ! $d || $d[0] === $d[1] || isset($have[$d[1] . 'x' . $d[0]]);
+		}));
+	}
+
 	/** Sizes in dropdown order: Landscape, Portrait, Square, Other; large to small inside each (also New artwork) */
 	public static function sort_size_terms($terms)
 	{
@@ -1514,8 +1535,7 @@ class MetaBox
 		$is_size = $taxonomy === 'pa_size';
 		if ($is_size) {
 			// Originals' sizes only - Printful's print sizes share the taxonomy - but never drop the one set now
-			$terms = array_values(array_filter($terms, fn($t) => self::is_original_size($t->name) || $t->slug === $selected));
-			$terms = self::sort_size_terms($terms);
+			$terms = self::sort_size_terms(self::dropdown_size_terms($terms, (string) $selected));
 		}
 		$required = in_array($taxonomy, $this->required_attributes, true);
 		$id       = 'qp-attr-' . sanitize_html_class($taxonomy);
@@ -1579,7 +1599,7 @@ class MetaBox
 
 	/**
 	 * This artwork's price card preset (_ms_price_card_style, Core's price-card-presets.php): Full / Compact /
-	 * One line / Badge, or the site's setting (Layout Manager > Appearance & Effects > Price card). Saved by
+	 * One line / Badge, or the site's setting (Appearance > Price card). Saved by
 	 * the Create / Update product button, like the message below.
 	 */
 	private function render_card_style_field()
@@ -1638,7 +1658,7 @@ class MetaBox
 				</div>
 				<div class="qp-cm-custom"<?php echo $mode === 'custom' ? '' : ' style="display: none;"'; ?>>
 					<input type="text" name="qp_card_message[<?php echo esc_attr($tab); ?>][text]" value="<?php echo esc_attr($o['text'] ?? ''); ?>" placeholder="<?php esc_attr_e('Message ({gallery} = gallery name)', 'quick-product'); ?>" aria-label="<?php echo esc_attr(sprintf(__('%s message', 'quick-product'), $label)); ?>">
-					<select name="qp_card_message[<?php echo esc_attr($tab); ?>][style]" aria-label="<?php echo esc_attr(sprintf(__('%s message colour', 'quick-product'), $label)); ?>">
+					<select name="qp_card_message[<?php echo esc_attr($tab); ?>][style]" aria-label="<?php echo esc_attr(sprintf(__('%s message color', 'quick-product'), $label)); ?>">
 						<?php foreach ($styles as $value => $text) : ?>
 							<option value="<?php echo esc_attr($value); ?>" <?php selected($o['style'] ?? 'green', $value); ?>><?php echo esc_html($text); ?></option>
 						<?php endforeach; ?>
@@ -2226,34 +2246,6 @@ class ProductSyncer
         }
         $action = 'updated';
 
-        // -----------------------------------
-        // STOCK + AVAILABILITY AUTO LOGIC
-        // -----------------------------------
-        $availability = strtolower(trim($this->data['availability'] ?? 'available'));
-
-        switch ($availability) {
-
-            case 'sold':
-                // Sold must be 0 and out of stock
-                $product->set_manage_stock(true);
-                $product->set_stock_quantity(0);
-                $product->set_stock_status('outofstock');
-                break;
-
-            case 'private':
-            case 'gallery':
-            case 'gallery-reserved':
-            case 'available':
-                // All "available-ish" states must have stock >= 1 and be in stock
-                $stock = (int) $product->get_stock_quantity();
-                if ($stock < 1) {
-                    $product->set_stock_quantity(1);
-                }
-                $product->set_manage_stock(true);
-                $product->set_stock_status('instock');
-                break;
-        }
-
     } else {
         // New product logic unchanged
         $product = new \WC_Product_Simple();
@@ -2267,6 +2259,35 @@ class ProductSyncer
         $product->set_shipping_class_id(1360);
 
         $action = 'created';
+    }
+
+    // -----------------------------------
+    // STOCK + AVAILABILITY AUTO LOGIC - new artworks too (2026-10-21: one created as sold kept its stock of 1 and showed
+    // as available in the Art Filter - no. 715)
+    // -----------------------------------
+    $availability = strtolower(trim($this->data['availability'] ?? 'available'));
+
+    switch ($availability) {
+
+        case 'sold':
+            // Sold must be 0 and out of stock
+            $product->set_manage_stock(true);
+            $product->set_stock_quantity(0);
+            $product->set_stock_status('outofstock');
+            break;
+
+        case 'private':
+        case 'gallery':
+        case 'gallery-reserved':
+        case 'available':
+            // All "available-ish" states must have stock >= 1 and be in stock
+            $stock = (int) $product->get_stock_quantity();
+            if ($stock < 1) {
+                $product->set_stock_quantity(1);
+            }
+            $product->set_manage_stock(true);
+            $product->set_stock_status('instock');
+            break;
     }
 
     // Set basic product data

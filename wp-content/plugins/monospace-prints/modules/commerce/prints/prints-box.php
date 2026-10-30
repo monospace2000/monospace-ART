@@ -29,8 +29,8 @@ function monospace_prints_options_table( $type, $px = [ 0, 0 ] ) {
                 <td><?php echo esc_html( $label ); ?>″</td>
                 <td>$ <input type="number" class="ms-prints-price small-text" min="1" step="1" value="<?php echo esc_attr( $v['price'] ); ?>"></td>
                 <?php if ( $known ) : ?>
-                    <?php [ $rating, $colour ] = monospace_print_dpi_rating( $dpi ); ?>
-                    <td><span style="color:<?php echo esc_attr( $colour ); ?>"><?php echo (int) $dpi; ?> dpi - <?php echo esc_html( $rating ); ?></span>
+                    <?php [ $rating, $color ] = monospace_print_dpi_rating( $dpi ); ?>
+                    <td><span style="color:<?php echo esc_attr( $color ); ?>"><?php echo (int) $dpi; ?> dpi - <?php echo esc_html( $rating ); ?></span>
                         <?php if ( $crop >= 0.02 ) : ?><span style="color:#666" title="The painting's proportions differ from the paper's: the print fills the paper, and this much of the image is trimmed off the edges (half at each end)."> · <?php echo round( $crop * 100 ); ?>% trimmed off the edges</span><?php endif; ?>
                     </td>
                 <?php endif; ?>
@@ -183,8 +183,8 @@ window.msPrintsReplaceFile = function (post, nonce, $preview, done) {
         call('preview_file', { file: file }).done(function (r) {
             if (!r.success) { alert(r.data || 'Error'); return; }
             var d = r.data, rows = d.rows.map(function (x) {
-                var colour = x.dpi >= 100 ? '#1a7f37' : (x.dpi >= 75 ? '#9a6700' : '#b32d2e');
-                return '<tr><td>' + x.size + '″</td><td style="color:' + colour + '">' + x.dpi + ' dpi - ' + x.rating + '</td><td>' + (x.trim >= 2 ? x.trim + '% trimmed off the edges' : '') + '</td></tr>';
+                var color = x.dpi >= 100 ? '#1a7f37' : (x.dpi >= 75 ? '#9a6700' : '#b32d2e');
+                return '<tr><td>' + x.size + '″</td><td style="color:' + color + '">' + x.dpi + ' dpi - ' + x.rating + '</td><td>' + (x.trim >= 2 ? x.trim + '% trimmed off the edges' : '') + '</td></tr>';
             }).join('');
             $preview.show().html('<p><strong>' + $('<i>').text(d.name).html() + '</strong>, ' + d.px[0] + ' × ' + d.px[1] + ' px:</p>' +
                 '<table class="widefat striped" style="max-width:520px"><tbody>' + rows + '</tbody></table>' +

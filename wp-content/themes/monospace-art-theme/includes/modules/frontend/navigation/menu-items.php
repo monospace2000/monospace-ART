@@ -8,9 +8,9 @@
  *   caption inside a dropdown.
  * - Divider: any item with the CSS class "menu-divider" (Screen Options > CSS Classes) - printed as an
  *   empty <li role="separator">, a thin line. Its label is never shown.
- * - Highlight: the CSS class "menu-highlight" colours an item (Places, as Custom Orders was).
+ * - Highlight: the CSS class "menu-highlight" colors an item (Places, as Custom Orders was).
  * - Footer menu: a "#" item with sub-items is a column heading (<h2 class="footer-heading">) above
- *   its links. Icons: CSS class menu-icon-instagram / -bluesky / -facebook.
+ *   its links. Icons: the Icon field on each item (menu-icons.php).
  * Styles: _menu.scss (primary), _global.scss (.footer-menu).
  */
 

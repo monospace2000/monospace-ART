@@ -18,20 +18,23 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-/** What each page type has: label, where it is, header (true / 'terms' / false), sidebar (true / 'terms'), notes */
+/** What each page type has: label, where it is, header (true / 'terms' / false), sidebar (true / 'terms'), top (false = no top
+ *  content here), override (true = each area can use the Site default or its own - layout-inherit.php), notes */
 function monospace_lm_area_types() {
-    $override = 'Each %s can change its top content and sidebar in its own <b>Sidebar Override</b> box.';
+    $override = 'Each %s can change its top content and sidebar in its own <b>This page’s layout</b> box.';
     return [
+        'site'       => [ 'label' => 'Site default', 'where' => 'Used on every page that has no override of its own - the Art Feed, categories, posts, pages, search results, the 404 page. Product pages never show a sidebar.',
+                          'header' => true, 'location' => true, 'title_help' => '{name} = the category’s name, {search_term} = what was searched for. Empty = a title made from the kind of page.', 'sidebar' => true,
+                          'note' => 'Categories have no override of their own: they use this, and each category can have its own (Posts &rarr; Categories &rarr; edit one).' ],
         'blog-feed'  => [ 'label' => 'Art Feed', 'where' => 'The Art Feed - every post, newest first.',
-                          'header' => true, 'location' => true, 'title_help' => 'Leave empty for no header.', 'sidebar' => true ],
-        'categories' => [ 'label' => 'Categories', 'where' => 'Category, tag and place pages.',
-                          'header' => 'terms', 'sidebar' => 'terms' ],
+                          'header' => true, 'location' => true, 'title_help' => 'Leave empty for no header.', 'sidebar' => true, 'override' => true ],
+        'categories' => [ 'label' => 'Categories', 'where' => 'Category, tag and place pages: they use the Site default, and each can have its own top content, header and sidebar.',
+                          'header' => 'terms', 'sidebar' => 'terms', 'top' => false ],
         'search'     => [ 'label' => 'Search Results', 'where' => 'The search results page.', 'header' => true, 'location' => false,
-                          'title_default' => 'Search Results', 'title_help' => '{search_term} = what was searched for, e.g. “Results for {search_term}”.', 'sidebar' => true ],
-        '404'        => [ 'label' => '404 Page', 'where' => 'The “page not found” page. Its own text is in the theme’s 404.php.', 'header' => false, 'sidebar' => true ],
-        'posts'      => [ 'label' => 'Posts', 'where' => 'Every post - artworks and blog posts.', 'header' => false, 'sidebar' => true, 'note' => sprintf( $override, 'post' ) ],
-        'pages'      => [ 'label' => 'Pages', 'where' => 'Every page except the home page.', 'header' => false, 'sidebar' => true, 'note' => sprintf( $override, 'page' ) ],
-        'products'   => [ 'label' => 'Products', 'where' => 'WooCommerce pages (shop, product pages - most redirect to their artwork).', 'header' => false, 'sidebar' => true, 'note' => sprintf( $override, 'product' ) ],
+                          'title_default' => 'Search Results', 'title_help' => '{search_term} = what was searched for, e.g. “Results for {search_term}”.', 'sidebar' => true, 'override' => true ],
+        '404'        => [ 'label' => '404 Page', 'where' => 'The “page not found” page. Its own text is in the theme’s 404.php.', 'header' => false, 'sidebar' => true, 'override' => true ],
+        'posts'      => [ 'label' => 'Posts', 'where' => 'Every post - artworks and blog posts.', 'header' => false, 'sidebar' => true, 'override' => true, 'note' => sprintf( $override, 'post' ) ],
+        'pages'      => [ 'label' => 'Pages', 'where' => 'Every page except the home page.', 'header' => false, 'sidebar' => true, 'override' => true, 'note' => sprintf( $override, 'page' ) ],
     ];
 }
 
@@ -55,9 +58,15 @@ function monospace_lm_render_areas( $tab ) {
     $id  = 'lm_' . str_replace( '-', '_', $tab ) . '_';
     $opt = fn( $k, $d = '' ) => (string) get_option( $p . $k, $d );
 
+    // Use the Site default or a custom one, per area (the page types that override it - layout-inherit.php)
+    $override = ! empty( $t['override'] );
+    $mode     = fn( $area ) => $override ? monospace_layout_area_mode( $tab, $area ) : 'custom';
+    $has_top  = ( $t['top'] ?? true ) !== false;
+
     // Top content
     $top       = $opt( 'top_content' );
     $top_state = trim( $top ) !== '' ? 'on' : 'empty';
+    if ( $mode( 'top' ) === 'default' ) $top_state = 'terms'; // "terms" = the chip that says where it comes from
 
     // Header
     $header_state = null;
@@ -68,13 +77,14 @@ function monospace_lm_render_areas( $tab ) {
         $h_mirror   = $opt( 'mirror_header', '1' ) === '1';
         $h_location = ! empty( $t['location'] ) ? $opt( 'header_location', 'top' ) : 'top';
         $header_state = $h_location === 'none' ? 'off' : ( trim( $h_title . $h_desk ) !== '' ? 'on' : 'empty' );
+        if ( $mode( 'header' ) === 'default' ) $header_state = 'terms';
     } elseif ( $t['header'] === 'terms' ) {
         $h_location   = 'top';
         $header_state = 'terms';
     }
 
     // Sidebar
-    $show = monospace_sidebar_default_visible( $tab );
+    $show = $tab === 'categories' ? monospace_sidebar_default_visible( 'categories' ) : get_option( $p . 'show_sidebar', '1' ) === '1'; // the type's own (categories: the Site default's)
     if ( $t['sidebar'] === 'terms' ) {
         $s_state = $show ? 'terms' : 'off';
     } else {
@@ -82,13 +92,33 @@ function monospace_lm_render_areas( $tab ) {
         $s_mobile = $opt( 'sidebar_mobile' );
         $s_mirror = $opt( 'mirror_sidebar', '1' ) === '1';
         $s_state  = ! $show ? 'off' : ( trim( $s_desk ) !== '' ? 'on' : 'empty' );
+        if ( $mode( 'sidebar' ) === 'default' ) $s_state = 'terms';
     }
 
-    $words = [ 'on' => 'In use', 'empty' => 'Empty', 'off' => 'Not shown', 'terms' => 'Per category' ];
+    $words = [ 'on' => 'In use', 'empty' => 'Empty', 'off' => 'Not shown', 'terms' => $override ? 'Site default' : 'Per category' ];
     $chip  = fn( $state ) => '<span class="lm-chip is-' . esc_attr( $state ) . '">' . esc_html( $words[ $state ] ) . '</span>';
-    $open  = fn( $state ) => in_array( $state, [ 'on', 'terms' ], true ) ? ' open' : '';
+    $open  = fn( $state ) => $state === 'on' || ( $state === 'terms' && ! $override ) ? ' open' : '';
     $editor = function ( $content, $editor_id, $name, $rows ) {
         wp_editor( $content, $editor_id, [ 'textarea_name' => $name, 'media_buttons' => true, 'textarea_rows' => $rows, 'teeny' => false, 'quicktags' => true ] );
+    };
+    // "Use the site default / Custom for ..." at the top of an area's panel; what the site default has, when it is used
+    $site_preview = [
+        'top'     => fn() => monospace_lm_preview( (string) get_option( 'monospace_site_top_content', '' ) ),
+        'header'  => fn() => monospace_lm_preview( trim( get_option( 'monospace_site_header_title', '' ) . ' - ' . get_option( 'monospace_site_header_desc_desktop', '' ), ' -' ) ),
+        'sidebar' => fn() => get_option( 'monospace_site_show_sidebar', '1' ) === '1' ? monospace_lm_preview( (string) get_option( 'monospace_site_sidebar_desktop', '' ) ) : 'no sidebar',
+    ];
+    $mode_row = function ( $area ) use ( $override, $mode, $t ) {
+        if ( ! $override ) return;
+        $m = $mode( $area );
+        echo '<p class="lm-mode"><label><input type="radio" name="' . esc_attr( $area ) . '_mode" value="default" ' . checked( $m, 'default', false ) . '> <b>Use the site default</b></label>'
+           . '<label style="margin-left:18px"><input type="radio" name="' . esc_attr( $area ) . '_mode" value="custom" ' . checked( $m, 'custom', false ) . '> <b>Custom for ' . esc_html( $t['label'] ) . '</b></label></p>';
+    };
+    $site_link = admin_url( 'admin.php?page=monospace-layout-manager&tab=site' );
+    $custom_open = function ( $area ) use ( $override, $mode ) { if ( $override ) echo '<div class="lm-custom" data-area="' . esc_attr( $area ) . '"' . ( $mode( $area ) === 'default' ? ' hidden' : '' ) . '>'; };
+    $custom_close = function ( $area ) use ( $override, $mode, $site_preview, $site_link ) {
+        if ( ! $override ) return;
+        echo '</div><p class="description lm-inherit" data-area="' . esc_attr( $area ) . '"' . ( $mode( $area ) === 'default' ? '' : ' hidden' ) . '>Using the <a href="' . esc_url( $site_link ) . '">Site default</a>'
+           . ( ( $pv = $site_preview[ $area ]() ) !== '' ? ': ' . esc_html( $pv ) : ' (empty)' ) . '. Your own settings for this are kept if you switch back to Custom.</p>';
     };
     $header_in_sidebar = $header_state && $header_state !== 'off' && ( $h_location ?? 'top' ) === 'sidebar';
     ?>
@@ -100,8 +130,11 @@ function monospace_lm_render_areas( $tab ) {
             <figure class="lm-map" aria-label="Where each area goes on the page">
                 <div class="lm-r lm-fixed">Menu bar</div>
                 <div class="lm-r lm-fixed lm-logo">Logo &amp; tagline</div>
-                <button type="button" class="lm-r lm-area is-<?php echo esc_attr( $top_state ); ?>" data-panel="top">Top content</button>
-                <div class="lm-cols">
+                <?php if ( $has_top ) : ?><button type="button" class="lm-r lm-area is-<?php echo esc_attr( $top_state ); ?>" data-panel="top">Top content</button><?php endif; ?>
+                <?php if ( function_exists( 'monospace_sidebar_position' ) && monospace_sidebar_position()['desktop'] === 'left' ) : // Look > Sidebar: on the left ?>
+                    <style>.lm-cols.is-left { grid-template-columns: 64px 1fr; } .lm-cols.is-left > .lm-side { order: -1; }</style>
+                <?php endif; ?>
+                <div class="lm-cols<?php echo function_exists( 'monospace_sidebar_position' ) && monospace_sidebar_position()['desktop'] === 'left' ? ' is-left' : ''; ?>">
                     <div class="lm-main">
                         <?php if ( $header_state && ! $header_in_sidebar ) : ?>
                             <button type="button" class="lm-r lm-area is-<?php echo esc_attr( $header_state ); ?>" data-panel="header">Header</button>
@@ -113,20 +146,27 @@ function monospace_lm_render_areas( $tab ) {
                         Sidebar
                     </button>
                 </div>
-                <figcaption>Phones: the sidebar shows above the content.<br>
+                <figcaption><?php $sbp = function_exists( 'monospace_sidebar_position' ) ? monospace_sidebar_position() : [ 'desktop' => 'right', 'phone' => 'above' ]; ?>
+                    Sidebar: <?php echo esc_html( $sbp['desktop'] ); ?> on computers, <?php echo esc_html( $sbp['phone'] ); ?> the content on phones (<a href="<?php echo esc_url( admin_url( 'themes.php?page=monospace-look' ) ); ?>">Look &rsaquo; Sidebar</a>).<br>
                     <span class="lm-key is-on"></span> in use <span class="lm-key is-empty"></span> empty <span class="lm-key is-off"></span> not shown</figcaption>
             </figure>
 
             <div class="lm-panels">
+                <?php if ( $has_top ) : ?>
                 <!-- TOP CONTENT -->
                 <details class="lm-panel" data-panel="top"<?php echo $open( $top_state ); ?>>
                     <summary><span class="lm-t">Top content</span> <?php echo $chip( $top_state ); ?>
                         <span class="lm-sub">Full width, under the logo and tagline<?php echo $top_state === 'on' ? ' · ' . esc_html( monospace_lm_preview( $top ) ) : ''; ?></span></summary>
                     <div class="lm-body">
+                        <?php $mode_row( 'top' ); $custom_open( 'top' ); ?>
                         <?php $editor( $top, $id . 'top_content', 'top_content', 6 ); ?>
                         <p class="description">Leave empty for none. HTML and shortcodes allowed.</p>
+                        <?php // Its dates and close button (design/banner-style.php); how it looks is the site's one banner style (Look > Banners)
+                        if ( function_exists( 'monospace_banner_schedule_fields' ) ) monospace_banner_schedule_fields( 'top_style', monospace_banner_area( $p . 'top_style' ) ); ?>
+                        <?php $custom_close( 'top' ); ?>
                     </div>
                 </details>
+                <?php endif; ?>
 
                 <?php if ( $t['header'] === true ) : ?>
                 <!-- HEADER -->
@@ -135,6 +175,7 @@ function monospace_lm_render_areas( $tab ) {
                         <span class="lm-sub"><?php echo esc_html( [ 'top' => 'Above the content', 'sidebar' => 'In the sidebar ([archive_header])', 'none' => 'Not shown' ][ $h_location ] ?? 'Above the content' ); ?><?php
                             echo $header_state === 'on' ? ' · ' . esc_html( monospace_lm_preview( ( $h_title !== '' ? $h_title . ' - ' : '' ) . $h_desk ) ) : ''; ?></span></summary>
                     <div class="lm-body">
+                        <?php $mode_row( 'header' ); $custom_open( 'header' ); ?>
                         <p><label class="lm-label" for="<?php echo esc_attr( $id ); ?>header_title">Title</label>
                             <input type="text" name="header_title" id="<?php echo esc_attr( $id ); ?>header_title" value="<?php echo esc_attr( $h_title ); ?>" class="regular-text">
                             <span class="description"><?php echo esc_html( $t['title_help'] ?? '' ); ?></span></p>
@@ -153,14 +194,15 @@ function monospace_lm_render_areas( $tab ) {
                             <p class="lm-label">Description on phones &amp; tablets <span class="description">(empty = the one above)</span></p>
                             <?php $editor( $h_mobile, $id . 'header_desc_mobile', 'header_desc_mobile', 5 ); ?>
                         </div>
+                        <?php $custom_close( 'header' ); ?>
                     </div>
                 </details>
                 <?php elseif ( $t['header'] === 'terms' ) : ?>
                 <details class="lm-panel" data-panel="header" open>
-                    <summary><span class="lm-t">Header</span> <?php echo $chip( 'terms' ); ?> <span class="lm-sub">Above the content, or in the sidebar - set on each category</span></summary>
+                    <summary><span class="lm-t">Header</span> <?php echo $chip( 'terms' ); ?> <span class="lm-sub">Each category sets its own, else the Site default's</span></summary>
                     <div class="lm-body">
-                        <p>Each category, tag or place has its own header title, description (desktop / phones), where it goes, and its list / grid view:
-                            <b>Posts → Categories</b> (or Tags) → edit one.</p>
+                        <p>Each category, tag or place can have its own header title, description (desktop / phones), where it goes, and its view (list / grid / price card - all of them in the table below):
+                            <b>Posts → Categories</b> (or Tags) → edit one. One with nothing of its own uses the <a href="<?php echo esc_url( admin_url( 'admin.php?page=monospace-layout-manager&tab=site' ) ); ?>">Site default</a>’s header.</p>
                         <p><a class="button" href="<?php echo esc_url( admin_url( 'edit-tags.php?taxonomy=category' ) ); ?>">Edit categories</a>
                             <a class="button" href="<?php echo esc_url( admin_url( 'edit-tags.php?taxonomy=post_tag' ) ); ?>">Edit tags</a></p>
                     </div>
@@ -173,11 +215,13 @@ function monospace_lm_render_areas( $tab ) {
                         <span class="lm-sub">Right of the content (phones: above it)<?php
                             echo $s_state === 'on' ? ' · ' . esc_html( monospace_lm_preview( $s_desk ) ) : ''; ?></span></summary>
                     <div class="lm-body">
+                        <?php if ( $t['sidebar'] === 'terms' ) : ?>
+                            <p>Categories use the <a href="<?php echo esc_url( admin_url( 'admin.php?page=monospace-layout-manager&tab=site' ) ); ?>">Site default</a>’s sidebar (<?php echo $show ? 'shown' : 'hidden'; ?>);
+                                a category with its own sidebar (edit the category) shows that instead.</p>
+                        <?php else : ?>
+                        <?php $mode_row( 'sidebar' ); $custom_open( 'sidebar' ); ?>
                         <input type="hidden" name="sidebar_visibility_field" value="1">
                         <p><label><input type="checkbox" name="show_sidebar" value="1" class="lm-show-sidebar" <?php checked( $show ); ?>> Show the sidebar</label></p>
-                        <?php if ( $t['sidebar'] === 'terms' ) : ?>
-                            <p class="description">What's in it: the category's own sidebar (edit the category), else the Art Feed's.</p>
-                        <?php else : ?>
                         <div class="lm-sidebar-fields"<?php echo $show ? '' : ' hidden'; ?>>
                             <?php $editor( $s_desk, $id . 'sidebar_desktop', 'sidebar_desktop', 8 ); ?>
                             <p class="description">HTML and shortcodes allowed - see <a href="<?php echo esc_url( admin_url( 'admin.php?page=monospace-layout-manager&tab=shortcodes' ) ); ?>">Shortcodes</a>.</p>
@@ -187,16 +231,151 @@ function monospace_lm_render_areas( $tab ) {
                                 <?php $editor( $s_mobile, $id . 'sidebar_mobile', 'sidebar_mobile', 8 ); ?>
                             </div>
                         </div>
+                        <?php $custom_close( 'sidebar' ); ?>
                         <?php endif; ?>
                     </div>
                 </details>
+
+                <?php if ( $tab === 'categories' ) monospace_lm_render_term_views(); ?>
             </div>
         </div>
     </div>
 
+    <script>
+    // Use the site default / Custom: shows the matching part of the panel
+    document.addEventListener('change', function (e) {
+        var t = e.target; if (!t.name || !/_mode$/.test(t.name) || t.type !== 'radio') return;
+        var area = t.name.replace(/_mode$/, '');
+        document.querySelectorAll('[data-area="' + area + '"]').forEach(function (el) {
+            if (el.classList.contains('lm-custom')) el.hidden = t.value !== 'custom';
+            if (el.classList.contains('lm-inherit')) el.hidden = t.value === 'custom';
+        });
+        window.dispatchEvent(new Event('resize')); // the editors in a part that was hidden find their size
+    });
+    </script>
     <?php
     monospace_lm_area_assets();
 }
 
-// The look and behaviour (monospace_lm_area_assets()) moved to Core on 2026-10-20 - mu-plugins/monospace-art-core/
+/**
+ * Categories tab: "Views & price cards" (2026-10-21, owner: "update the Layout Manager / Categories with these changes") -
+ * every category and place in one table: the view it shows (list / grid / detail list / price card), the viewing toolbar, the price
+ * card under each artwork, the tab cards open on. The same term meta as each one's edit screen (_monospace_archive_view,
+ * _monospace_archive_bar, _ms_price_cards, _ms_price_card_tab) - saved by monospace_save_term_views() (layout-manager.php). Above it: the
+ * site-wide parts (the Price card button, the sort menu's Random), with where they're set.
+ */
+function monospace_lm_render_term_views() {
+    $terms = get_terms( [ 'taxonomy' => 'category', 'hide_empty' => false, 'orderby' => 'name' ] );
+    $places = get_terms( [ 'taxonomy' => 'post_tag', 'hide_empty' => false, 'orderby' => 'name', 'meta_query' => [ 'relation' => 'OR',
+        [ 'key' => '_monospace_header_title', 'compare' => 'EXISTS' ], [ 'key' => '_monospace_archive_view', 'compare' => 'EXISTS' ], [ 'key' => '_monospace_archive_bar', 'compare' => 'EXISTS' ], [ 'key' => '_monospace_share_image', 'compare' => 'EXISTS' ] ] ] );
+    $rows = array_merge( is_array( $terms ) ? $terms : [], is_array( $places ) ? $places : [] );
+    $tb   = function_exists( 'monospace_archive_toolbar_settings' ) ? monospace_archive_toolbar_settings() : [ 'bar' => true, 'view' => 'detail' ];
+    $view_choices = function_exists( 'monospace_archive_view_choices' ) ? monospace_archive_view_choices() : [ '' => 'Same as everywhere' ];
+    $bar_choices  = function_exists( 'monospace_archive_bar_choices' ) ? monospace_archive_bar_choices() : [ '' => 'Same as everywhere' ];
+    $presets = function_exists( 'monospace_price_card_presets' ) ? monospace_price_card_presets() : [];
+    $tabs    = function_exists( 'monospace_price_card_tabs' ) ? monospace_price_card_tabs() : [];
+    $site_card = function_exists( 'monospace_price_card_setting' ) ? monospace_price_card_setting( 'feed' ) : 'off';
+    $site_tab  = function_exists( 'monospace_price_card_tab_setting' ) ? monospace_price_card_tab_setting() : '';
+    $n_cards = 0;
+    foreach ( $rows as $t ) if ( get_term_meta( $t->term_id, '_monospace_archive_view', true ) === 'cards' ) $n_cards++;
+    $look = admin_url( 'themes.php?page=monospace-look' ); ?>
+    <details class="lm-panel" data-panel="views" open>
+        <summary><span class="lm-t">Views &amp; price cards</span> <span class="lm-chip is-terms">Per category</span>
+            <span class="lm-sub">The view, the viewing toolbar, the price card under each artwork, the tab it opens on<?php echo $n_cards ? ' · ' . (int) $n_cards . ' in price card view' : ''; ?></span></summary>
+        <div class="lm-body">
+            <ul class="lm-views-site">
+                <li><b>Everywhere</b>: toolbar <b><?php echo ! empty( $tb['bar'] ) ? 'on' : 'off'; ?></b>, default view <b><?php echo esc_html( strtolower( $view_choices[ $tb['view'] ] ?? $tb['view'] ) ); ?></b> - “Same as everywhere” below follows these.
+                    Set in <a href="<?php echo esc_url( admin_url( 'admin.php?page=monospace-layout-manager&tab=links' ) ); ?>">Links &amp; toolbar → Views &amp; viewing toolbar</a>. A page in <b>price card</b> view never has the toolbar.</li>
+                <li><b>Sort menu</b>: newest, oldest, price, size - and <b>Random</b> (a fresh shuffle each time it’s chosen; scrolling on keeps it). Each page can <b>start</b> in any of them (“Starts sorted” below).</li>
+                <li><b>Price card view</b> shows each artwork as a standalone price card - its look: <a href="<?php echo esc_url( admin_url( 'themes.php?page=monospace-price-card' ) ); ?>">Appearance &gt; Price card</a>. A visitor’s own choice of view wins over where a page starts.</li>
+            </ul>
+            <table class="widefat striped lm-views">
+                <thead><tr><th>Category / place</th><th>View</th><th>Viewing toolbar</th><th>Starts sorted</th><th>Price card under each artwork</th><th>Opens on</th><th>Share image</th></tr></thead>
+                <tbody>
+                <?php foreach ( $rows as $t ) :
+                    $id   = (int) $t->term_id;
+                    $view = (string) get_term_meta( $id, '_monospace_archive_view', true );
+                    $card = function_exists( 'monospace_price_card_term_style' ) ? monospace_price_card_term_style( $id ) : '';
+                    $otab = (string) get_term_meta( $id, '_ms_price_card_tab', true );
+                    $name = $t->taxonomy === 'post_tag' ? esc_html( html_entity_decode( get_term_meta( $id, '_monospace_header_title', true ) ?: $t->name ) ) . ' <span class="description">(place)</span>'
+                          : esc_html( ( $t->parent ? '— ' : '' ) . $t->name ); ?>
+                    <tr>
+                        <td><a href="<?php echo esc_url( get_edit_term_link( $id, $t->taxonomy ) ); ?>"><?php echo $name; // escaped above ?></a>
+                            <span class="description">(<?php echo (int) $t->count; ?>)</span>
+                            <a class="lm-views-open" href="<?php echo esc_url( get_term_link( $t ) ); ?>" target="_blank" title="Open the page">↗</a>
+                            <input type="hidden" name="lm_terms[<?php echo $id; ?>][seen]" value="1"></td>
+                        <td><select name="lm_terms[<?php echo $id; ?>][view]">
+                            <?php foreach ( $view_choices as $k => $label ) : ?><option value="<?php echo esc_attr( $k ); ?>" <?php selected( $view, $k ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?>
+                        </select></td>
+                        <td><select name="lm_terms[<?php echo $id; ?>][bar]">
+                            <?php $tbar = (string) get_term_meta( $id, '_monospace_archive_bar', true );
+                            foreach ( $bar_choices as $k => $label ) : ?><option value="<?php echo esc_attr( $k ); ?>" <?php selected( $tbar, $k ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?>
+                        </select></td>
+                        <td><select name="lm_terms[<?php echo $id; ?>][sort]">
+                            <?php $tsort = (string) get_term_meta( $id, '_monospace_archive_sort', true ) ?: 'newest';
+                            foreach ( defined( 'MONOSPACE_ARCHIVE_SORTS' ) ? MONOSPACE_ARCHIVE_SORTS : [ 'newest' => 'Newest first' ] as $k => $label ) : ?><option value="<?php echo esc_attr( $k ); ?>" <?php selected( $tsort, $k ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?>
+                        </select></td>
+                        <td><select name="lm_terms[<?php echo $id; ?>][cards]">
+                            <option value="" <?php selected( $card, '' ); ?>>Site setting (<?php echo esc_html( $site_card === 'off' ? 'off' : ( $presets[ $site_card ] ?? $site_card ) ); ?>)</option>
+                            <option value="hide" <?php selected( $card, 'hide' ); ?>>Hide</option>
+                            <?php foreach ( $presets as $k => $label ) : ?><option value="<?php echo esc_attr( $k ); ?>" <?php selected( $card, $k ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?>
+                        </select></td>
+                        <td><select name="lm_terms[<?php echo $id; ?>][tab]">
+                            <option value="" <?php selected( $otab, '' ); ?>>Site setting (<?php echo esc_html( $tabs[ $site_tab ] ?? 'Original' ); ?>)</option>
+                            <?php foreach ( $tabs as $k => $label ) : if ( $k === '' ) continue; // '' = the site setting, above ?><option value="<?php echo esc_attr( $k ); ?>" <?php selected( $otab, $k ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?>
+                        </select></td>
+                        <?php $sid = (int) get_term_meta( $id, '_monospace_share_image', true ); $sthumb = $sid ? (string) wp_get_attachment_image_url( $sid, 'thumbnail' ) : ''; ?>
+                        <td class="lm-share-cell"><input type="hidden" name="lm_terms[<?php echo $id; ?>][share]" value="<?php echo $sthumb ? $sid : ''; ?>">
+                            <button type="button" class="button-link lm-share-pick" title="Choose the picture shown when this page is shared"><img class="lm-share-thumb" src="<?php echo esc_url( $sthumb ); ?>" alt=""<?php echo $sthumb ? '' : ' hidden'; ?>><span<?php echo $sthumb ? ' hidden' : ''; ?>>Newest artwork - choose…</span></button>
+                            <button type="button" class="button-link lm-share-clear" title="Use the newest artwork"<?php echo $sthumb ? '' : ' hidden'; ?>>×</button></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <p class="description">The same settings as each category’s own edit screen. Places = tags with their own page header.</p>
+        </div>
+    </details>
+    <script>
+    jQuery(function ($) {
+        var frame, cell;
+        $(document).on('click', '.lm-share-pick', function (e) {
+            e.preventDefault();
+            cell = $(this).closest('.lm-share-cell');
+            if (!frame) {
+                frame = wp.media({ title: 'Share image', library: { type: 'image' }, button: { text: 'Use this image' }, multiple: false });
+                frame.on('select', function () {
+                    var a = frame.state().get('selection').first().toJSON(), s = a.sizes || {};
+                    cell.find('input').val(a.id);
+                    cell.find('.lm-share-thumb').attr('src', (s.thumbnail || a).url).prop('hidden', false);
+                    cell.find('.lm-share-pick span').prop('hidden', true);
+                    cell.find('.lm-share-clear').prop('hidden', false);
+                });
+            }
+            frame.open();
+        });
+        $(document).on('click', '.lm-share-clear', function () {
+            var c = $(this).closest('.lm-share-cell');
+            c.find('input').val('');
+            c.find('.lm-share-thumb').prop('hidden', true);
+            c.find('.lm-share-pick span').prop('hidden', false);
+            $(this).prop('hidden', true);
+        });
+    });
+    </script>
+    <style>
+        .lm-share-cell { white-space: nowrap; } .lm-share-pick { text-align: left; font-size: 12px; } .lm-share-clear { margin-left: 4px; font-size: 16px; text-decoration: none; }
+        .lm-share-thumb { width: 64px; height: 34px; object-fit: cover; border: 1px solid #c3c4c7; border-radius: 3px; vertical-align: middle; } .lm-share-thumb[hidden], .lm-share-pick span[hidden], .lm-share-clear[hidden] { display: none; }
+        .lm-views-site { margin: 4px 0 12px; padding-left: 18px; list-style: disc; } .lm-views-site li { margin-bottom: 4px; }
+        .lm-views td, .lm-views th { vertical-align: middle; } .lm-views select { max-width: 100%; }
+        .lm-views-open { text-decoration: none; margin-left: 4px; }
+    </style>
+    <?php
+}
+
+// The look and behavior (monospace_lm_area_assets()) moved to Core on 2026-10-20 - mu-plugins/monospace-art-core/
 // modules/admin/admin-ui.php - so plugins (Prints, Sales Dashboard) can use the same admin UI.
+
+// The share image's picker (WordPress's media window) on Layout Manager > Categories
+add_action( 'admin_enqueue_scripts', function () {
+    if ( ( $_GET['page'] ?? '' ) === 'monospace-layout-manager' && ( $_GET['tab'] ?? '' ) === 'categories' ) wp_enqueue_media();
+} );

@@ -10,20 +10,21 @@
  *   badge     a small pill - price · availability · "Prints from $…"; it links to the artwork, and on the
  *             artwork's own page it opens the full card
  *
- * Where (Layout Manager > Appearance & Effects > Price card - registered here, through the theme's design-module
+ * Where (Appearance > Price card - registered here, through the theme's design-module
  * filter; options monospace_price_card_page / _phone / _feed):
  *   artwork pages   the [price_card] in every artwork post (page = desktop; phone = up to 640px wide, "same"
  *                   by default). When they differ both are printed and CSS shows one (.pc-desk / .pc-phone).
  *   archive & feed  a card under each artwork on category pages, the Art Feed and search (off by default;
- *                   hidden in grid view). Not on /category/print/ while Prints is on - it shows its own card.
+ *                   hidden in grid view). The Print category too: the Full card, opening on Prints (its own
+ *                   settings, below) - the Prints plugin's separate print card was removed (2026-10-20/21).
  *   per category    the category (tag, place) edit screen's "Price cards": Site setting / Hide / a preset
  *                   (term meta _ms_price_cards, 2026-10-20), and "Opens on" (_ms_price_card_tab).
  *
  * Opens on (2026-10-20): the tab a card opens on - Original, Prints (the first print it has), Framed print,
  * Unframed print. Site-wide (option monospace_price_card_tab), per category, or a shortcode's tab="". Default:
  * Original - or the first print when the original has sold. A tab the artwork doesn't have falls back to that.
- * (The Prints plugin's separate prints-only card was retired the same day: on the Print category, pick a
- * preset and "Opens on: Prints".)
+ * (The Prints plugin's separate prints-only card was retired the same day; the Print category uses the Full
+ * card with "Opens on: Prints" - one card to maintain.)
  *   shortcode       [price_card style="badge" sku="444"] anywhere (sku = the SKU's number, or post="123").
  *   per artwork     its own preset (_ms_price_card_style, set in the Quick Artwork Editor and the Artwork Editor)
  *                   wins over the artwork-page settings, on every screen; a shortcode's style="" wins over it.
@@ -49,6 +50,16 @@ function monospace_price_card_setting( $where ) {
     if ( $where === 'phone' ) $allowed[] = 'same';
     if ( $where === 'feed' ) $allowed[] = 'off';
     return in_array( $value, $allowed, true ) ? $value : $default;
+}
+
+/** Where the badge sits on its row: left | center | right (default) - Look > Price card > Badge position (option
+ *  monospace_price_card_badge_align), or a shortcode's align="" (2026-10-22, owner: "Price card Badge should have option to
+ *  align left, center, or right, right as default") */
+function monospace_price_card_badge_align( $asked = '' ) {
+    $ok = [ 'left', 'center', 'right' ];
+    if ( in_array( $asked, $ok, true ) ) return $asked;
+    $v = (string) get_option( 'monospace_price_card_badge_align', 'right' );
+    return in_array( $v, $ok, true ) ? $v : 'right';
 }
 
 /**
@@ -234,11 +245,13 @@ function monospace_render_price_card_badge( $card ) {
     if ( $from !== '' ) $bits[] = '<span class="pc-badge-prints">Prints from ' . $from . '</span>';
     if ( ! $bits ) return '';
 
-    $pill = '<span class="pc-badge' . esc_attr( $card['status_class'] ) . '">' . implode( '<span class="pc-badge-sep" aria-hidden="true">·</span>', $bits ) . '</span>';
+    $pill  = '<span class="pc-badge' . esc_attr( $card['status_class'] ) . '">' . implode( '<span class="pc-badge-sep" aria-hidden="true">·</span>', $bits ) . '</span>';
+    $align = monospace_price_card_badge_align( (string) ( $card['badge_align'] ?? '' ) );
+    $align = $align === 'right' ? '' : ' pc-badge-' . $align; // right: the stylesheet's own
     if ( is_singular() && (int) get_queried_object_id() === $post_id ) {
-        return '<details class="pc-badge-card"><summary>' . $pill . '</summary>' . monospace_render_price_card( $card, 'full' ) . '</details>';
+        return '<details class="pc-badge-card' . $align . '"><summary>' . $pill . '</summary>' . monospace_render_price_card( $card, 'full' ) . '</details>';
     }
-    return '<a class="pc-badge-link" href="' . esc_url( get_permalink( $post_id ) ) . '">' . $pill . '</a>';
+    return '<a class="pc-badge-link' . $align . '" href="' . esc_url( get_permalink( $post_id ) ) . '">' . $pill . '</a>';
 }
 
 /** A category's (tag's, place's) own "Price cards" choice: '' = the site setting, 'hide', or a preset */
@@ -269,7 +282,7 @@ add_filter( 'the_content', function ( $content ) {
     return $card ? $content . '<div class="pc-feed">' . monospace_render_price_card( $card, $style ) . '</div>' : $content;
 }, 20 );
 
-// Layout Manager > Appearance & Effects > Price card (the theme's design-module registry; no theme, no settings
+// Appearance > Price card (the theme's design-module registry; no theme, no settings
 // screen - the saved presets still apply)
 add_filter( 'monospace_design_modules', function ( $modules ) {
     $modules['price-card'] = [
@@ -309,6 +322,15 @@ function monospace_render_price_card_settings() {
             </td>
         </tr>
         <tr>
+            <th scope="row">Badge position</th>
+            <td>
+                <?php foreach ( [ 'left' => 'Left', 'center' => 'Center', 'right' => 'Right' ] as $k => $label ) : ?>
+                    <label style="margin-right:14px"><input type="radio" name="price_card_badge_align" value="<?php echo esc_attr( $k ); ?>" <?php checked( monospace_price_card_badge_align(), $k ); ?>> <?php echo esc_html( $label ); ?></label>
+                <?php endforeach; ?>
+                <p class="description">Where the Badge sits on its row, wherever it's shown - a shortcode can choose its own: <code>align="left"</code>.</p>
+            </td>
+        </tr>
+        <tr>
             <th scope="row">On phones</th>
             <td>
                 <?php echo $select( 'phone', monospace_price_card_setting( 'phone' ), [ 'same' => 'Same as artwork pages' ] ); ?>
@@ -331,7 +353,7 @@ function monospace_render_price_card_settings() {
             <td>
                 <?php echo $select( 'feed', monospace_price_card_setting( 'feed' ), [ 'off' => 'Off' ] ); ?>
                 <p class="description">A card under each artwork on category pages, the Art Feed and search results (list view only).
-                    The Prints category keeps its own print card.</p>
+                    A category can choose its own card and tab (edit the category) - the Print category shows the Full card, opening on Prints.</p>
             </td>
         </tr>
         <tr>
@@ -355,6 +377,8 @@ function monospace_save_price_card_settings() {
     }
     $tab = sanitize_key( wp_unslash( $_POST['price_card_tab'] ?? '' ) );
     ( $tab !== '' && isset( monospace_price_card_tabs()[ $tab ] ) ) ? update_option( 'monospace_price_card_tab', $tab ) : delete_option( 'monospace_price_card_tab' );
+    $align = sanitize_key( wp_unslash( $_POST['price_card_badge_align'] ?? '' ) );
+    in_array( $align, [ 'left', 'center' ], true ) ? update_option( 'monospace_price_card_badge_align', $align ) : delete_option( 'monospace_price_card_badge_align' );
 }
 
 // The category / tag / place edit screen: "Price cards" (the taxonomies feed-headers.php gives their header fields)
@@ -384,7 +408,7 @@ function monospace_price_card_term_field( $term ) {
                     <option value="<?php echo esc_attr( $k ); ?>" <?php selected( $value, $k ); ?>>Show: <?php echo esc_html( $label ); ?></option>
                 <?php endforeach; ?>
             </select>
-            <p class="description">A price card under each artwork on this page (list view). Site setting: Layout Manager → Appearance &amp; Effects → Price card → Archive &amp; feed.</p>
+            <p class="description">A price card under each artwork on this page (list view). Site setting: Appearance → Price card → Archive &amp; feed.</p>
         </td>
     </tr>
     <tr class="form-field">

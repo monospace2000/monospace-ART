@@ -12,6 +12,10 @@
  * Social media preview (2026-10-16): the home page's og:image / twitter:image, option
  * monospace_home_share_image (attachment ID, saved with the same form; empty = theme's site-preview.png).
  * Welcome and News stay fixed above the rows (their text comes from the Welcome / News pages).
+ * Style (2026-10-21): a box's own title bar / color / shadow / font / size / title color ('style', only the
+ * parts set - "As all boxes" = the style in Appearance > Look, design/home-box-style.php); the cards show it.
+ * Dark mode background (2026-10-21): a box's 'dark_image' (Same as light / Own image / No background), under its
+ * background; the card says ☾ when it has its own.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -44,9 +48,26 @@ add_action( 'wp_ajax_monospace_home_preview', function () {
     wp_send_json_success( [ 'url' => monospace_home_auto_image( $link, 'medium_large' ) ] );
 } );
 
+/** The search box at the top of the home page (start_template.php): on unless switched off in Layout Manager > Home Page */
+function monospace_home_search_on() {
+    return get_option( 'monospace_home_search', 'yes' ) !== 'no';
+}
+
 add_action( 'admin_post_monospace_home_layout_save', function () {
     if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Not allowed' );
     check_admin_referer( 'monospace_home_layout_save' );
+
+    // Top content: a banner under the logo (sidebar-override.php monospace_render_top_content(), design/banner-style.php)
+    if ( isset( $_POST['home_top_content'] ) ) {
+        $top = wp_kses_post( wp_unslash( $_POST['home_top_content'] ) );
+        trim( $top ) !== '' ? update_option( 'monospace_home_top_content', $top ) : delete_option( 'monospace_home_top_content' );
+    }
+    if ( function_exists( 'monospace_banner_save_area' ) ) monospace_banner_save_area( 'home_top_style', 'monospace_home_top_style' );
+
+    // The search box above the boxes (the field is always sent with the form; the checkbox only when ticked)
+    if ( isset( $_POST['home_search_seen'] ) ) {
+        empty( $_POST['home_search'] ) ? update_option( 'monospace_home_search', 'no' ) : delete_option( 'monospace_home_search' );
+    }
 
     // Social media preview (head-tags.php reads it for the home page); empty = the site's default image
     if ( isset( $_POST['share_image'] ) ) {
@@ -94,7 +115,16 @@ function monospace_home_link_choices() {
 function monospace_home_boxes_page() {
     $rows = monospace_home_layout();
     foreach ( $rows as &$row ) {
-        foreach ( $row['boxes'] as &$box ) $box['preview'] = monospace_home_box_image( $box, 'medium_large' );
+        foreach ( $row['boxes'] as &$box ) {
+            $box['preview'] = monospace_home_box_image( $box, 'medium_large' );
+            if ( ( $box['image']['mode'] ?? '' ) === 'random' && ( $box['image']['pool'] ?? '' ) === 'media' ) { // the chosen pictures, for the editor's thumbnails
+                $box['random_previews'] = [];
+                foreach ( $box['image']['ids'] as $id ) {
+                    if ( $u = wp_get_attachment_image_url( (int) $id, 'thumbnail' ) ) $box['random_previews'][] = [ 'id' => (int) $id, 'url' => $u ];
+                }
+            }
+            $box['dark_preview'] = ( $box['dark_image']['mode'] ?? '' ) === 'media' ? (string) wp_get_attachment_image_url( (int) $box['dark_image']['id'], 'medium_large' ) : '';
+        }
     }
     unset( $row, $box );
     $msg = sanitize_key( $_GET['msg'] ?? '' );
@@ -106,7 +136,8 @@ function monospace_home_boxes_page() {
         <p class="description" style="max-width:760px">The boxes of the <a href="<?php echo esc_url( home_url( '/' ) ); ?>" target="_blank">home page</a>, row by row.
             Drag rows by <span class="dashicons dashicons-menu"></span> and boxes anywhere, also from one row to another. Click a box to edit it.
             <strong>Text boxes</strong> (like Welcome and News) show text written in the box itself, or a page's text (edited on that page, “Edit text”).
-            <strong>Automatic</strong> backgrounds show the newest artwork behind the box's link. Changes go live when you press Save.</p>
+            <strong>Automatic</strong> backgrounds show the newest artwork behind the box's link; <strong>Random</strong> ones show a different picture each time the home page is opened.
+            Changes go live when you press Save.</p>
 
         <div class="mhb-tabs"><button type="button" class="mhb-tab is-on" data-view="desktop"><span class="dashicons dashicons-desktop"></span> Desktop</button><button type="button" class="mhb-tab" data-view="phone"><span class="dashicons dashicons-smartphone"></span> Phone</button></div>
         <div id="mhb-rows"></div>
@@ -117,6 +148,20 @@ function monospace_home_boxes_page() {
             <?php wp_nonce_field( 'monospace_home_layout_save' ); ?>
             <input type="hidden" name="action" value="monospace_home_layout_save">
             <input type="hidden" name="layout_json" id="mhb-json" value="">
+
+            <h2 style="margin-top:28px">Top content</h2>
+            <p class="description" style="max-width:760px">A banner or announcement under the logo and tagline, above the boxes - as the Top content of the other pages
+                (Layout Manager &gt; Headers &amp; Sidebars). Leave empty for none. HTML and shortcodes allowed. Saved with Save home page.</p>
+            <div style="max-width:900px">
+                <?php wp_editor( (string) get_option( 'monospace_home_top_content', '' ), 'mhb_top_content', [ 'textarea_name' => 'home_top_content', 'media_buttons' => true, 'textarea_rows' => 5, 'teeny' => false, 'quicktags' => true ] ); ?>
+                <?php if ( function_exists( 'monospace_banner_fields' ) ) monospace_banner_fields( 'home_top_style', monospace_banner_area( 'monospace_home_top_style' ), true, 'mhb_top_content' ); ?>
+            </div>
+
+            <h2 style="margin-top:28px">Search box</h2>
+            <input type="hidden" name="home_search_seen" value="1">
+            <p><label><input type="checkbox" name="home_search" value="1" <?php checked( monospace_home_search_on() ); ?>> Show a search box above the boxes, at the right</label></p>
+            <p class="description" style="max-width:760px">The search field and button at the top of the home page. The menu bar's Search icon (Appearance &gt; Look &gt; Menu bar) searches the same way,
+                so you can show one, both or neither. Saved with Save home page.</p>
 
             <?php $share = (int) get_option( 'monospace_home_share_image', 0 );
             $share_src = $share ? wp_get_attachment_image_url( $share, 'medium_large' ) : '';
@@ -136,7 +181,7 @@ function monospace_home_boxes_page() {
                     <p><label for="mhb-share-description"><strong>Description</strong></label><br>
                         <textarea name="share_description" id="mhb-share-description" class="large-text" rows="3" maxlength="300"
                                   placeholder="<?php echo esc_attr( $share_defaults['description'] ); ?>"><?php echo esc_textarea( get_option( 'monospace_home_share_description', '' ) ); ?></textarea></p>
-                    <p class="description">Leave a field empty to use the default shown in grey. Only the share card changes - the browser tab title and the description search engines show stay as they are.
+                    <p class="description">Leave a field empty to use the default shown in gray. Only the share card changes - the browser tab title and the description search engines show stay as they are.
                         Around 60 characters for the title and 155 for the description show in full in most apps.</p>
                     <p class="description">The picture shown when the home page is shared - Facebook, Instagram, Bluesky, iMessage and others.
                         Best 1200 × 630 px (landscape); most apps crop to about that shape, so keep the important part in the middle.
@@ -182,6 +227,11 @@ function monospace_home_boxes_page() {
         .mhb-box-foot { display: flex; justify-content: space-between; align-items: flex-end; padding: 5px 8px; font-size: 11px;
                         background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.75) 70%); text-shadow: 0 1px 2px #000; }
         .mhb-box-auto { font-style: italic; opacity: .9; }
+        .mhb-rnd { margin: 2px 0 6px 22px; padding: 8px 10px; background: #f6f7f7; border: 1px solid #dcdcde; border-radius: 4px; }
+        .mhb-rnd-thumbs { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+        .mhb-rnd-t { position: relative; width: 48px; height: 48px; background: #ddd center / cover; border-radius: 4px; }
+        .mhb-rnd-x { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; padding: 0; line-height: 16px; border: 0; border-radius: 50%; background: #1d2327; color: #fff; font-size: 13px; cursor: pointer; }
+        .mhb-rnd .description { margin: 4px 0 0; }
         .mhb-box.is-editing { outline: 3px solid #2271b1; outline-offset: 2px; }
         .mhb-eye { position: absolute; top: 4px; right: 4px; z-index: 2; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%;
                    background: rgba(255,255,255,.9); color: #1d2327; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
@@ -228,6 +278,18 @@ function monospace_home_boxes_page() {
         .mhb-editor .mhb-actions { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; }
         .mhb-editor .mhb-actions .button-link-delete { margin-left: auto; }
         .mhb-empty { color: #888; font-style: italic; padding: 40px 10px; }
+        .mhb-style { grid-column: 1 / -1; border-top: 1px solid #dcdcde; padding-top: 10px; }
+        .mhb-style-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 18px; }
+        .mhb-style-grid > label { display: grid; gap: 3px; font-weight: 600; }
+        .mhb-style-grid > label > span { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+        .mhb-style-grid input[type=color] { width: 40px; height: 28px; padding: 0 2px; }
+        .mhb-style-grid select { width: 100%; }
+        .mhb-box.hb-outline .mhb-box-title { background: none; }
+        .mhb-dark-bg { margin-top: 12px; padding-top: 10px; border-top: 1px solid #dcdcde; }
+        .mhb-dark-bg > label { display: block; margin-bottom: 4px; }
+        .mhb-dark-preview { width: 100%; aspect-ratio: 3 / 2; border-radius: 8px; margin: 6px 0; background: #1e1c1a center / cover no-repeat; display: flex; align-items: center; justify-content: center; color: #a8a196; font-style: italic; }
+        .mhb-box-dark { margin-left: 4px; background: #1e1c1a; color: #e4dfd6; border-radius: 3px; padding: 0 5px; font-style: normal; text-shadow: none; }
+        .mhb-box-styled { margin-left: 4px; background: #2271b1; color: #fff; border-radius: 3px; padding: 0 5px; font-style: normal; text-shadow: none; }
     </style>
 
     <script>
@@ -239,6 +301,16 @@ function monospace_home_boxes_page() {
         var WIDTHS  = { 1: 'Narrow', 2: 'Normal', 3: 'Wide' };
         var PAGES   = <?php echo wp_json_encode( array_map( function ( $p ) { return [ $p->ID, html_entity_decode( get_the_title( $p ) ), get_edit_post_link( $p->ID, 'raw' ), $p->post_name ]; }, get_pages( [ 'sort_column' => 'post_title' ] ) ) ); ?>;
         var HOME    = <?php echo wp_json_encode( home_url( '/' ) ); ?>;
+        var DARK    = <?php echo function_exists( 'monospace_dark_settings' ) ? 'true' : 'false'; ?>; // dark mode (design/dark-mode.php)
+        // Box style (design/home-box-style.php): the choices and the style of all boxes
+        var STYLE   = <?php echo wp_json_encode( function_exists( 'monospace_home_box_style' ) ? [
+            'all'   => monospace_home_box_style(),
+            'bars'  => monospace_home_box_bars(),
+            'sizes' => array_map( fn( $s ) => $s[0], monospace_home_box_sizes() ),
+            'fonts' => function_exists( 'monospace_customizer_fonts' ) ? array_map( fn( $f ) => $f[0], monospace_customizer_fonts() ) : new stdClass(),
+            'look'  => admin_url( 'themes.php?page=monospace-look' ),
+            'radii' => function_exists( 'monospace_rounding_steps' ) ? (object) array_combine( monospace_rounding_steps(), array_map( fn( $px ) => $px ? $px . 'px' : 'Square (0)', monospace_rounding_steps() ) ) : new stdClass(),
+        ] : null ); ?>;
         // Anchors: like WordPress's sanitize_title - lower case, letters / digits / dashes
         function slug(t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/&/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
         function anchorField(value, auto) {
@@ -250,6 +322,194 @@ function monospace_home_boxes_page() {
         function notesField() {
             return '<div class="f"><label>Notes</label><div><textarea class="mhb-f-notes" rows="3" style="width:100%;max-width:520px"></textarea>' +
                 '<p class="description">Only for you - never shown on the site.</p></div></div>';
+        }
+        // Random pictures (2026-10-23): box.image = { mode: 'random', pool: 'link' | 'media', ids: [...] }; box.randomPreviews = [{ id, url }]
+        // (the chosen pictures' thumbnails). A link box can draw from the artworks behind its link; a text box only from pictures chosen here.
+        var MAXR = <?php echo (int) MONOSPACE_HOME_RANDOM_MAX; ?>;
+        function randomField(linkOk) {
+            return '<div class="mhb-rnd" hidden>' +
+                (linkOk ? '<label style="margin-right:14px"><input type="radio" name="mhb-pool" value="link"> Artworks behind the link</label>' : '') +
+                '<label><input type="radio" name="mhb-pool" value="media"> Pictures I choose</label>' +
+                '<div class="mhb-rnd-thumbs"></div>' +
+                '<button type="button" class="button mhb-rnd-add">Add pictures…</button>' +
+                '<p class="description mhb-rnd-note"></p></div>';
+        }
+        function wireRandom($ed, box, linkOk, onChange) {
+            var rs = box.randomPreviews = (box.randomPreviews || []).slice();
+            var pool = box.image && box.image.mode === 'random' && box.image.pool ? box.image.pool : (linkOk ? 'link' : 'media');
+            $ed.find('[name=mhb-pool][value=' + pool + ']').prop('checked', true);
+            function pickedPool() { return $ed.find('[name=mhb-pool]:checked').val() || 'media'; }
+            function draw() {
+                var on = $ed.find('[name=mhb-img]:checked').val() === 'random', p = pickedPool();
+                $ed.find('.mhb-rnd').prop('hidden', !on);
+                $ed.find('.mhb-rnd-thumbs, .mhb-rnd-add').toggle(p === 'media');
+                $ed.find('.mhb-rnd-thumbs').html(rs.map(function (r, i) {
+                    return '<span class="mhb-rnd-t" style="background-image:' + bg(r.url) + '"><button type="button" class="mhb-rnd-x" data-i="' + i + '" title="Remove">×</button></span>'; }).join(''));
+                $ed.find('.mhb-rnd-note').text(p === 'link' ? 'A different artwork from this box’s link each time the home page is opened.'
+                    : (rs.length < 2 ? 'Add at least two pictures (up to ' + MAXR + ').' : rs.length + ' pictures - one is picked each time the home page is opened.'));
+            }
+            $ed.on('change', '[name=mhb-img], [name=mhb-pool]', function () { draw(); onChange(); });
+            $ed.on('click', '.mhb-rnd-x', function () { rs.splice(+$(this).data('i'), 1); draw(); onChange(); });
+            $ed.on('click', '.mhb-rnd-add', function () {
+                var frame = wp.media({ title: 'Random pictures', library: { type: 'image' }, multiple: 'add', button: { text: 'Add these pictures' } });
+                frame.on('select', function () {
+                    frame.state().get('selection').each(function (m) {
+                        var a = m.toJSON();
+                        if (rs.length < MAXR && !rs.some(function (r) { return r.id === a.id; })) rs.push({ id: a.id, url: (a.sizes && (a.sizes.thumbnail || a.sizes.medium) || a).url });
+                    });
+                    draw(); onChange();
+                });
+                frame.open();
+            });
+            draw();
+            return {
+                // the picture for the editor's big preview ('' = none yet)
+                previewUrl: function (autoUrl) { return pickedPool() === 'media' ? (rs[0] ? rs[0].url : '') : (autoUrl || ''); },
+                // what Done saves; false = not usable yet (fewer than two pictures)
+                read: function () {
+                    if (pickedPool() === 'link') return { image: { mode: 'random', pool: 'link' }, previews: [] };
+                    if (rs.length < 2) return false;
+                    return { image: { mode: 'random', pool: 'media', ids: rs.map(function (r) { return r.id; }) }, previews: rs.slice() };
+                }
+            };
+        }
+        // Dark mode background: Same as light / Own image / No background (box.dark_image; preview box.dark_preview)
+        function darkBgField() {
+            if (!DARK) return '';
+            return '<div class="mhb-dark-bg"><strong>☾ Dark mode</strong> <span class="description">- the background in dark mode</span>' +
+                '<label><input type="radio" name="mhb-dimg" value="same"> Same as light</label>' +
+                '<label><input type="radio" name="mhb-dimg" value="media"> Own image</label>' +
+                '<label><input type="radio" name="mhb-dimg" value="none"> No background</label>' +
+                '<div class="mhb-dark-preview"></div><button type="button" class="button mhb-f-dchoose">Choose image…</button>' +
+                '<div class="mhb-dark-blur" style="margin-top:12px"><b>Blur</b> <input type="range" class="mhb-f-dblur" min="0" max="' + BLUR_MAX + '" step="1" style="vertical-align:middle"> ' +
+                  '<output class="mhb-dblur-out"></output> <label style="margin-left:8px"><input type="checkbox" class="mhb-f-dsame"> Same as light</label></div></div>';
+        }
+        // Background blur (box.blur for the light look, box.dark_blur for the dark one; null = same as light), 0 - BLUR_MAX px
+        var BLUR_MAX = 40;
+        function blurField() {
+            return '<div class="mhb-light-blur" style="margin-top:12px"><b>Blur</b> <input type="range" class="mhb-f-blur" min="0" max="' + BLUR_MAX + '" step="1" value="0" style="vertical-align:middle"> ' +
+                '<output class="mhb-blur-out"></output><p class="description" style="margin:2px 0 0">Softens the background picture (0 = sharp).</p></div>';
+        }
+        function wireBlur($ed, box) {
+            var $l = $ed.find('.mhb-f-blur'), $d = $ed.find('.mhb-f-dblur'), $same = $ed.find('.mhb-f-dsame');
+            $l.val(+box.blur || 0);
+            var same0 = box.dark_blur === null || box.dark_blur === undefined || box.dark_blur === '';
+            $same.prop('checked', same0);
+            $d.val(same0 ? (+box.blur || 0) : +box.dark_blur);
+            function update() {
+                var lb = +$l.val() || 0, same = $same.prop('checked');
+                if (same) $d.val(lb);
+                var db = +$d.val() || 0, lmode = $ed.find('[name=mhb-img]:checked').val(), dmode = $ed.find('[name=mhb-dimg]:checked').val();
+                $ed.find('.mhb-blur-out').text(lb + ' px');
+                $ed.find('.mhb-dblur-out').text(db + ' px');
+                $d.prop('disabled', same);
+                $ed.find('.mhb-light-blur').toggle(lmode !== 'none');
+                $ed.find('.mhb-dark-blur').toggle(dmode !== 'none');
+                // the previews are about a third of the box's size
+                $ed.find('.mhb-img-preview').css('filter', lb && lmode !== 'none' ? 'blur(' + Math.round(lb / 3) + 'px)' : '');
+                $ed.find('.mhb-dark-preview').css('filter', db ? 'blur(' + Math.round(db / 3) + 'px)' : '');
+            }
+            $ed.on('input change', '.mhb-f-blur, .mhb-f-dblur, .mhb-f-dsame, [name=mhb-img], [name=mhb-dimg]', update);
+            setTimeout(update, 0); // after the editor has ticked its radios
+        }
+        function readBlur($ed, box) {
+            var lb = $ed.find('[name=mhb-img]:checked').val() === 'none' ? 0 : (+$ed.find('.mhb-f-blur').val() || 0);
+            if (!DARK) return { blur: lb, dark_blur: box.dark_blur === undefined ? null : box.dark_blur };
+            return { blur: lb, dark_blur: $ed.find('.mhb-f-dsame').prop('checked') ? null : (+$ed.find('.mhb-f-dblur').val() || 0) };
+        }
+        function wireDark($ed, box) {
+            if (!DARK) return;
+            box.dark_image = box.dark_image || { mode: 'same' };
+            $ed.find('[name=mhb-dimg][value=' + (box.dark_image.mode || 'same') + ']').prop('checked', true);
+            function show() {
+                var mode = $ed.find('[name=mhb-dimg]:checked').val();
+                var url = mode === 'media' ? box.dark_preview : '';
+                $ed.find('.mhb-dark-preview').css('background-image', bg(url)).text(url ? '' : (mode === 'media' ? 'Choose an image' : (mode === 'none' ? 'No background' : 'As in the light look'))).toggle(mode !== 'same');
+            }
+            $ed.on('change', '[name=mhb-dimg]', show);
+            $ed.on('click', '.mhb-f-dchoose', function () {
+                var frame = wp.media({ title: 'Dark mode background', library: { type: 'image' }, multiple: false, button: { text: 'Use this image' } });
+                frame.on('select', function () {
+                    var a = frame.state().get('selection').first().toJSON();
+                    box.dark_image = { mode: 'media', id: a.id };
+                    box.dark_preview = (a.sizes && (a.sizes.medium_large || a.sizes.large || a.sizes.medium) || a).url;
+                    $ed.find('[name=mhb-dimg][value=media]').prop('checked', true); show();
+                });
+                frame.open();
+            });
+            show();
+        }
+        // The chosen dark background, for Done (false = an own image without one chosen)
+        function readDark($ed, box) {
+            if (!DARK) return { dark_image: box.dark_image || { mode: 'same' }, dark_preview: box.dark_preview || '' };
+            var mode = $ed.find('[name=mhb-dimg]:checked').val() || 'same';
+            if (mode === 'media' && !(box.dark_image && box.dark_image.mode === 'media' && box.dark_image.id)) return false;
+            return { dark_image: mode === 'media' ? { mode: 'media', id: box.dark_image.id } : { mode: mode }, dark_preview: mode === 'media' ? box.dark_preview : '' };
+        }
+
+        // Style: each part "As all boxes" (Appearance > Look) or the box's own - saved in box.style, only the parts set
+        // dark: the box's style for the dark look only (box.dark_style; fields mhb-ds-*), "Same as light" instead of "As all boxes"
+        function styleFields(dark) {
+            if (!STYLE) return '';
+            var A = STYLE.all, P = dark ? 'mhb-ds-' : 'mhb-s-';
+            function sel(key, choices, allLabel) {
+                return '<select class="' + P + key + '"><option value="">' + (dark ? 'Same as light' : 'As all boxes (' + esc(allLabel) + ')') + '</option>' +
+                    Object.keys(choices).map(function (k) { return '<option value="' + esc(k) + '">' + esc(choices[k]) + '</option>'; }).join('') + '</select>';
+            }
+            function color(key, label, value) {
+                return '<label>' + label + '<span><input type="checkbox" class="' + P + key + '-on"> Own color <input type="color" class="' + P + key + '" value="' + esc(value) + '"></span></label>';
+            }
+            var fonts = {}; Object.keys(STYLE.fonts).forEach(function (f) { fonts[f] = f; });
+            return '<div class="mhb-style' + (dark ? ' mhb-style-dark' : '') + '"><p style="margin:0 0 8px"><strong>' + (dark ? '☾ Dark mode style' : 'Style') + '</strong> <span class="description">- ' +
+                (dark ? 'only this box, only in dark mode. Anything left “Same as light” follows its light style above.' :
+                'only this box. Anything left “As all boxes” follows <a href="' + esc(STYLE.look) + '" target="_blank">Appearance → Look → Home page boxes</a>.') + '</span></p>' +
+                '<div class="mhb-style-grid">' +
+                  '<label>Title bar' + sel('bar', STYLE.bars, STYLE.bars[A.bar]) + '</label>' +
+                  color('color', 'Bar / outline color', A.color) +
+                  '<label>Shadow' + sel('shadow', { on: 'Shadow', off: 'No shadow' }, A.shadow === 'off' ? 'no shadow' : 'shadow') + '</label>' +
+                  '<label>Font' + sel('font', fonts, A.font || 'headings font') + '</label>' +
+                  '<label>Text size' + sel('size', STYLE.sizes, STYLE.sizes[A.size]) + '</label>' +
+                  color('text', 'Title color', A.text || '#ffffff') +
+                  '<label>Rounding' + sel('radius', STYLE.radii, A.radius !== '' ? A.radius + 'px' : 'site-wide') + '</label>' +
+                '</div></div>';
+        }
+        function fillStyle($ed, st, dark) {
+            st = st || {};
+            var P = dark ? '.mhb-ds-' : '.mhb-s-';
+            ['bar', 'shadow', 'font', 'size', 'radius'].forEach(function (k) { $ed.find(P + k).val(st[k] != null ? String(st[k]) : ''); });
+            ['color', 'text'].forEach(function (k) {
+                $ed.find(P + k + '-on').prop('checked', !!st[k]);
+                if (st[k]) $ed.find(P + k).val(st[k]);
+            });
+            function sync() { ['color', 'text'].forEach(function (k) { $ed.find(P + k).prop('disabled', !$ed.find(P + k + '-on').prop('checked')); }); }
+            $ed.on('change', (dark ? '.mhb-style-dark' : '.mhb-style:not(.mhb-style-dark)') + ' input[type=checkbox]', sync); sync();
+            if (dark) return; // the card shows the light style
+            // Live: the card being edited shows the style as it's set (kept only with Done)
+            $ed.on('input change', '.mhb-style:not(.mhb-style-dark)', function () {
+                if (!$editing) return;
+                $editing.removeClass('hb-outline').css({ boxShadow: '', borderRadius: '' }).find('.mhb-box-styled').remove();
+                $editing.find('.mhb-box-title').css({ background: '', fontFamily: '', color: '' });
+                styleCard($editing, $.extend({}, $editing.data('box'), { style: readStyle($ed) }));
+            });
+        }
+        function readStyle($ed, dark) {
+            var st = {}, P = dark ? '.mhb-ds-' : '.mhb-s-';
+            ['bar', 'shadow', 'font', 'size', 'radius'].forEach(function (k) { var v = $ed.find(P + k).val(); if (v) st[k] = v; });
+            ['color', 'text'].forEach(function (k) { if ($ed.find(P + k + '-on').prop('checked')) st[k] = $ed.find(P + k).val(); });
+            return st;
+        }
+        // The card shows the box's style (as all boxes, with its own parts over it)
+        function styleCard($li, box) {
+            if (!STYLE || (box.type === 'content' && box.look === 'plain')) return;
+            var s = $.extend({}, STYLE.all, box.style || {}), $t = $li.find('.mhb-box-title');
+            if (['color-gloss', 'solid', 'solid-outline'].indexOf(s.bar) > -1) $t.css('background', s.color);
+            if (s.bar === 'outline') $li.addClass('hb-outline');
+            if (s.bar === 'outline' || s.bar === 'solid-outline') $li.css('box-shadow', 'inset 0 0 0 3px ' + s.color);
+            else if (s.shadow === 'off') $li.css('box-shadow', 'none');
+            if (s.font && STYLE.fonts[s.font]) $t.css('font-family', STYLE.fonts[s.font]);
+            if (s.text) $t.css('color', s.text);
+            if (s.radius !== '' && s.radius != null) $li.css('border-radius', Math.round(s.radius * .8) + 'px'); // the card is smaller
+            if (box.style && Object.keys(box.style).length) $li.find('.mhb-box-foot').append('<span class="mhb-box-styled" title="This box has its own style">own style</span>');
         }
         function wireAnchor($ed, autoOf) {
             function upd() {
@@ -276,14 +536,15 @@ function monospace_home_boxes_page() {
                 var page = pageOf(box.page);
                 var $t = $('<li class="mhb-box is-text w' + box.width + (box.look === 'plain' ? ' is-plain' : '') + '">' +
                     '<div class="mhb-box-title">' + esc(box.title || '(no title)') + '</div>' +
-                    '<div class="mhb-box-foot"><span>Text: ' + (box.source === 'own' ? 'written here' : esc(page ? page[1] : 'missing page')) + '</span><span class="mhb-box-auto">' + (box.look === 'plain' ? 'plain' : 'box') + '</span></div></li>');
+                    '<div class="mhb-box-foot"><span>Text: ' + (box.link && box.look !== 'plain' ? '→ ' + esc(box.link) + ' · ' : '') + (box.source === 'own' ? 'written here' : esc(page ? page[1] : 'missing page')) + '</span><span class="mhb-box-auto">' + (box.look === 'plain' ? 'plain' : 'box') + '</span></div></li>');
                 $t.css('background-image', bg(previewOf(box))).data('box', box);
                 return eyed($t, box);
             }
             var $li = $('<li class="mhb-box w' + box.width + '">' +
                 '<div class="mhb-box-title">' + (box.badge ? '<span class="mhb-box-badge">' + esc(box.badge) + '</span>' : '') + esc(box.title || '(no title)') + '</div>' +
                 '<div class="mhb-box-foot"><span>' + esc(box.link || 'no link') + '</span>' +
-                (box.image.mode === 'auto' ? '<span class="mhb-box-auto">automatic</span>' : '') + '</div></li>');
+                (box.image.mode === 'auto' ? '<span class="mhb-box-auto">automatic</span>' : '') +
+                (box.image.mode === 'random' ? '<span class="mhb-box-auto">random</span>' : '') + '</div></li>');
             $li.css('background-image', bg(previewOf(box))).data('box', box);
             return eyed($li, box);
         }
@@ -304,6 +565,8 @@ function monospace_home_boxes_page() {
                        '<span class="dashicons dashicons-' + (box.d_hide ? 'hidden' : 'visibility') + '"></span></button>');
             if (box.m_hide) $li.find('.mhb-box-foot').append('<span class="mhb-box-phone" title="Hidden on phones (Phone view)">hidden on phones</span>');
             if (box.notes) $li.append($('<span class="mhb-box-note dashicons dashicons-format-aside"></span>').attr('title', box.notes));
+            if (box.dark_image && box.dark_image.mode && box.dark_image.mode !== 'same') $li.find('.mhb-box-foot').append('<span class="mhb-box-dark" title="' + (box.dark_image.mode === 'none' ? 'No background in dark mode' : 'Its own background in dark mode') + '">☾</span>');
+            styleCard($li, box);
             return $li;
         }
 
@@ -359,7 +622,11 @@ function monospace_home_boxes_page() {
             return h + '</select>';
         }
 
-        function closeEditor() { if (window.wp && wp.editor && window.tinymce && tinymce.get('mhb-html')) wp.editor.remove('mhb-html'); $('.mhb-editor').remove(); $('.mhb-box').removeClass('is-editing'); $editing = null; }
+        function closeEditor() {
+            if (window.wp && wp.editor && window.tinymce && tinymce.get('mhb-html')) wp.editor.remove('mhb-html');
+            if ($editing && $editing.closest('body').length) $editing.replaceWith(boxCard($editing.data('box'))); // Cancel: back to the saved style
+            $('.mhb-editor').remove(); $('.mhb-box').removeClass('is-editing'); $editing = null;
+        }
 
         // Text box: title, the page whose text it shows (edited there), look, width, background
         function openTextEditor($li) {
@@ -377,6 +644,7 @@ function monospace_home_boxes_page() {
                     '<a class="button mhb-f-edit" target="_blank">Edit text ↗</a><p class="description">The box shows this page’s text - edit it in the page (opens in a new tab), then reload the home page.</p></div></div>' +
                   '<div class="mhb-src-own"><textarea id="mhb-html" rows="10"></textarea>' +
                     '<p class="description">Headings, bold, links, lists, images… Saved with the layout (press Save below).</p></div>' +
+                  '<div class="f mhb-f-linkrow"><label>Link <small>(optional)</small></label><div><input type="text" class="mhb-f-link" placeholder="/category/print/ or https://…" style="margin-bottom:6px">' + linkSelect(box.link) + '<p class="description">Makes the title and the box around the text a link, like the other boxes. Links inside the text keep working.</p></div></div>' +
                   '<div class="f"><label>Look</label><div><label style="margin-right:14px"><input type="radio" name="mhb-look" value="plain"> Plain text (like Welcome)</label>' +
                     '<label><input type="radio" name="mhb-look" value="box"> Box with title bar and background (like News; long text scrolls)</label></div></div>' +
                   '<div class="f"><label>Width</label><div>' + Object.keys(WIDTHS).map(function (w) {
@@ -388,16 +656,27 @@ function monospace_home_boxes_page() {
                   '<div class="mhb-img-preview"></div>' +
                   '<label style="display:block;margin-bottom:4px"><input type="radio" name="mhb-img" value="none"> No background</label>' +
                   '<label style="display:block;margin-bottom:4px"><input type="radio" name="mhb-img" value="media"> Image from the media library</label>' +
+                  '<label style="display:block;margin-bottom:4px"><input type="radio" name="mhb-img" value="random"> Random (a different picture each visit)</label>' + randomField(false) +
                   (box.image.mode === 'file' ? '<label style="display:block;margin-bottom:4px"><input type="radio" name="mhb-img" value="file"> Original theme image</label>' : '') +
                   '<button type="button" class="button mhb-f-choose" style="margin-top:6px">Choose image…</button>' +
+                  blurField() +
+                  darkBgField() +
                 '</div>' +
+                styleFields() +
+                (DARK ? styleFields(true) : '') +
                 '<div class="mhb-actions"><button type="button" class="button button-primary mhb-done">Done</button>' +
                   '<button type="button" class="button mhb-cancel">Cancel</button>' +
                   '<button type="button" class="button-link button-link-delete mhb-del">Remove box</button></div>' +
                 '</div>');
+            fillStyle($ed, box.style);
+            if (DARK) fillStyle($ed, box.dark_style, true);
+            wireDark($ed, box);
+            wireBlur($ed, box);
             $ed.find('.mhb-f-title').val(box.title);
             $ed.find('[name=mhb-look][value=' + (box.look === 'plain' ? 'plain' : 'box') + ']').prop('checked', true);
             $ed.find('.mhb-f-anchor').val(box.anchor || '');
+            $ed.find('.mhb-f-link').val(box.link || '');
+            $ed.on('change', '.mhb-f-pick', function () { if (this.value) $ed.find('.mhb-f-link').val(this.value); });
             $ed.find('.mhb-f-notes').val(box.notes || '');
             $ed.find('[name=mhb-src][value=' + (box.source === 'own' ? 'own' : 'page') + ']').prop('checked', true);
             $ed.find('#mhb-html').val(box.html || '');
@@ -418,6 +697,7 @@ function monospace_home_boxes_page() {
             });
             $ed.find('[name=mhb-img][value=' + box.image.mode + ']').prop('checked', true);
             if (box.image.mode === 'media') box.mediaPreview = box.preview;
+            var rnd = wireRandom($ed, box, false, function () { refreshPanel(); });
 
             function refreshPanel() {
                 var page = pageOf($ed.find('.mhb-f-page').val());
@@ -425,9 +705,11 @@ function monospace_home_boxes_page() {
                 $ed.find('.mhb-src-page').toggle(!own()); $ed.find('.mhb-src-own').toggle(own());
                 var plain = $ed.find('[name=mhb-look]:checked').val() === 'plain';
                 $ed.find('.mhb-text-bg').css('opacity', plain ? .4 : 1);
+                $ed.find('.mhb-f-linkrow').toggle(!plain); // plain text can't be a link
+                $ed.find('.mhb-style').toggle(!plain); // plain text has no bar or shadow
                 var mode = $ed.find('[name=mhb-img]:checked').val();
-                var url = mode === 'file' ? THEME + box.image.file : (mode === 'media' ? box.mediaPreview : '');
-                $ed.find('.mhb-img-preview').css('background-image', bg(url)).text(url ? '' : (mode === 'media' ? 'Choose an image' : 'No background'));
+                var url = mode === 'file' ? THEME + box.image.file : (mode === 'media' ? box.mediaPreview : (mode === 'random' ? rnd.previewUrl('') : ''));
+                $ed.find('.mhb-img-preview').css('background-image', bg(url)).text(url ? '' : (mode === 'media' ? 'Choose an image' : (mode === 'random' ? 'Add pictures to see a preview' : 'No background')));
             }
             refreshPanel();
             $ed.on('change', 'select, input', refreshPanel);
@@ -451,15 +733,25 @@ function monospace_home_boxes_page() {
                 var page = +$ed.find('.mhb-f-page').val(), mode = $ed.find('[name=mhb-img]:checked').val() || 'none';
                 if (!own() && !page) { alert('Choose the page whose text the box shows.'); return; }
                 if (mode === 'media' && !(box.image.mode === 'media' && box.image.id)) { alert('Choose an image from the media library first, or pick No background.'); return; }
+                var rr = null;
+                if (mode === 'random') { rr = rnd.read(); if (!rr) { alert('Add at least two pictures for the random background.'); return; } }
                 var updated = { type: 'content', title: $.trim($ed.find('.mhb-f-title').val()), page: own() ? 0 : page,
                     source: own() ? 'own' : 'page', html: own() ? ownHtml() : '', anchor: slug($ed.find('.mhb-f-anchor').val()),
+                    link: $ed.find('[name=mhb-look]:checked').val() === 'plain' ? '' : $.trim($ed.find('.mhb-f-link').val()),
                     look: $ed.find('[name=mhb-look]:checked').val() === 'plain' ? 'plain' : 'box',
                     width: +$ed.find('[name=mhb-w]:checked').val() || 1,
-                    image: mode === 'media' ? { mode: 'media', id: box.image.id } : (mode === 'file' ? { mode: 'file', file: $li.data('box').image.file } : { mode: 'none' }) };
-                updated.preview = mode === 'media' ? box.mediaPreview : '';
+                    image: rr ? rr.image : (mode === 'media' ? { mode: 'media', id: box.image.id } : (mode === 'file' ? { mode: 'file', file: $li.data('box').image.file } : { mode: 'none' })) };
+                updated.preview = rr ? rnd.previewUrl('') : (mode === 'media' ? box.mediaPreview : '');
+                updated.randomPreviews = rr ? rr.previews : [];
                 updated.m_order = $li.data('box').m_order || 0;
                 updated.m_hide = !!$li.data('box').m_hide; updated.d_hide = !!$li.data('box').d_hide; // the eyes set these
                 updated.notes = $.trim($ed.find('.mhb-f-notes').val());
+                updated.style = updated.look === 'plain' ? ($li.data('box').style || {}) : readStyle($ed);
+                updated.dark_style = updated.look === 'plain' ? ($li.data('box').dark_style || {}) : (DARK ? readStyle($ed, true) : ($li.data('box').dark_style || {}));
+                var dk = readDark($ed, box);
+                if (!dk) { alert('Choose the dark mode image first, or pick Same as light.'); return; }
+                updated.dark_image = dk.dark_image; updated.dark_preview = dk.dark_preview;
+                $.extend(updated, readBlur($ed, box));
                 $li.replaceWith(boxCard(updated)); closeEditor(); changed();
             });
             $li.closest('.mhb-row').append($ed);
@@ -491,13 +783,22 @@ function monospace_home_boxes_page() {
                   '<div class="mhb-img-preview"></div>' +
                   '<label style="display:block;margin-bottom:4px"><input type="radio" name="mhb-img" value="auto"> Automatic (newest artwork)</label>' +
                   '<label style="display:block;margin-bottom:4px"><input type="radio" name="mhb-img" value="media"> Image from the media library</label>' +
+                  '<label style="display:block;margin-bottom:4px"><input type="radio" name="mhb-img" value="random"> Random (a different picture each visit)</label>' + randomField(true) +
                   (box.image.mode === 'file' ? '<label style="display:block;margin-bottom:4px"><input type="radio" name="mhb-img" value="file"> Original theme image</label>' : '') +
                   '<button type="button" class="button mhb-f-choose" style="margin-top:6px">Choose image…</button>' +
+                  blurField() +
+                  darkBgField() +
                 '</div>' +
+                styleFields() +
+                (DARK ? styleFields(true) : '') +
                 '<div class="mhb-actions"><button type="button" class="button button-primary mhb-done">Done</button>' +
                   '<button type="button" class="button mhb-cancel">Cancel</button>' +
                   '<button type="button" class="button-link button-link-delete mhb-del">Remove box</button></div>' +
                 '</div>');
+            fillStyle($ed, box.style);
+            if (DARK) fillStyle($ed, box.dark_style, true);
+            wireDark($ed, box);
+            wireBlur($ed, box);
             $ed.find('.mhb-f-title').val(box.title);
             $ed.find('.mhb-f-badge').val(box.badge);
             $ed.find('.mhb-f-text').val(box.text);
@@ -509,8 +810,8 @@ function monospace_home_boxes_page() {
 
             function showPreview() {
                 var mode = $ed.find('[name=mhb-img]:checked').val();
-                var url = mode === 'file' ? THEME + box.image.file : (mode === 'media' ? box.mediaPreview || box.preview : box.autoPreview);
-                $ed.find('.mhb-img-preview').css('background-image', bg(url)).text(url ? '' : (mode === 'media' ? 'Choose an image' : 'No artwork found for this link'));
+                var url = mode === 'file' ? THEME + box.image.file : (mode === 'media' ? box.mediaPreview || box.preview : (mode === 'random' ? rnd.previewUrl(box.autoPreview) : box.autoPreview));
+                $ed.find('.mhb-img-preview').css('background-image', bg(url)).text(url ? '' : (mode === 'media' ? 'Choose an image' : (mode === 'random' ? 'Add pictures to see a preview' : 'No artwork found for this link')));
             }
             function refreshAuto() {
                 var link = $.trim($ed.find('.mhb-f-link').val());
@@ -521,6 +822,7 @@ function monospace_home_boxes_page() {
             if (box.image.mode === 'media') box.mediaPreview = box.preview;
             box.autoPreview = box.image.mode === 'auto' ? box.preview : '';
             if (box.image.mode !== 'auto') refreshAuto();
+            var rnd = wireRandom($ed, box, true, showPreview);
             showPreview();
 
             $ed.on('change', '[name=mhb-img]', showPreview);
@@ -545,18 +847,27 @@ function monospace_home_boxes_page() {
             $ed.on('click', '.mhb-done', function () {
                 var mode = $ed.find('[name=mhb-img]:checked').val() || 'auto';
                 if (mode === 'media' && !(box.image.mode === 'media' && box.image.id)) { alert('Choose an image from the media library first, or pick Automatic.'); return; }
+                var rr = null;
+                if (mode === 'random') { rr = rnd.read(); if (!rr) { alert('Add at least two pictures, or pick Artworks behind the link.'); return; } }
                 var updated = {
                     title: $.trim($ed.find('.mhb-f-title').val()), badge: $.trim($ed.find('.mhb-f-badge').val()),
                     text: $.trim($ed.find('.mhb-f-text').val()), link: $.trim($ed.find('.mhb-f-link').val()),
                     width: +$ed.find('[name=mhb-w]:checked').val() || 2,
-                    image: mode === 'media' ? { mode: 'media', id: box.image.id } : (mode === 'file' ? { mode: 'file', file: $li.data('box').image.file } : { mode: 'auto' }),
+                    image: rr ? rr.image : (mode === 'media' ? { mode: 'media', id: box.image.id } : (mode === 'file' ? { mode: 'file', file: $li.data('box').image.file } : { mode: 'auto' })),
                     anchor: slug($ed.find('.mhb-f-anchor').val())
                 };
-                updated.preview = mode === 'media' ? box.mediaPreview : (mode === 'auto' ? box.autoPreview : '');
+                updated.preview = rr ? rnd.previewUrl(box.autoPreview) : (mode === 'media' ? box.mediaPreview : (mode === 'auto' ? box.autoPreview : ''));
+                updated.randomPreviews = rr ? rr.previews : [];
                 if (!updated.title && !updated.link) { alert('A box needs at least a title or a link.'); return; }
                 updated.m_order = $li.data('box').m_order || 0;
                 updated.m_hide = !!$li.data('box').m_hide; updated.d_hide = !!$li.data('box').d_hide; // the eyes set these
                 updated.notes = $.trim($ed.find('.mhb-f-notes').val());
+                updated.style = readStyle($ed);
+                updated.dark_style = DARK ? readStyle($ed, true) : ($li.data('box').dark_style || {});
+                var dk = readDark($ed, box);
+                if (!dk) { alert('Choose the dark mode image first, or pick Same as light.'); return; }
+                updated.dark_image = dk.dark_image; updated.dark_preview = dk.dark_preview;
+                $.extend(updated, readBlur($ed, box));
                 var $new = boxCard(updated);
                 $li.replaceWith($new); closeEditor(); changed();
             });
@@ -568,8 +879,9 @@ function monospace_home_boxes_page() {
             .on('click', '.mhb-eye', function (e) {
                 e.stopPropagation();
                 var $li = $(this).closest('.mhb-box'), box = $.extend({}, $li.data('box'), { d_hide: !$li.data('box').d_hide });
-                if ($li.hasClass('is-editing')) closeEditor();
-                $li.replaceWith(boxCard(box)); changed();
+                if ($li.hasClass('is-editing')) { $li.data('box', box); closeEditor(); } // closing redraws the card from its data
+                else $li.replaceWith(boxCard(box));
+                changed();
             })
             .on('click', '.mhb-box', function () { if (!$(this).hasClass('is-editing')) openEditor($(this)); })
             .on('click', '.mhb-add-box', function () {

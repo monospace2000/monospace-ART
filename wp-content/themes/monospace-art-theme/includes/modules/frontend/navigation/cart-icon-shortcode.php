@@ -149,18 +149,17 @@ function monospace_cart_styles() {
             height: 40px;
         }
 
-        /* White cart SVG */
+        /* Cart SVG - the menu link color */
         .monospace-cart-icon svg {
-            stroke: #ffffff;
+            stroke: var(--ms-menu-link, #ffffff);
             fill: none;
             width: 24px;
             height: 24px;
-            transition: transform 0.2s ease;
         }
 
         /* Hover effect */
         .monospace-cart-link:hover .monospace-cart-icon svg {
-            transform: scale(1.1);
+            stroke: var(--ms-menu-link-hover, #ffffff);
         }
 
         /* Count wrapper (absolute anchor point) */

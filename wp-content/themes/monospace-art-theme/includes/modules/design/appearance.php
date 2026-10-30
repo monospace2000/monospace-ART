@@ -3,17 +3,23 @@
  * Design module: Appearance
  *
  * The site's looks, collected from its stylesheets (current and earlier versions): page backgrounds,
- * button styles and button colours. Pick a preset, or "Custom" to combine the three freely.
- * Shown in Layout Manager > Appearance & Effects through the design-module registry
+ * button styles and button colors. Pick a preset, or "Custom" to combine the three freely.
+ * Shown in Appearance > Look through the design-module registry
  * (design-modules.php).
  *
- * Front end: classes on <body> - bg-{background} btn-{style} btn-color-{colour} appearance-{preset}.
- * The CSS for them: backgrounds in _global.scss (page texture / colour and the fixed spotlight's
- * colours, as CSS variables), buttons in _components.scss + _button-styles.scss (the *-var mixins,
- * coloured by --btn-color / --btn-text).
+ * Front end: classes on <body> - bg-{background} btn-{style} btn-color-{color} appearance-{preset}.
+ * The CSS for them: backgrounds in _global.scss (page texture / color and the fixed spotlight's
+ * colors, as CSS variables), buttons in _components.scss + _button-styles.scss (the *-var mixins,
+ * colored by --btn-color / --btn-text).
  *
  * Options: monospace_appearance (preset key or 'custom'), and for custom monospace_appearance_bg,
  * monospace_appearance_buttons, monospace_appearance_button_color.
+ *
+ * Since 2026-10-21 everything is edited in one place, Appearance > Look (look.php): the Looks, the background - also
+ * your own color (bg 'color') or your own image, filling the screen or tiled (bg 'image') -, the buttons - also your
+ * own color (button color 'custom') -, site colors, fonts and the spotlight. Their values: option monospace_look
+ * [ bg_color, bg_image, bg_fit, btn_custom ]; the CSS for them: monospace_look_css() (wp_head, <style id="ms-look">).
+ * The Layout Manager's Appearance card only shows the Look and links there.
  *
  * @package monospace-art-theme
  */
@@ -23,7 +29,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 add_filter( 'monospace_design_modules', function ( $modules ) {
     $modules['appearance'] = [
         'title'       => 'Appearance',
-        'description' => 'Page background, button style and button colour, site-wide.',
+        'description' => 'Page background, button style and button color, site-wide.',
         'group'       => 'look',
         'order'       => 10,
         'summary'     => function () {
@@ -32,8 +38,8 @@ add_filter( 'monospace_design_modules', function ( $modules ) {
             if ( isset( $presets[ $preset ] ) ) return preg_replace( '/ \(current\)$/', '', $presets[ $preset ][0] );
             return 'Custom: ' . monospace_appearance_backgrounds()[ $bg ][0] . ', ' . strtolower( monospace_appearance_button_styles()[ $style ][0] . ' ' . monospace_appearance_button_colors()[ $color ][0] ) . ' buttons';
         },
-        'render'      => 'monospace_render_appearance_settings',
-        'save'        => 'monospace_save_appearance_settings',
+        'render'      => 'monospace_render_appearance_link',
+        'save'        => '__return_null', // edited in Appearance > Look
     ];
     return $modules;
 } );
@@ -43,43 +49,131 @@ function monospace_appearance_backgrounds() {
     $img = get_template_directory_uri() . '/assets/images/';
     return [
         'canvas'     => [ 'Canvas',           'Linen canvas texture under a warm spotlight',               "url({$img}canvas.jpeg) center / 160px" ],
-        'paper'      => [ 'Paper',            'Smooth grey paper texture, softer brown spotlight',         "url({$img}paper.jpeg) center / 400px" ],
-        'watercolor' => [ 'Watercolour paper','Rough white watercolour paper (an earlier version)',        'url(' . content_url( 'uploads/paper2.jpg' ) . ') center / 500px' ],
+        'paper'      => [ 'Paper',            'Smooth gray paper texture, softer brown spotlight',         "url({$img}paper.jpeg) center / 400px" ],
+        'watercolor' => [ 'Watercolor paper','Rough white watercolor paper (an earlier version)',        'url(' . content_url( 'uploads/paper2.jpg' ) . ') center / 500px' ],
         'cream'      => [ 'Cream',            'Plain warm off-white, no texture',                           'rgb(241, 237, 231)' ],
         'studio'     => [ 'Studio',           'Dark taupe with a white spotlight - the very first look',   'radial-gradient(circle at 50% 40%, #fff 20%, rgb(110, 100, 90) 140%)' ],
+        'color'      => [ 'Your color',      'A plain color you choose',                                  monospace_look_settings()['bg_color'] ],
+        'image'      => [ 'Your image',       'A picture from the media library, filling the screen or tiled', ( $u = monospace_look_image_url() ) ? 'url(' . $u . ') center / cover' : '#ddd' ],
     ];
 }
+
+/** Your own background and button colors (Appearance > Look) */
+function monospace_look_settings() {
+    $s = get_option( 'monospace_look', [] );
+    if ( ! is_array( $s ) ) $s = [];
+    return [
+        'bg_color'   => sanitize_hex_color( $s['bg_color'] ?? '' ) ?: '#b3a492',
+        'bg_image'   => absint( $s['bg_image'] ?? 0 ),
+        'bg_fit'     => ( $s['bg_fit'] ?? '' ) === 'tile' ? 'tile' : 'cover',
+        'btn_custom' => sanitize_hex_color( $s['btn_custom'] ?? '' ) ?: '#046bd2',
+    ] + monospace_look_card_settings( $s );
+}
+
+/** Cards - the white boxes with the rounded gray outline (sidebar boxes, "See also", the price card, shop boxes:
+ *  the card-style mixin, _mixins.scss): fill color + opacity, outline color + opacity, thickness, rounding.
+ *  Defaults = the theme's (white, #ccc 1px, 8px). */
+function monospace_look_card_defaults() {
+    return [ 'card_bg' => '#ffffff', 'card_bg_a' => 100, 'card_border' => '#cccccc', 'card_border_a' => 100, 'card_width' => 1, 'card_radius' => 8 ];
+}
+function monospace_look_card_settings( $s ) {
+    $d = monospace_look_card_defaults();
+    return [
+        'card_bg'       => sanitize_hex_color( $s['card_bg'] ?? '' ) ?: $d['card_bg'],
+        'card_bg_a'     => max( 0, min( 100, (int) ( $s['card_bg_a'] ?? $d['card_bg_a'] ) ) ),
+        'card_border'   => sanitize_hex_color( $s['card_border'] ?? '' ) ?: $d['card_border'],
+        'card_border_a' => max( 0, min( 100, (int) ( $s['card_border_a'] ?? $d['card_border_a'] ) ) ),
+        'card_width'    => max( 0, min( 6, (int) ( $s['card_width'] ?? $d['card_width'] ) ) ),
+        'card_radius'   => max( 0, min( 30, (int) ( $s['card_radius'] ?? $d['card_radius'] ) ) ),
+    ];
+}
+
+/** #rrggbb + 0-100 → rgba() (the color itself at 100) */
+function monospace_look_rgba( $hex, $alpha ) {
+    $h = ltrim( (string) $hex, '#' );
+    if ( (int) $alpha >= 100 ) return '#' . $h;
+    return sprintf( 'rgba(%d, %d, %d, %s)', hexdec( substr( $h, 0, 2 ) ), hexdec( substr( $h, 2, 2 ) ), hexdec( substr( $h, 4, 2 ) ), round( max( 0, (int) $alpha ) / 100, 2 ) );
+}
+
+/** Your background image's address ('' = none) */
+function monospace_look_image_url() {
+    $id = monospace_look_settings()['bg_image'];
+    return $id ? (string) wp_get_attachment_image_url( $id, 'full' ) : '';
+}
+
+/** Black or white text on a color - whichever reads better */
+function monospace_look_text_on( $hex ) {
+    $h = ltrim( (string) $hex, '#' );
+    if ( strlen( $h ) !== 6 ) return '#fff';
+    $l = ( 0.299 * hexdec( substr( $h, 0, 2 ) ) + 0.587 * hexdec( substr( $h, 2, 2 ) ) + 0.114 * hexdec( substr( $h, 4, 2 ) ) ) / 255;
+    return $l > 0.62 ? '#111' : '#fff';
+}
+
+/** The CSS for your own color / image / button color - only what's in use. The Look screen's preview builds the same. */
+function monospace_look_css() {
+    [ , $bg, , $color ] = monospace_appearance();
+    $s   = monospace_look_settings();
+    $css = '';
+    if ( $bg === 'color' ) $css .= 'body.bg-color{background-image:none;--page-color:' . $s['bg_color'] . '}';
+    if ( $bg === 'image' && ( $u = monospace_look_image_url() ) ) {
+        if ( $s['bg_fit'] === 'tile' ) {
+            $css .= 'body.bg-image{background-image:url("' . esc_url_raw( $u ) . '");--page-color:' . $s['bg_color'] . ';background-repeat:repeat;background-size:auto}';
+        } else {
+            // "Fill the screen" stays put while the page scrolls. iOS Safari ignores background-attachment:fixed,
+            // so the image sits on a fixed layer behind the page (html::before - body's own pseudos are the spotlight).
+            // Sized to the large viewport (100lvh) so it doesn't rescale as iOS's toolbar collapses and expands
+            $css .= 'body.bg-image{background-image:none;--page-color:' . $s['bg_color'] . '}'
+                  . 'html:has(body.bg-image)::before{content:"";position:fixed;top:0;left:0;width:100%;height:100vh;height:100lvh;z-index:-1;pointer-events:none;background:url("' . esc_url_raw( $u ) . '") center/cover no-repeat}';
+        }
+    }
+    if ( $color === 'custom' ) $css .= 'body.btn-color-custom{--btn-color:' . $s['btn_custom'] . ';--btn-text:' . monospace_look_text_on( $s['btn_custom'] ) . '}';
+    // Cards: only what differs from the theme
+    $d    = monospace_look_card_defaults();
+    $vars = '';
+    if ( [ $s['card_bg'], $s['card_bg_a'] ] !== [ $d['card_bg'], $d['card_bg_a'] ] ) $vars .= '--ms-card-bg:' . monospace_look_rgba( $s['card_bg'], $s['card_bg_a'] ) . ';';
+    if ( [ $s['card_border'], $s['card_border_a'] ] !== [ $d['card_border'], $d['card_border_a'] ] ) $vars .= '--ms-card-border:' . monospace_look_rgba( $s['card_border'], $s['card_border_a'] ) . ';';
+    if ( $s['card_width'] !== $d['card_width'] ) $vars .= '--ms-card-border-width:' . $s['card_width'] . 'px;';
+    if ( $s['card_radius'] !== $d['card_radius'] ) $vars .= '--ms-card-radius:' . $s['card_radius'] . 'px;';
+    if ( $vars !== '' ) $css .= ':root{' . $vars . '}';
+    return $css;
+}
+add_action( 'wp_head', function () {
+    $css = monospace_look_css();
+    if ( function_exists( 'monospace_look_style' ) ) monospace_look_style( 'ms-look', $css ); // scoped when dark mode is on (dark-mode.php)
+    elseif ( $css !== '' ) echo '<style id="ms-look">' . wp_strip_all_tags( $css ) . "</style>\n";
+}, 29 );
 
 /** Button styles */
 function monospace_appearance_button_styles() {
     return [
         'glass'   => [ 'Glass',   'Glossy, with a highlight and a lift on hover' ],
-        'flat'    => [ 'Flat',    'Solid colour, no gloss' ],
-        'outline' => [ 'Outline', 'Coloured border and text on a faint tint' ],
+        'flat'    => [ 'Flat',    'Solid color, no gloss' ],
+        'outline' => [ 'Outline', 'Colored border and text on a faint tint' ],
     ];
 }
 
-/** Button colours: label, colour */
+/** Button colors: label, color */
 function monospace_appearance_button_colors() {
     return [
         'blue'  => [ 'Blue',  'rgba(4, 107, 210, 0.9)' ],
         'black' => [ 'Black', 'rgba(0, 0, 0, 0.9)' ],
-        'grey'  => [ 'Grey',  '#aaa' ],
+        'grey'  => [ 'Gray',  '#aaa' ],
+        'custom' => [ 'Your color', monospace_look_settings()['btn_custom'] ],
     ];
 }
 
-/** Presets: label, background, button style, button colour */
+/** Presets: label, background, button style, button color */
 function monospace_appearance_presets() {
     return [
         'canvas'     => [ 'Canvas (current)', 'canvas',     'glass',   'blue' ],
         'paper'      => [ 'Paper',            'paper',      'glass',   'grey' ],
-        'watercolor' => [ 'Watercolour',      'watercolor', 'glass',   'black' ],
+        'watercolor' => [ 'Watercolor',      'watercolor', 'glass',   'black' ],
         'gallery'    => [ 'Gallery',          'cream',      'outline', 'black' ],
         'studio'     => [ 'Studio',           'studio',     'flat',    'blue' ],
     ];
 }
 
-/** The appearance in use: [ preset, background, button style, button colour ] */
+/** The appearance in use: [ preset, background, button style, button color ] */
 function monospace_appearance() {
     $presets = monospace_appearance_presets();
     $preset  = get_option( 'monospace_appearance', 'canvas' );
@@ -113,19 +207,54 @@ function monospace_appearance_swatch( $bg, $style, $color ) {
     $backgrounds = monospace_appearance_backgrounds();
     $colors      = monospace_appearance_button_colors();
     $c           = $colors[ $color ][1] ?? $colors['blue'][1];
-    $button      = [
-        'glass'   => "background:{$c} linear-gradient(to top,rgba(255,255,255,.35),rgba(0,0,0,.18));color:#fff;box-shadow:inset 0 1px 0 rgba(200,230,255,.9),0 2px 3px rgba(0,0,0,.25)",
-        'flat'    => "background:{$c};color:#fff",
-        'outline' => "border:2px solid {$c};color:{$c};background:rgba(255,255,255,.4)",
-    ][ $style ] ?? '';
-    return sprintf(
-        '<span style="display:inline-flex;align-items:center;justify-content:center;width:120px;height:48px;border:1px solid #ccc;border-radius:4px;vertical-align:middle;background:%s">'
-        . '<span style="font:600 11px/1 sans-serif;padding:5px 10px;border-radius:999px;%s">Add to cart</span></span>',
+    $text        = $color === 'custom' ? monospace_look_text_on( $c ) : '#fff';
+    return monospace_appearance_button_sample_css() . sprintf(
+        '<span class="ms-swatch" style="background:%s">%s</span>',
         esc_attr( $backgrounds[ $bg ][2] ?? '#fff' ),
-        esc_attr( $button )
+        monospace_appearance_button_sample( $style, $c, $text )
     );
 }
 
+/** A sample "Add to cart" button in a button style and color - drawn by the site's own rules (below) */
+function monospace_appearance_button_sample( $style, $color, $text = '#fff', $attrs = '' ) {
+    return '<span class="ms-btn-sample is-' . esc_attr( $style ) . '" style="--btn-color:' . esc_attr( $color ) . ';--btn-text:' . esc_attr( $text ) . '"' . $attrs . '>Add to cart</span>';
+}
+
+/**
+ * The sample buttons' CSS, printed once per admin page: the site's button-glass-var / -flat-var / -outline-var mixins
+ * (_button-styles.scss, with button-base from _mixins.scss), at a smaller size - incl. Glass's shine (::before), so the
+ * samples look like the site's buttons. Keep in step with those mixins.
+ */
+function monospace_appearance_button_sample_css() {
+    static $done = false;
+    if ( $done ) return '';
+    $done = true;
+    return '<style id="ms-btn-sample-css">
+        .ms-swatch { display: inline-flex; align-items: center; justify-content: center; width: 120px; height: 48px; border: 1px solid #ccc; border-radius: 4px; vertical-align: middle; box-sizing: border-box; }
+        .ms-btn-sample { position: relative; display: inline-block; padding: 4px 11px; font: 600 11px/1.4 "Open Sans", -apple-system, sans-serif; color: var(--btn-text, #fff);
+            border: none; border-radius: var(--ms-btn-radius, 9999px); text-align: center; white-space: nowrap; box-sizing: border-box; transition: transform .05s ease, box-shadow .15s ease; }
+        .ms-btn-sample.is-glass { background-color: var(--btn-color);
+            background-image: linear-gradient(to top, rgba(255,255,255,.35) 0%, rgba(255,255,255,.15) 45%, rgba(0,0,0,.05) 55%, rgba(0,0,0,.18) 100%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -1px 0 rgba(255,255,255,.3), 0 2px 3px rgba(0,0,0,.25); }
+        .ms-btn-sample.is-glass::before { content: ""; position: absolute; top: 2px; left: 7px; right: 7px; height: 45%; border-radius: inherit;
+            background: linear-gradient(to bottom, rgba(255,255,255,.7), rgba(255,255,255,0)); pointer-events: none; }
+        .ms-btn-sample.is-flat { background-color: var(--btn-color); box-shadow: 0 2px 4px rgba(0,0,0,.1); }
+        .ms-btn-sample.is-outline { color: var(--btn-color); background-color: color-mix(in srgb, var(--btn-color), transparent 94%); border: 2px solid var(--btn-color); padding: 2px 9px; }
+        label:hover .ms-btn-sample.is-glass { background-color: color-mix(in srgb, var(--btn-color), white 12%); transform: scale(1.02);
+            background-image: linear-gradient(to top, rgba(255,255,255,.55) 0%, rgba(255,255,255,.30) 45%, rgba(255,255,255,.05) 60%, rgba(0,0,0,.12) 100%); }
+    </style>';
+}
+
+/** Layout Manager's Appearance card: the Look in use, and the way to the Look screen */
+function monospace_render_appearance_link() {
+    [ $preset, $bg, $style, $color ] = monospace_appearance(); ?>
+    <p><?php echo monospace_appearance_swatch( $bg, $style, $color ); ?></p>
+    <p>The background, buttons, site colors, fonts and the spotlight are set together, with a live preview, in
+        <a class="button" href="<?php echo esc_url( admin_url( 'themes.php?page=monospace-look' ) ); ?>">Appearance &gt; Look</a></p>
+    <?php
+}
+
+/** The earlier form (before Appearance > Look, 2026-10-21) - not shown anymore */
 function monospace_render_appearance_settings() {
     list( $preset, $bg, $style, $color ) = monospace_appearance();
     $backgrounds = monospace_appearance_backgrounds();
@@ -147,7 +276,7 @@ function monospace_render_appearance_settings() {
                     <?php endforeach; ?>
                     <label style="display:flex;align-items:center;gap:12px">
                         <input type="radio" name="appearance" value="custom" <?php checked( $preset, 'custom' ); ?> />
-                        <span><b>Custom</b> - combine a background, button style and colour below</span>
+                        <span><b>Custom</b> - combine a background, button style and color below</span>
                     </label>
                 </fieldset>
             </td>
@@ -175,7 +304,7 @@ function monospace_render_appearance_settings() {
                         <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $color, $key ); ?>><?php echo esc_html( $c[0] ); ?></option>
                     <?php endforeach; ?>
                 </select>
-                <p class="description">Every button that does something (Add to cart, checkout, forms, Subscribe). Prices and the "Add to cart" link colour keep the site's blue.</p>
+                <p class="description">Every button that does something (Add to cart, checkout, forms, Subscribe). Prices and the "Add to cart" link color keep the site's blue.</p>
             </td>
         </tr>
     </table>

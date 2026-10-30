@@ -71,18 +71,17 @@ function monospace_home_styles() {
             height: 40px;
         }
 
-        /* White home SVG */
+        /* Home SVG - the menu link color */
         .monospace-home-icon svg {
-            stroke: #ffffff;
+            stroke: var(--ms-menu-link, #ffffff);
             fill: none;
             width: 24px;
             height: 24px;
-            transition: transform 0.2s ease;
         }
 
         /* Hover effect */
         .monospace-home-link:hover .monospace-home-icon svg {
-            transform: scale(1.1);
+            stroke: var(--ms-menu-link-hover, #ffffff);
         }
 
         /* Responsive */

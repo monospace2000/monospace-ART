@@ -108,6 +108,40 @@ function monospace_process_archive_images($content) {
 }
 
 /* ============================================================
+ * FALLBACK - a thumbnail for every post (grid view)
+ * ============================================================ */
+
+/**
+ * The grid shows each post as a square tile - its first figure. A post whose first figure holds no picture (a video embed
+ * first, a text post, pictures only inside columns) would be an empty spot (2026-10-23, owner: "make sure that all posts
+ * listed in an archive view have a thumbnail"): it gets a figure of its own, first in the content - its featured image, else the
+ * first picture in its text, else the art placeholder (Core's monospace_row_image_id()). Shown only in grid view (_archives.scss);
+ * every other view shows the post as it is.
+ */
+add_filter('the_content', 'monospace_archive_thumb_fallback', 20);
+
+function monospace_archive_thumb_fallback($content) {
+    if (is_admin() || is_feed() || !in_the_loop() || !is_main_query() || !(is_home() || is_archive() || is_search())) return $content;
+    if (!function_exists('monospace_row_image_id')) return $content;
+    // The tile has its picture when the post's first figure holds one and sits at the top level of the content (a figure inside
+    // columns or a group isn't the tile - the grid takes the post's own first figure)
+    $pos = stripos($content, '<figure');
+    if ($pos !== false && preg_match('/<figure\b.*?<\/figure>/is', $content, $figure, 0, $pos) && stripos($figure[0], '<img') !== false) {
+        $depth = 0;
+        if (preg_match_all('/<(\/?)(?:div|section|aside|ul|ol|blockquote|table|details)\b[^>]*>/i', substr($content, 0, $pos), $tags, PREG_SET_ORDER)) {
+            foreach ($tags as $tag) $depth += $tag[1] === '/' ? -1 : 1;
+        }
+        if ($depth <= 0) return $content;
+    }
+
+    $post_id = (int) get_the_ID();
+    $image_id = monospace_row_image_id($post_id);
+    $img = $image_id ? wp_get_attachment_image($image_id, 'large', false, ['alt' => get_the_title($post_id), 'loading' => 'lazy', 'decoding' => 'async']) : '';
+    if ($img === '') return $content;
+    return '<figure class="ms-thumb-fallback">' . monospace_build_standard_image($img, ['status' => '', 'miniature' => false], get_the_permalink($post_id)) . '</figure>' . $content;
+}
+
+/* ============================================================
  * HELPER - Get product information
  * ============================================================ */
 
@@ -119,6 +153,7 @@ function monospace_get_product_info($post_id) {
         'status' => '',
         'label_text' => '',
         'info_line' => '',
+        'miniature' => false,
     ];
 
     // The post's linked product (saved by the Quick Product editor)
@@ -162,6 +197,8 @@ function monospace_get_product_info($post_id) {
     $info['label_text'] = !empty($parts) ? implode(' ', $parts) :
         ($info['type'] ? 'full size ' . $info['type'] : '');
 
+    $info['miniature'] = function_exists('monospace_is_miniature') ? (bool) monospace_is_miniature($post_id) : has_category('miniature', $post_id);
+
     // Get availability status
     $acf_status = get_post_meta($product_id, 'painting_availability_status', true);
 
@@ -193,59 +230,14 @@ function monospace_get_product_info($post_id) {
  * ============================================================ */
 
 /**
- * One small line under the feed image's caption:
- *   original availability · medium on surface · size · prints
- * Availability uses the price card's wording and colors (monospace_render_buy_button()).
+ * The info under the feed image's caption (list view): Core's three lines, the same as the detail list's
+ * (monospace_artwork_info_html(): "medium on surface, dimensions" / availability #number price / prints available), all in
+ * the UI font. The type is _archives.scss' (.ms-info); the wrapper's place and alignment are _main-feed-images.scss'.
+ * (2026-10-23, owner: "the info should be formatted the same on both list and detail view")
  */
 function monospace_build_feed_info($post_id, $product, $status) {
-    $product_id = $product->get_id();
-    $parts = [];
-
-    // Original availability - same label as the price card, or "Original available" when for sale
-    $availability = monospace_render_buy_button(
-        $product,
-        $status,
-        get_post_meta($product_id, 'painting_gallery_url', true),
-        get_post_meta($product_id, 'painting_gallery_name', true)
-    );
-    $parts[] = $availability !== ''
-        ? $availability
-        : '<span class="status-label status-available">Original available</span>';
-
-    $term_names = function ($taxonomy) use ($product_id) {
-        $names = wp_get_post_terms($product_id, $taxonomy, ['fields' => 'names']);
-        return is_wp_error($names) ? '' : implode(', ', $names);
-    };
-
-    // Medium / materials: "Casein on paper"
-    $medium  = $term_names('pa_medium');
-    $surface = $term_names('pa_surface');
-    if ($medium || $surface) {
-        // "Paper" -> "paper", but leave abbreviations alone ("MDF board")
-        $surface_lc = preg_match('/^[A-Z]{2}/', $surface) ? $surface : lcfirst($surface);
-        $parts[] = esc_html($medium && $surface ? $medium . ' on ' . $surface_lc : ($medium ?: $surface));
-    }
-
-    // Size, as written on the price card (e.g. 10" × 8"); 4" × 4" gets "(miniature)" after it
-    if ($size = $term_names('pa_size')) {
-        if (has_term('4x4', 'pa_size', $product_id)) {
-            $size .= ' (miniature)';
-        }
-        $parts[] = esc_html($size);
-    }
-
-    // Print on demand - green, like "Original available" (only while the Prints plugin is on)
-    foreach (function_exists('monospace_feature') && monospace_feature('prints') ? ['_print_product_id', '_framed_print_product_id'] : [] as $key) {
-        $print_id = intval(get_post_meta($post_id, $key, true));
-        if ($print_id && wc_get_product($print_id)) {
-            $parts[] = '<span class="status-label status-available">Prints available</span>';
-            break;
-        }
-    }
-
-    // One item per line
-    $items = array_map(function ($part) { return '<span class="ms-feed-info-item">' . $part . '</span>'; }, $parts);
-    return '<div class="ms-feed-info">' . implode('', $items) . '</div>';
+    if (!function_exists('monospace_artwork_info_html')) return '';
+    return '<div class="ms-feed-info">' . monospace_artwork_info_html($post_id, $product) . '</div>';
 }
 
 /* ============================================================
@@ -408,7 +400,7 @@ function monospace_build_miniature_cover($src, $img_tag, $product_info, $permali
  * SINGLE POST - Miniature cover on the post page too
  * ============================================================ */
 
-// A miniature's post page shows its first image as in the feed: centred on a blurred, darkened copy
+// A miniature's post page shows its first image as in the feed: centered on a blurred, darkened copy
 // of itself (the cover above, minus the badge and post link). Desktop only - on phones CSS undoes the
 // cover (.ms-miniature-cover-single, _main-feed-images.scss) so the image shows as before. Runs
 // before the lightbox (lightbox.php, priority 20), which still wraps the image, so clicking it opens
@@ -478,6 +470,11 @@ function monospace_build_labels($product_info) {
             $badge_class = 'ms-reserved';
         }
         $html .= '<div class="ms-availability-badge ' . $badge_class . '">' . esc_html($product_info['status']) . '</div>';
+    }
+
+    // "M" for a miniature or a miniature set, opposite the dot (grid view only - _main-feed-images.scss)
+    if (!empty($product_info['miniature'])) {
+        $html .= '<span class="ms-miniature-mark" title="Miniature" aria-label="Miniature">M</span>';
     }
 
     return $html;

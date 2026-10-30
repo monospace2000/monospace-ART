@@ -37,7 +37,7 @@ add_filter( 'googlesitekit_consent_defaults', function ( $defaults ) {
 // Facebook: a visitor without a state cookie is marked held in functions.php - it has to happen
 // before init, when the plugin reads it (too late from here)
 
-// Same for cached pages (no PHP runs): set the held cookie before the pixel initialises
+// Same for cached pages (no PHP runs): set the held cookie before the pixel initializes
 add_action( 'wp_head', function () {
     echo "<script>(function(){var c=null;try{c=localStorage.getItem('cookieConsent')}catch(e){}"
        . "if(c!=='accepted'&&!/(?:^|;\\s*)wc_facebook_signals_state=/.test(document.cookie))"

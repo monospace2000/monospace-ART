@@ -40,7 +40,7 @@ const MONOSPACE_MEDIA_USAGE_HOOK  = 'monospace_media_usage_rebuild';
  * FINDING USES
  * ============================================================ */
 
-/** All attachment IDs (as keys), and a map of normalised upload paths to attachment IDs */
+/** All attachment IDs (as keys), and a map of normalized upload paths to attachment IDs */
 function monospace_media_usage_maps( $reset = false ) {
     static $maps = null;
     if ( $maps && ! $reset ) return $maps;
@@ -133,6 +133,7 @@ function monospace_media_usage_scan_option( $name ) {
     if ( $name === 'site_icon' ) $add( $value, 'site icon' );
     elseif ( $name === 'theme_mods_' . get_stylesheet() ) $add( $value['custom_logo'] ?? 0, 'logo' );
     elseif ( $name === 'monospace_home_share_image' ) $add( $value, 'share image' );
+    elseif ( $name === 'monospace_placeholder_image' ) $add( $value, 'placeholder picture' );
     elseif ( $name === 'monospace_home_layout' ) {
         foreach ( (array) $value as $row ) foreach ( (array) ( $row['boxes'] ?? [] ) as $box ) {
             if ( ( $box['image']['mode'] ?? '' ) === 'media' ) $add( $box['image']['id'] ?? 0, 'box background' );
@@ -197,8 +198,14 @@ function monospace_media_usage_rebuild() {
         if ( $uses ) $per_option[ $name ] = array_keys( $uses );
         foreach ( $uses as $att => $how ) $map[ $att ][ 'o:' . $name ] = $how;
     }
+    // The placeholder picture (the one chosen, or the default file art_placeholder.png)
+    if ( function_exists( 'monospace_placeholder_image_id' ) && ( $ph = monospace_placeholder_image_id() ) && isset( monospace_media_usage_maps()['ids'][ $ph ] ) ) $map[ $ph ]['o:monospace_placeholder_image'] = [ 'placeholder picture' ];
+    // A category's / tag's share image (term meta _monospace_share_image: its edit screen, Layout Manager > Categories)
+    foreach ( $wpdb->get_results( "SELECT term_id, meta_value FROM $wpdb->termmeta WHERE meta_key = '_monospace_share_image' AND meta_value <> ''" ) as $r ) {
+        if ( isset( monospace_media_usage_maps()['ids'][ (int) $r->meta_value ] ) ) $map[ (int) $r->meta_value ][ 'c:' . (int) $r->term_id ] = [ 'share image' ];
+    }
     // The site's own code (SCSS / CSS / PHP / JS) - the theme, Core and the monospace feature plugins (2026-10-19
-    // restructure: code moved out of the theme): e.g. the Watercolour background, the footer's social icons
+    // restructure: code moved out of the theme): e.g. the Watercolor background, the footer's social icons
     $code = '';
     $dirs = array_merge( [ get_template_directory(), WPMU_PLUGIN_DIR . '/monospace-art-core' ], glob( WP_PLUGIN_DIR . '/monospace-*', GLOB_ONLYDIR ) ?: [] );
     foreach ( $dirs as $dir ) {
@@ -437,10 +444,16 @@ function monospace_media_usage_lines( $att ) {
             $link = $target ? get_edit_post_link( $target->ID ) : '';
             $status = $post->post_status !== 'publish' ? ', ' . $post->post_status : '';
             $label = ( $link ? '<a href="' . esc_url( $link ) . '">' . esc_html( $title ) . '</a>' : esc_html( $title ) ) . ' <span class="ms-usage-type">(' . esc_html( $type . $status ) . ')</span>';
+        } elseif ( $kind === 'c' ) {
+            $term = get_term( (int) $key );
+            if ( ! $term || is_wp_error( $term ) ) continue;
+            $link  = get_edit_term_link( $term );
+            $label = ( $link ? '<a href="' . esc_url( $link ) . '">' . esc_html( $term->name ) . '</a>' : esc_html( $term->name ) ) . ' <span class="ms-usage-type">(' . ( $term->taxonomy === 'post_tag' ? 'tag' : 'category' ) . ')</span>';
         } else {
-            $names = [ 'site_icon' => 'Site icon', 'theme_mods_' . get_stylesheet() => 'Logo', 'monospace_home_layout' => 'Home page', 'monospace_home_share_image' => 'Home page' ];
+            $names = [ 'site_icon' => 'Site icon', 'theme_mods_' . get_stylesheet() => 'Logo', 'monospace_home_layout' => 'Home page', 'monospace_home_share_image' => 'Home page', 'monospace_placeholder_image' => 'Placeholder picture' ];
             $label = esc_html( $kind === 't' ? 'The theme' : ( $names[ $key ] ?? ( strpos( $key, 'widget_' ) === 0 ? 'Widgets' : 'Setting ' . $key ) ) );
             if ( $key === 'monospace_home_layout' || $key === 'monospace_home_share_image' ) $label = '<a href="' . esc_url( admin_url( 'admin.php?page=monospace-home-boxes' ) ) . '">' . $label . '</a>';
+            if ( $key === 'monospace_placeholder_image' ) $label = '<a href="' . esc_url( admin_url( 'themes.php?page=monospace-look' ) ) . '">' . $label . '</a>';
         }
         $lines[] = $label . ' - ' . esc_html( implode( ', ', (array) $how ) );
     }

@@ -76,7 +76,7 @@ function monospace_print_variant_for( $type, $variation ) {
     return null;
 }
 
-/** Which template a WooCommerce print product follows: framed if it has frame colours */
+/** Which template a WooCommerce print product follows: framed if it has frame colors */
 function monospace_print_type_of( $product ) {
     return isset( $product->get_attributes()['pa_color'] ) ? 'framed' : 'unframed';
 }
@@ -97,7 +97,7 @@ function monospace_print_dpi( $px, $inches ) {
 }
 
 /**
- * dpi as Printful rates it: [ label, colour ]. Printful calls ~136 dpi "good"; ours used to say
+ * dpi as Printful rates it: [ label, color ]. Printful calls ~136 dpi "good"; ours used to say
  * "low" under 150 - the owner noticed the mismatch (2026-10-15).
  */
 function monospace_print_dpi_rating( $dpi ) {

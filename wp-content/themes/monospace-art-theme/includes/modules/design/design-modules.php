@@ -5,14 +5,14 @@
  * The theme's configurable design parts, each a self-contained file in this folder that owns its
  * options, its settings form, saving, and its front-end output:
  *
- *   appearance.php      Appearance - page background, button style and colour (presets or custom)
+ *   appearance.php      Appearance - page background, button style and color (presets or custom)
  *   scroll-effects.php  Scroll effect - Off / Slide-in / Elastic scroll
  *   hover-effects.php   Rollover effect - Off / Lift (grow + shadow), strength, where
  *   logo-link.php       Logo link - where clicking the big logo goes, and its hover text
  *   shop-link.php       Shop link - the empty cart's "Return to shop" button
  *   archive-toolbar.php Viewing toolbar - the bar above category pages and the Art Feed
  *   content-jump.php    Open at the content - posts / pages open scrolled past the logo and search
- *   print-preview.php   Print preview - the "See a preview" lightbox's background (blur / image / pattern / colour) and look
+ *   print-preview.php   Print preview - the "See a preview" lightbox's background (blur / image / pattern / color) and look
  *
  * A module registers itself on the 'monospace_design_modules' filter:
  *
@@ -29,11 +29,13 @@
  *       return $modules;
  *   } );
  *
- * Layout Manager > Appearance & Effects (layout-manager.php, tab slug 'effects') shows the modules by
- * group (2026-10-19 clean-up: one group at a time, chosen at the top and remembered; each module a card
- * with its current setting on its title line; a Save bar fixed to the bottom of the screen that says when
- * something has changed). All groups stay in the one form, so Save saves everything, then each module's
- * save runs and the page cache is cleared. Adding a part = adding a file here; nothing else changes.
+ * Where they're edited (2026-10-22, owner: "not sure Appearance and Effects should be with Layout Manager"): the
+ * look and motion groups in Appearance > Look (look.php) - the one place for the look; the links group in
+ * Layout Manager > Links & toolbar (layout-manager.php, tab slug 'links': monospace_render_design_modules( 'links' ),
+ * saved by monospace_save_design_modules( 'links' ) - only that group's modules save, so the look is never touched
+ * from there). The old Appearance & Effects tab (slug 'effects') redirects to Look. Each module is a card with its
+ * current setting on its title line; a Save bar fixed to the bottom of the screen says when something has changed.
+ * Adding a part = adding a file here; nothing else changes.
  *
  * @package monospace-art-theme
  */
@@ -58,10 +60,11 @@ function monospace_design_modules() {
     return $modules;
 }
 
-/** The Appearance & Effects tab: the groups (one at a time), each module a card */
-function monospace_render_design_modules() {
+/** The modules as cards - all groups (one at a time, chosen at the top), or only $only's */
+function monospace_render_design_modules( $only = null ) {
     $modules = monospace_design_modules();
     $groups  = monospace_design_groups();
+    if ( $only !== null ) $groups = array_intersect_key( $groups, [ $only => 1 ] );
     ?>
     <style>
         .ms-design-nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0 6px; }
@@ -84,7 +87,7 @@ function monospace_render_design_modules() {
         .ms-design-dirty { color: #b26200; font-weight: 600; }
     </style>
     <div class="ms-design">
-        <div class="ms-design-nav" role="tablist">
+        <div class="ms-design-nav" role="tablist"<?php echo count( $groups ) < 2 ? ' hidden' : ''; ?>>
             <?php foreach ( $groups as $g => [ $label ] ) : ?>
                 <button type="button" role="tab" data-group="<?php echo esc_attr( $g ); ?>" aria-selected="false"><?php echo esc_html( $label ); ?></button>
             <?php endforeach; ?>
@@ -112,9 +115,9 @@ function monospace_render_design_modules() {
         var store = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
                       set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 
-        // One group at a time; the last one (and its open sections) remembered across saves
+        // One group at a time; the last one remembered across saves (the sections always start closed - owner, 2026-10-23)
         function show(g) {
-            if (!wrap.querySelector('.ms-design-group[data-group="' + g + '"]')) g = 'look';
+            if (!wrap.querySelector('.ms-design-group[data-group="' + g + '"]')) g = wrap.querySelector('.ms-design-group').dataset.group;
             wrap.querySelectorAll('.ms-design-nav button').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.group === g); });
             wrap.querySelectorAll('.ms-design-group').forEach(function (p) { p.hidden = p.dataset.group !== g; });
             store.set(KEY, g);
@@ -123,13 +126,8 @@ function monospace_render_design_modules() {
         var hash = location.hash.replace('#', ''), target = hash && document.getElementById('ms-design-' + hash);
         show(target ? target.closest('.ms-design-group').dataset.group : store.get(KEY) || 'look');
 
-        var open = (store.get(KEY + 'Open') || '').split(',');
-        wrap.querySelectorAll('.ms-design-module').forEach(function (d) {
-            if (open.indexOf(d.id) > -1 || d === target) d.open = true;
-            d.addEventListener('toggle', function () {
-                store.set(KEY + 'Open', Array.prototype.map.call(wrap.querySelectorAll('.ms-design-module[open]'), function (x) { return x.id; }).join(','));
-            });
-        });
+        // Every section starts closed; only a direct link to one (#viewing-toolbar...) opens it
+        if (target && target.classList.contains('ms-design-module')) target.open = true;
 
         // Unsaved changes: say so next to Save, and ask before leaving
         // (the Save button comes after this script - Layout Manager prints it below the tab)
@@ -149,9 +147,10 @@ function monospace_render_design_modules() {
     <?php
 }
 
-/** Save: every module saves its own options, then the page cache is cleared */
-function monospace_save_design_modules() {
+/** Save: every module (or only $only's group) saves its own options, then the page cache is cleared */
+function monospace_save_design_modules( $only = null ) {
     foreach ( monospace_design_modules() as $module ) {
+        if ( $only !== null && ( $module['group'] ?? 'look' ) !== $only ) continue;
         if ( ! empty( $module['save'] ) && is_callable( $module['save'] ) ) {
             call_user_func( $module['save'] );
         }

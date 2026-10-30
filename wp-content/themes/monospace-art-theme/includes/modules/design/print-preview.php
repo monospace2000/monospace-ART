@@ -5,9 +5,9 @@
  * How the price card's "See a preview" lightbox looks (commerce/print-order-shortcode.php opens it):
  * what's behind the mockup - Blur (the page itself, blurred), Image (a picture from the media
  * library, filling the screen or tiled), Pattern (the site's own background or one of the paper
- * textures) or Solid colour - plus a tint over it, the spotlight, the mockup's size and shadow, a
+ * textures) or Solid color - plus a tint over it, the spotlight, the mockup's size and shadow, a
  * caption (frame and size) and how it opens. A live preview in the settings shows the choice.
- * Shown in Layout Manager > Appearance & Effects through the design-module registry.
+ * Shown in Appearance > Look through the design-module registry.
  *
  * Front end: the site's own lightbox (assets/scripts/ms-lightbox.js, skin ms-pp; opened by
  * print-order-shortcode.php's footer script; GLightbox until 2026-10-19). monospace_print_preview_css() = its CSS:
@@ -31,7 +31,7 @@ add_filter( 'monospace_design_modules', function ( $modules ) {
         'order'       => 20,
         'summary'     => function () {
             $s = monospace_print_preview_settings();
-            return [ 'blur' => 'Blurred page, ' . $s['blur'] . 'px', 'image' => 'Image', 'pattern' => 'Pattern: ' . monospace_print_preview_patterns()[ $s['pattern'] ][0], 'solid' => 'Solid colour' ][ $s['mode'] ];
+            return [ 'blur' => 'Blurred page, ' . $s['blur'] . 'px', 'image' => 'Image', 'pattern' => 'Pattern: ' . monospace_print_preview_patterns()[ $s['pattern'] ][0], 'solid' => 'Solid color' ][ $s['mode'] ];
         },
         'render'      => 'monospace_render_print_preview_settings',
         'save'        => 'monospace_save_print_preview_settings',
@@ -47,7 +47,7 @@ function monospace_print_preview_defaults() {
         'image'         => 0,          // attachment ID
         'image_fit'     => 'cover',    // cover | tile
         'pattern'       => 'site',     // site | canvas | paper | watercolor
-        'color'         => '#f1ede7',  // solid colour
+        'color'         => '#f1ede7',  // solid color
         'color_opacity' => 100,        // %
         'tint'          => '#000000',
         'tint_strength' => 0,          // %
@@ -67,7 +67,7 @@ function monospace_print_preview_patterns() {
         'site'       => [ 'Same as the site (Appearance)', '' ],
         'canvas'     => [ 'Canvas',                        $img . 'canvas.jpeg' ],
         'paper'      => [ 'Paper',                         $img . 'paper.jpeg' ],
-        'watercolor' => [ 'Watercolour paper',             content_url( 'uploads/paper2.jpg' ) ],
+        'watercolor' => [ 'Watercolor paper',             content_url( 'uploads/paper2.jpg' ) ],
     ];
 }
 
@@ -108,8 +108,8 @@ function monospace_print_preview_rgba( $hex, $percent ) {
 function monospace_print_preview_shadows() {
     return [
         'none'   => [ 'None',   'none' ],
-        'soft'   => [ 'Soft',   'drop-shadow(0 6px 14px rgba(0, 0, 0, 0.25))' ],
-        'strong' => [ 'Strong', 'drop-shadow(0 14px 30px rgba(0, 0, 0, 0.45))' ],
+        'soft'   => [ 'Soft',   'drop-shadow(0 6px 14px rgb(var(--ms-shadow-rgb, 0 0 0) / calc(0.25 * var(--ms-shadow-k, 1))))' ], // Look > Shadows' color
+        'strong' => [ 'Strong', 'drop-shadow(0 14px 30px rgb(var(--ms-shadow-rgb, 0 0 0) / calc(0.45 * var(--ms-shadow-k, 1))))' ],
     ];
 }
 
@@ -166,13 +166,16 @@ function monospace_print_preview_css() {
     // The lightbox's base CSS is in ms-lightbox.js; this is the print preview's skin (.ms-lb.ms-pp)
     return ".ms-lb.ms-pp { $vars--pp-spot: $spot; color: inherit; }\n"
          . monospace_print_preview_mode_css( $s['mode'], $s['pattern'], '.ms-lb.ms-pp', '.ms-lb.ms-pp .ms-lb-layer', $s['blur'] . 'px' ) . "\n"
-         . ".ms-lb.ms-pp .ms-lb-slide img { width: min(1200px, calc(min(var(--pp-size), 94vw) * var(--lb-scale, 1))); max-width: none; max-height: none; filter: var(--pp-shadow); }\n";
+         . ".ms-lb.ms-pp .ms-lb-slide img { width: min(1200px, calc(min(var(--pp-size), 94vw) * var(--lb-scale, 1))); max-width: none; max-height: none; filter: var(--pp-shadow); }\n"
+         // The site's menu bar stays on top, sharp and usable, whatever the background (owner, 2026-10-21): above the
+         // preview, so its blur / image / color is only behind it (the lightbox is z-index 999999)
+         . "html.ms-lb-open:has(.ms-lb.ms-pp) :is(.primary-menu-bar, .mobile-menu-overlay) { z-index: 1000000; }\n"; // + the phone menu (menu.js)
 }
 
 /** Front end: the lightbox script's settings */
 function monospace_print_preview_js_options() {
     $s = monospace_print_preview_settings();
-    // Pinch-zoom: on the blurred page only the print zooms; an image / pattern / colour enlarges with it
+    // Pinch-zoom: on the blurred page only the print zooms; an image / pattern / color enlarges with it
     return [ 'open' => $s['open'], 'caption' => (bool) $s['caption'], 'relative' => (bool) $s['relative'], 'zoomBackground' => $s['mode'] !== 'blur' ];
 }
 
@@ -193,7 +196,7 @@ function monospace_print_preview_sample() {
     return null;
 }
 
-// The media picker (Image background) on Layout Manager > Appearance & Effects
+// The media picker (Image background) - Layout Manager > Appearance & Effects until 2026-10-22, now Appearance > Look (look.php loads the media library)
 add_action( 'admin_enqueue_scripts', function () {
     if ( ( $_GET['page'] ?? '' ) === 'monospace-layout-manager' && ( $_GET['tab'] ?? '' ) === 'effects' ) wp_enqueue_media();
 } );
@@ -237,7 +240,7 @@ function monospace_render_print_preview_settings() {
             <tr>
                 <th scope="row">Background</th>
                 <td>
-                    <?php foreach ( [ 'blur' => 'Blur - the page itself, blurred', 'image' => 'Image - a picture from the media library', 'pattern' => 'Pattern - a paper or canvas texture', 'solid' => 'Solid colour' ] as $k => $label ) : ?>
+                    <?php foreach ( [ 'blur' => 'Blur - the page itself, blurred', 'image' => 'Image - a picture from the media library', 'pattern' => 'Pattern - a paper or canvas texture', 'solid' => 'Solid color' ] as $k => $label ) : ?>
                         <label style="display:block;margin-bottom:4px"><input type="radio" name="pp[mode]" value="<?php echo esc_attr( $k ); ?>" <?php checked( $s['mode'], $k ); ?>> <?php echo esc_html( $label ); ?></label>
                     <?php endforeach; ?>
                 </td>
@@ -269,7 +272,7 @@ function monospace_render_print_preview_settings() {
                 </select></td>
             </tr>
             <tr<?php echo $show( 'solid' ); ?>>
-                <th scope="row"><label for="pp-color">Colour</label></th>
+                <th scope="row"><label for="pp-color">Color</label></th>
                 <td><input type="color" id="pp-color" name="pp[color]" value="<?php echo esc_attr( $s['color'] ); ?>">
                     <label style="margin-left:14px">Opacity <input type="range" name="pp[color_opacity]" min="0" max="100" value="<?php echo esc_attr( $s['color_opacity'] ); ?>"> <output><?php echo esc_html( $s['color_opacity'] ); ?></output>%</label>
                     <p class="description">Below 100% the page shows through.</p></td>
@@ -278,16 +281,21 @@ function monospace_render_print_preview_settings() {
                 <th scope="row"><label for="pp-tint">Tint</label></th>
                 <td><input type="color" id="pp-tint" name="pp[tint]" value="<?php echo esc_attr( $s['tint'] ); ?>">
                     <label style="margin-left:14px">Strength <input type="range" name="pp[tint_strength]" min="0" max="90" value="<?php echo esc_attr( $s['tint_strength'] ); ?>"> <output><?php echo esc_html( $s['tint_strength'] ); ?></output>%</label>
-                    <p class="description">A colour wash over the background - darker (black) or lighter (white) makes the print stand out.</p></td>
+                    <p class="description">A color wash over the background - darker (black) or lighter (white) makes the print stand out.</p></td>
             </tr>
             <tr>
                 <th scope="row">Spotlight</th>
-                <td><label><input type="hidden" name="pp[spotlight]" value="0"><input type="checkbox" name="pp[spotlight]" value="1" <?php checked( $s['spotlight'] ); ?>> The site’s spotlight on top (light in the middle, darker edges - its colours follow the Appearance)</label></td>
+                <td><label><input type="hidden" name="pp[spotlight]" value="0"><input type="checkbox" name="pp[spotlight]" value="1" <?php checked( $s['spotlight'] ); ?>> The site’s spotlight on top (light in the middle, darker edges - its colors follow the Appearance)</label></td>
             </tr>
             <tr>
                 <th scope="row"><label for="pp-size">Print size</label></th>
                 <td><input type="range" id="pp-size" name="pp[size]" min="50" max="98" value="<?php echo esc_attr( $s['size'] ); ?>"> <output><?php echo esc_html( $s['size'] ); ?></output>% of the screen height
                     <p style="margin-top:8px"><label><input type="hidden" name="pp[relative]" value="0"><input type="checkbox" name="pp[relative]" value="1" <?php checked( $s['relative'] ); ?>> Relative sizes - the largest print (a framed 11" × 14") gets this size, smaller ones in proportion, as they'd look side by side on a wall</label></p>
+                    <?php if ( function_exists( 'monospace_pc_standalone_settings' ) ) : // the standalone price card's picture: its own choice (Core) ?>
+                    <p class="description">The standalone price card’s picture shows print previews too - relative sizes or all the same:
+                        <a href="<?php echo esc_url( admin_url( 'themes.php?page=monospace-price-card' ) ); ?>">Appearance &gt; Price card</a> &gt; Standalone card &gt; Print sizes
+                        (now: <?php echo monospace_pc_standalone_settings()['sizes'] === 'relative' ? 'relative' : 'all the same'; ?>).</p>
+                    <?php endif; ?>
                     <p class="description">Off: every print fills this much of the screen.</p></td>
             </tr>
             <tr>

@@ -93,7 +93,7 @@ function mit_undo_sale($product_id) {
         $orders = wc_get_orders([
             'limit'   => 50,
             'paged'   => $page,
-            'status'  => 'completed',
+            'status'  => ['completed', 'processing', 'on-hold'], // any live sale, not only a completed one
             'orderby' => 'date',
             'order'   => 'DESC',
         ]);
@@ -162,19 +162,19 @@ function mit_render_terminal() {
             $msg_type = sanitize_text_field($_GET['msg']);
             switch ($msg_type) {
                 case 'sold':
-                    $message = "<span style='color:green;'>Marked as sold.</span>";
+                    $message = "<span class='mit-msg-ok'>Marked as sold.</span>";
                     break;
                 case 'not_available':
-                    $message = "<span style='color:red;'>This artwork is not available for sale.</span>";
+                    $message = "<span class='mit-msg-error'>This artwork is not available for sale.</span>";
                     break;
                 case 'undone':
-                    $message = "<span style='color:orange;'>Sale undone.</span>";
+                    $message = "<span class='mit-msg-warn'>Sale undone.</span>";
                     break;
                 case 'no_sale':
-                    $message = "<span style='color:red;'>No completed sale found.</span>";
+                    $message = "<span class='mit-msg-error'>No completed sale found.</span>";
                     break;
                 case 'not_found':
-                    $message = "<span style='color:red;'>No artwork found for that number.</span>";
+                    $message = "<span class='mit-msg-error'>No artwork found for that number.</span>";
                     break;
             }
         }
@@ -214,6 +214,7 @@ function mit_render_terminal() {
                 $order->add_product($product_obj, 1);
                 $order->set_payment_method($payment_method);
                 $order->set_status('completed');
+                $order->update_meta_data('order_label', 'in-person-sale'); // Orders list > Label (Core, order-labels.php)
 
                 if ($notes) {
                     $order->add_order_note($notes);
@@ -257,6 +258,20 @@ function mit_render_terminal() {
 }
 .availability-label-available { color: green; font-weight: bold; }
 .availability-label-notavailable { color: red; font-weight: bold; }
+.mit-msg-ok { color: green; }
+.mit-msg-error { color: red; }
+.mit-msg-warn { color: orange; }
+.mit-terminal #mit-sku-input { width: 100%; padding: 10px; margin: 10px 0; border-color: #333; background-color: white; }
+.mit-terminal .mit-card { border: 1px solid #000; padding: 15px; margin: 10px 0; background-color: #fff; }
+/* Dark mode (the theme's html.ms-dark-ui, 2026-10-21): the card takes the dark look's card colors (Look > Cards), the
+   number field is dark, the status colors are lighter - the white field and card had light text on them */
+html.ms-dark-ui .mit-terminal #mit-sku-input { color: var(--ms-text, #e4dfd6); background-color: #262422; border-color: rgba(255, 255, 255, 0.35); }
+html.ms-dark-ui .mit-terminal .mit-card { color: var(--ms-text, #e4dfd6); background-color: var(--ms-card-bg, #2b2926); border-color: var(--ms-card-border, #48443f); }
+html.ms-dark-ui .availability-label-available,
+html.ms-dark-ui .mit-msg-ok { color: #6fd36f; }
+html.ms-dark-ui .availability-label-notavailable,
+html.ms-dark-ui .mit-msg-error { color: #ff7a7a; }
+html.ms-dark-ui .mit-msg-warn { color: #f5b04f; }
 </style>
 
 <div class="mit-terminal" style="max-width:850px; margin:0; padding:0; font-family:sans-serif;">
@@ -277,8 +292,7 @@ function mit_render_terminal() {
                placeholder="0000"
                required
                readonly
-               onfocus="this.removeAttribute('readonly');"
-               style="width:100%; padding:10px; margin:10px 0; font-size:16px; border-color: #333; background-color: white;">
+               onfocus="this.removeAttribute('readonly');">
         <button name="mit_search" style="width:100%;margin-bottom: 20px;">Search</button>
     </form>
 
@@ -292,7 +306,7 @@ function mit_render_terminal() {
     ?>
 
     <!-- PRODUCT CONFIRMATION -->
-    <div style="border:1px solid #000; padding:15px; margin:10px 0; background-color: #fff;">
+    <div class="mit-card">
         <strong><?php echo esc_html($product->get_name()); ?></strong><br>
         SKU: <?php echo esc_html($product->get_sku()); ?><br>
         Status: <strong class="<?php echo $availability_class; ?>"><?php echo esc_html($availability_label); ?></strong><?php if ($availability_key === 'available'): ?><br>

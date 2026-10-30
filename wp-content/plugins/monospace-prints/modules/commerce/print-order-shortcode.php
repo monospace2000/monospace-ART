@@ -7,30 +7,22 @@
  *
  * The panes are tabs on the price card ([price_card], see monospace_render_painting_card()), read from the
  * post's _print_product_id / _framed_print_product_id meta (set in the Quick Artwork Editor). The separate
- * print-only card (on the Print category, and [print_order_button]) was retired on 2026-10-20 - the price card
- * can open on a print tab instead ("Opens on", Core's price-card-presets.php).
+ * print-only card was retired on 2026-10-20 and its leftovers removed on 2026-10-21 (owner: "one less thing to
+ * maintain"), incl. the [print_order_button] shortcode (nothing used it): the Print category shows the regular
+ * Full card, opening on Prints ("Opens on", Core's price-card-presets.php).
  *
  * "See a preview" (2026-10-16): each print pane has a text link above its Add to cart button (at the
  * bottom of the options column, so the SKU / button row is untouched). It opens the selected
  * variation's mockup in the site's own lightbox (no GLightbox since 2026-10-19) - framed: every frame in
  * the selected size, swipe between them.
  * Mockup = the variation's mockup drawn on the site (prints/print-mockups.php, transparent), shown on
- * a blur of the page behind it by default - set in Layout Manager > Appearance & Effects > Print preview
- * (design/print-preview.php, 2026-10-19: blur / image / pattern / solid colour and more).
- *
- * LEGACY SHORTCODE [print_order_button] (no post uses it): nothing in a post that has a [price_card], else
- * the post's price card opening on its prints.
+ * a blur of the page behind it by default - set in Appearance > Look > Print preview
+ * (design/print-preview.php, 2026-10-19: blur / image / pattern / solid color and more).
  *
  * @package monospace-art-theme
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
-
-add_shortcode( 'print_order_button', function () {
-    $post = get_post();
-    if ( $post && ( has_shortcode( $post->post_content, 'price_card' ) || has_shortcode( $post->post_content, 'painting_buy_button' ) ) ) return '';
-    return do_shortcode( '[price_card tab="prints"]' );
-} );
 
 
 /**
@@ -348,15 +340,15 @@ function monospace_print_preview_url( $variation_id, $post_id = 0 ) {
 }
 
 /**
- * Card behaviour, printed once in the footer of any page that rendered a card.
+ * Card behavior, printed once in the footer of any page that rendered a card.
  */
 add_action( 'wp_footer', function () {
     if ( empty( $GLOBALS['monospace_print_card_rendered'] ) ) return;
     wp_enqueue_script( 'ms-lightbox' ); // registered in content/lightbox.php; printed with the footer scripts
     ?>
     <style>
-    /* "See a preview": its look is set in Layout Manager > Appearance & Effects > Print preview
-       (design/print-preview.php) - background (blur / image / pattern / solid colour), tint, spotlight,
+    /* "See a preview": its look is set in Appearance > Look > Print preview
+       (design/print-preview.php) - background (blur / image / pattern / solid color), tint, spotlight,
        size, shadow, caption */
     <?php echo function_exists( 'monospace_print_preview_css' ) ? monospace_print_preview_css() : ''; ?>
     </style>

@@ -5,7 +5,7 @@
  * monospace_lm_area_assets() prints, once per page, the styles and script every monospace ART admin screen shares:
  *   .lm-panel   folding panel (<details>): summary = .lm-t title + .lm-chip state + .lm-sub one-line summary;
  *               .lm-body holds the fields
- *   .lm-chip    is-on (in use, blue) · is-empty (outlined grey) · is-off (pale) · is-terms (set elsewhere, green)
+ *   .lm-chip    is-on (in use, blue) · is-empty (outlined gray) · is-off (pale) · is-terms (set elsewhere, green)
  *               · is-warn (red)
  *   .lm-map     the page map beside the panels (.lm-area is-on / is-empty / is-off), linked to them by data-panel
  *   .lm-mirror + .lm-mobile   "Same on phones & tablets" folds the phone field away
@@ -18,7 +18,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
- * The areas screens' look and behaviour (the map and the panels), printed once per page after the first one -
+ * The areas screens' look and behavior (the map and the panels), printed once per page after the first one -
  * Layout Manager > Headers & Sidebars and the category / tag edit screens (term-areas.php) share it.
  */
 function monospace_lm_area_assets() {
@@ -75,6 +75,12 @@ function monospace_lm_area_assets() {
         .lm-mobile[hidden], .lm-sidebar-fields[hidden] { display: none; }
     </style>
     <script>
+    // Every panel starts closed (owner, 2026-10-28) - whatever a screen's PHP says. Only what the visitor does opens one.
+    (function () {
+        function closeAll() { document.querySelectorAll('details.lm-panel[open]').forEach(function (d) { d.removeAttribute('open'); }); }
+        closeAll();
+        document.addEventListener('DOMContentLoaded', closeAll);
+    })();
     document.querySelectorAll('.lm-areas:not([data-lm-ready])').forEach(function (root) {
         root.dataset.lmReady = '1';
         function panel(name) { return root.querySelector('.lm-panel[data-panel="' + name + '"]'); }

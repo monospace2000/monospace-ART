@@ -88,8 +88,8 @@ function monospace_new_artwork_attributes() {
         if ( $taxonomy === 'pa_size' ) {
             // Originals' sizes only - Printful's print sizes (bare "8×10", "5x7-2") live in the same taxonomy
             // Grouped Landscape / Portrait / Square / Other, large to small (MetaBox::size_group(), 2026-10-20)
-            foreach ( \QuickProduct\MetaBox::sort_size_terms( $terms ) as $t ) {
-                if ( ! \QuickProduct\MetaBox::is_original_size( $t->name ) ) continue;
+            // Portrait mirrors Landscape (MetaBox::dropdown_size_terms())
+            foreach ( \QuickProduct\MetaBox::sort_size_terms( \QuickProduct\MetaBox::dropdown_size_terms( $terms ) ) as $t ) {
                 $options[] = [ \QuickProduct\MetaBox::size_group( $t->name ), $t->slug, $t->name ];
             }
         } else {
@@ -127,6 +127,14 @@ function monospace_new_artwork_defaults() {
 function monospace_new_artwork_page() {
     $attributes = monospace_new_artwork_attributes();
     $defaults   = monospace_new_artwork_defaults();
+    // A feature can open this page pre-filled (?origin=...): filter `monospace_new_artwork_prefill` returns
+    // [ image_id, status, price, notice ] for that origin (a plain value); the origin goes back with the form
+    $origin     = isset( $_GET['origin'] ) ? sanitize_text_field( wp_unslash( $_GET['origin'] ) ) : '';
+    $prefill    = $origin !== '' ? (array) apply_filters( 'monospace_new_artwork_prefill', [], $origin ) : [];
+    if ( ! empty( $prefill['image_id'] ) ) {
+        $prefill['image_url']  = (string) wp_get_attachment_image_url( (int) $prefill['image_id'], 'large' );
+        $prefill['image_info'] = basename( (string) get_attached_file( (int) $prefill['image_id'] ) ) . ' - click the image to choose another.';
+    }
     $statuses   = \QuickProduct\MetaBox::availability_options();
     $tags       = get_terms( [ 'taxonomy' => 'post_tag', 'hide_empty' => false, 'orderby' => 'count', 'order' => 'DESC', 'fields' => 'names' ] );
 
@@ -140,8 +148,11 @@ function monospace_new_artwork_page() {
         <h1>New artwork</h1>
         <p class="ms-na-intro">Image first, then the facts. <strong>Create draft</strong> makes the post (image + caption, More, story, price card), sets its categories, tags and featured image, creates the product with its SKU, and opens the draft in the editor.</p>
 
+        <?php if ( ! empty( $prefill['notice'] ) ) : ?><div class="notice notice-info inline"><p><?php echo esc_html( $prefill['notice'] ); ?></p></div><?php endif; ?>
+
         <form id="ms-na-form" novalidate>
             <?php wp_nonce_field( 'monospace_new_artwork', '_ajax_nonce' ); ?>
+            <?php if ( $origin !== '' ) : ?><input type="hidden" name="origin" value="<?php echo esc_attr( $origin ); ?>"><?php endif; ?>
             <div class="ms-na-grid">
 
                 <section class="ms-na-card ms-na-image">
@@ -294,7 +305,7 @@ function monospace_new_artwork_page() {
         .ms-na-money::before { content: "$"; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #757575; font-size: 16px; font-weight: 600; pointer-events: none; }
         .ms-na .ms-na-money input { padding-left: 22px; }
 
-        /* Status colours, as in the Quick Product box */
+        /* Status colors, as in the Quick Product box */
         #ms-na-status { border-left-width: 4px; }
         #ms-na-status[data-status="available"] { background-color: #edfaef; border-left-color: #00a32a; color: #00631f; }
         #ms-na-status[data-status="reserved"] { background-color: #fcf9e8; border-left-color: #dba617; color: #6e4e00; }
@@ -428,7 +439,7 @@ function monospace_new_artwork_page() {
             });
         });
 
-        // ---- Status colour + gallery fields
+        // ---- Status color + gallery fields
         $('#ms-na-status').on('change', function () {
             $(this).attr('data-status', this.value);
             $('#ms-na-gallery').prop('hidden', this.value !== 'gallery' && this.value !== 'gallery-reserved');
@@ -486,6 +497,16 @@ function monospace_new_artwork_page() {
         }).on('blur', function () { if ($.trim(this.value)) { addTag(this.value); this.value = ''; } });
         $('#ms-na-tags').on('click', 'button', function () { $(this).closest('.ms-na-tag').remove(); })
             .on('click', function (e) { if (e.target === this) $('#ms-na-tag-input').trigger('focus'); });
+
+        // ---- Pre-filled by the feature that opened the page (see `monospace_new_artwork_prefill`)
+        var pre = <?php echo wp_json_encode( array_intersect_key( $prefill, array_flip( [ 'image_id', 'image_url', 'image_info', 'status', 'price' ] ) ) ); ?>;
+        if (pre.image_id) {
+            $('#ms-na-image-id').val(pre.image_id).trigger('change');
+            $('#ms-na-pick').addClass('has-image').find('img').attr('src', pre.image_url || '').prop('hidden', !pre.image_url);
+            $('#ms-na-image-info').text(pre.image_info || '');
+        }
+        if (pre.price) $('#ms-na-price').val(pre.price);
+        if (pre.status) $('#ms-na-status').val(pre.status).trigger('change');
 
         // ---- Create draft
         $form.on('input change', ':input', function () { $(this).closest('.ms-na-field').removeClass('is-invalid'); });
@@ -591,6 +612,8 @@ add_action( 'wp_ajax_monospace_new_artwork', function () {
     foreach ( (array) ( $in['look'] ?? [] ) as $slug ) {
         if ( isset( monospace_artwork_look_categories()[ $slug ] ) ) $slugs[] = $slug;
     }
+    // A feature may add post categories (e.g. the commissions plugin: custom-artwork)
+    $slugs = (array) apply_filters( 'monospace_new_artwork_categories', $slugs, $in );
     $categories = [];
     foreach ( array_unique( array_filter( $slugs ) ) as $slug ) {
         $cat = get_category_by_slug( $slug );
@@ -649,6 +672,8 @@ add_action( 'wp_ajax_monospace_new_artwork', function () {
             $notes[] = 'Prints not started: ' . $e->getMessage();
         }
     }
+
+    do_action( 'monospace_new_artwork_created', $post_id, $product, $in );
 
     wp_send_json_success( [
         'post_id'  => $post_id,

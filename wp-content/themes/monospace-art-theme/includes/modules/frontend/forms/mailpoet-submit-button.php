@@ -4,7 +4,7 @@
  *
  * MailPoet and Contact Form 7 print <input type="submit">. An input can't show the glass button's highlight
  * (it's a ::before layer, which inputs don't draw), and MailPoet writes its own look into a style="" attribute
- * (colour, corner radius, padding, font), which beats the site's style. So their submit inputs become
+ * (color, corner radius, padding, font), which beats the site's style. So their submit inputs become
  * <button type="submit"> with the same classes and attributes and the input's value as the label; MailPoet's
  * style="" is dropped.
  *

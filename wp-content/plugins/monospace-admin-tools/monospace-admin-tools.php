@@ -3,7 +3,7 @@
  * Plugin Name: monospace ART - Admin tools
  * Update URI: false
  * Description: wp-admin conveniences: the artwork toolbar (price, availability, Publish / Unpublish on an artwork's page),
- *              post navigation, save shortcuts, SKU search, media "Used in" (and the unused-media folder), quieter
+ *              post navigation, save shortcuts, SKU search, hide a block (block sidebar > Visibility: grayed out in the editor, left out of the site), media "Used in" (and the unused-media folder), quieter
  *              rating notices. (Dashboard shortcuts: its own plugin since 2026-10-19.)
  * Version: 1.0.0
  * Author: Hens Breet

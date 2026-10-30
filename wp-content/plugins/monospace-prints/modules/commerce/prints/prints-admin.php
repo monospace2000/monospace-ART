@@ -127,8 +127,8 @@ function monospace_prints_admin_page() {
                         <?php if ( $art ) echo '<br><span class="description">' . esc_html( monospace_seo_artwork_kind( $art ) . ( $art['size'] ? ', ' . $art['size'] : '' ) ) . '</span>'; ?></td>
                     <td><?php echo $art ? esc_html( $art['purchasable'] ? 'for sale' : ( $art['status'] ?: 'not for sale' ) ) : ''; ?></td>
                     <td><?php if ( $img ) : ?><?php echo (int) $px[0]; ?> × <?php echo (int) $px[1]; ?><br>
-                            <?php [ $rating, $colour ] = monospace_print_dpi_rating( $dpi ); ?>
-                            <span style="color:<?php echo esc_attr( $colour ); ?>">11×14: <?php echo (int) $dpi; ?> dpi - <?php echo esc_html( $rating ); ?></span>
+                            <?php [ $rating, $color ] = monospace_print_dpi_rating( $dpi ); ?>
+                            <span style="color:<?php echo esc_attr( $color ); ?>">11×14: <?php echo (int) $dpi; ?> dpi - <?php echo esc_html( $rating ); ?></span>
                             <?php if ( $wm === 'watermarked' ) echo '<br><span style="color:#9a6700">watermarked - a clean copy is used</span>'; ?>
                         <?php else : ?><span style="color:#b32d2e">no featured image</span><?php endif; ?></td>
                     <td><?php

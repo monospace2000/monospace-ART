@@ -102,9 +102,19 @@ function monospace_art_enqueue_assets() {
         'monospace-art-menu',
         get_template_directory_uri() . '/assets/scripts/menu.js',
         array('jquery'),
-        $theme_version,
+        (string) filemtime( get_template_directory() . '/assets/scripts/menu.js' ),
         true
     );
+    // Home page: a # link to a box lands on its row (computers and tablets)
+    if ( is_front_page() ) {
+        $anchors_js = '/assets/scripts/home-anchors.js';
+        wp_enqueue_script( 'monospace-home-anchors', get_template_directory_uri() . $anchors_js, array(), filemtime( get_template_directory() . $anchors_js ), true );
+    }
+    // Checkout: the Place order button follows the chosen payment method (PayPal colors and label)
+    if ( function_exists( 'is_checkout' ) && is_checkout() ) {
+        $pay_js = '/assets/scripts/checkout-pay-button.js';
+        wp_enqueue_script( 'monospace-checkout-pay-button', get_template_directory_uri() . $pay_js, array( 'jquery' ), (string) filemtime( get_template_directory() . $pay_js ), true );
+    }
     // Fit-text script (container-relative)
     wp_enqueue_script(
         'monospace-fit-text',
@@ -116,6 +126,26 @@ function monospace_art_enqueue_assets() {
 
 
 }
+
+// Checkout: WooCommerce Payments keeps the card fields' computed colors in localStorage (wcpay_appearance_*, versioned
+// only by theme / style changes, not by light / dark) - the dark colors stayed on a light page and the other way round.
+// Right after the theme's mode script (wp_head 1), and before the plugin mounts the fields, forget them when the mode
+// changed since they were saved.
+add_action( 'wp_head', function () {
+    if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return; ?>
+<script data-no-optimize="1" data-no-defer="1">
+(function () {
+    try {
+        var m = document.documentElement.classList.contains('ms-dark-ui') ? 'dark' : 'light', k = 'ms-wcpay-mode';
+        if (localStorage.getItem(k) !== m) {
+            Object.keys(localStorage).forEach(function (x) { if (x.indexOf('wcpay_appearance_') === 0) localStorage.removeItem(x); });
+            localStorage.setItem(k, m);
+        }
+    } catch (e) {}
+})();
+</script>
+<?php
+}, 2 );
 
 // -----------------------------------------------------------
 // Enqueue Infinite Scroll on all pages (for scroll-to-top button)

@@ -58,6 +58,37 @@ add_action( 'template_redirect', function () {
     }
 }, 5 );
 
+/**
+ * /art-shop/<category>/ (2026-10-30): /art-shop/ is the base of the product addresses
+ * (/art-shop/print/<product>/), so the address with only a category after it is a natural guess.
+ * The menu's Shop and Work entries, singular or plural - without this they 404 (or, for /art-shop/print/,
+ * WordPress guessed a random print). Only when it would be a 404; a /page/N/ after it is kept.
+ */
+const MONOSPACE_ART_SHOP_SHORTCUTS = [
+    'available'  => '/category/available/',
+    'original'   => '/category/available/',
+    'originals'  => '/category/available/',
+    'print'      => '/category/print/',
+    'prints'     => '/category/print/',
+    'miniature'  => '/category/format/miniature/',
+    'miniatures' => '/category/format/miniature/',
+    'favorite'   => '/category/favorite/',
+    'favorites'  => '/category/favorite/',
+    'painting'   => '/category/format/painting/',
+    'paintings'  => '/category/format/painting/',
+    'drawing'    => '/category/format/drawing/',
+    'drawings'   => '/category/format/drawing/',
+];
+
+add_action( 'template_redirect', function () {
+    if ( ! is_404() ) return;
+    $path = trim( (string) wp_parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH ), '/' );
+    if ( ! preg_match( '#^art-shop/([a-z-]+)(?:/page/(\d+))?$#', $path, $m ) || ! isset( MONOSPACE_ART_SHOP_SHORTCUTS[ $m[1] ] ) ) return;
+    $to = MONOSPACE_ART_SHOP_SHORTCUTS[ $m[1] ] . ( ! empty( $m[2] ) ? 'page/' . $m[2] . '/' : '' );
+    wp_safe_redirect( home_url( $to ), 301, 'monospace art-shop shortcut' );
+    exit;
+}, 5 );
+
 add_filter( 'jetpack_sitemap_skip_post', function ( $skip, $post ) {
     if ( $skip || ! is_object( $post ) || ( $post->post_type ?? '' ) !== 'page' ) return $skip;
     return isset( MONOSPACE_RETIRED_PAGES[ get_page_uri( $post->ID ) ] );

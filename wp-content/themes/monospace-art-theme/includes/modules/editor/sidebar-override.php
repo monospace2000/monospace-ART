@@ -40,7 +40,7 @@ add_action('add_meta_boxes', function() {
         'monospace_sidebar_override',
         __('This page’s layout', 'monospace-art-theme'), // was "Sidebar Override" (2026-10-20: it also sets logo, title, top content)
         'monospace_sidebar_override_metabox_callback',
-        ['post', 'page', 'product'],
+        ['post', 'page'], // not products: they never show a sidebar
         'side',
         'default'
     );
@@ -58,6 +58,7 @@ function monospace_sidebar_override_metabox_callback($post) {
     $sidebar_choice = monospace_sidebar_override_choice($post->ID);
     $top_mode       = get_post_meta($post->ID, '_monospace_top_mode', true);
     $top_content    = get_post_meta($post->ID, '_monospace_top_content', true);
+    $top_style      = (array) get_post_meta($post->ID, '_monospace_top_style', true); // its own banner style, dates, close
     $hide_header    = get_post_meta($post->ID, '_monospace_hide_header', true);
     $hide_title     = get_post_meta($post->ID, '_monospace_hide_title', true);
 
@@ -68,7 +69,7 @@ function monospace_sidebar_override_metabox_callback($post) {
     // The page type's defaults (Layout Manager > Headers & Sidebars)
     $type       = $post->post_type === 'post' ? 'posts' : ($post->post_type === 'product' ? 'products' : 'pages');
     $show_def   = monospace_sidebar_default_visible($type);
-    $top_def    = trim((string) get_option('monospace_' . $type . '_top_content', '')) !== '';
+    $top_def    = trim((string) monospace_layout_option($type, 'top', 'top_content', '')) !== '';
     $lm         = admin_url('admin.php?page=monospace-layout-manager&tab=' . $type);
     $preview    = function_exists('monospace_lm_preview') ? 'monospace_lm_preview' : fn($t) => wp_strip_all_tags($t);
 
@@ -119,12 +120,16 @@ function monospace_sidebar_override_metabox_callback($post) {
                     <span class="lm-sub">Full width, under the logo<?php echo $top_mode === 'custom' && trim((string) $top_content) !== '' ? ' · ' . esc_html($preview($top_content)) : ''; ?></span></summary>
                 <div class="lm-body">
                     <select name="monospace_top_mode" id="monospace_top_mode" style="width: 100%;"
-                            onchange="document.getElementById('monospace_top_custom').style.display = this.value === 'custom' ? '' : 'none';">
+                            onchange="document.getElementById('monospace_top_own').style.display = this.value === 'custom' ? '' : 'none';">
                         <option value="" <?php selected($top_mode, ''); ?>>Default<?php echo $top_def ? '' : ' (empty)'; ?> - Layout Manager</option>
                         <option value="custom" <?php selected($top_mode, 'custom'); ?>>Its own</option>
                         <option value="none" <?php selected($top_mode, 'none'); ?>>None</option>
                     </select>
-                    <textarea name="monospace_top_content" id="monospace_top_custom" rows="5" style="width: 100%; margin-top: 6px;<?php echo $top_mode === 'custom' ? '' : ' display: none;'; ?>" placeholder="HTML and shortcodes allowed"><?php echo esc_textarea($top_content); ?></textarea>
+                    <div id="monospace_top_own"<?php echo $top_mode === 'custom' ? '' : ' style="display: none;"'; ?>>
+                        <textarea name="monospace_top_content" id="monospace_top_custom" rows="5" style="width: 100%; margin-top: 6px;" placeholder="Markdown (**bold**, *italic*, [link](url)), HTML and shortcodes allowed"><?php echo esc_textarea($top_content); ?></textarea>
+                        <?php // How this banner looks: as in Look > Banners, or its own style, color, alignment, size - and dates, close button (design/banner-style.php)
+                        if (function_exists('monospace_banner_fields')) monospace_banner_fields('monospace_top_style', monospace_banner_area($top_style), true, 'monospace_top_custom'); ?>
+                    </div>
                     <p class="description"><a href="<?php echo esc_url($lm); ?>">The default for every <?php echo esc_html(rtrim($type, 's')); ?></a></p>
                 </div>
             </details>
@@ -235,8 +240,14 @@ add_action('save_post', function($post_id) {
     }
     if ($top_mode === 'custom') {
         update_post_meta($post_id, '_monospace_top_content', wp_kses_post(wp_unslash($_POST['monospace_top_content'] ?? '')));
+        // ...and how it looks: its own style, color, alignment, size, dates, close (empty = as in Look) - as a category's
+        if (isset($_POST['monospace_top_style']) && is_array($_POST['monospace_top_style']) && function_exists('monospace_banner_clean')) {
+            $style = monospace_banner_clean(wp_unslash($_POST['monospace_top_style']), ['style' => '', 'color' => '', 'align' => '', 'size' => '', 'from' => '', 'until' => '', 'close' => '']);
+            array_filter($style) ? update_post_meta($post_id, '_monospace_top_style', $style) : delete_post_meta($post_id, '_monospace_top_style');
+        }
     } else {
         delete_post_meta($post_id, '_monospace_top_content');
+        delete_post_meta($post_id, '_monospace_top_style');
     }
 
     if (isset($_POST['monospace_hide_title'])) {
@@ -291,86 +302,25 @@ function monospace_get_sidebar_content($post_id = null) {
             }
         }
 
-        // Blog feed
-        if (is_home()) {
-            $prefix = 'monospace_blog_feed_';
-            $desktop = get_option($prefix . 'sidebar_desktop', '');
-            $mobile = get_option($prefix . 'sidebar_mobile', '');
-            $mirror = get_option($prefix . 'mirror_sidebar', '');
-            if ($mirror === '') $mirror = '1';
-
-            if ($mirror === '1') {
-                return do_shortcode($desktop);
-            }
-
-            // Output both with CSS classes
-            $output = '';
-            if ($desktop) {
-                $output .= '<div class="content-desktop">' . do_shortcode($desktop) . '</div>';
-            }
-            if ($mobile) {
-                $output .= '<div class="content-mobile">' . do_shortcode($mobile) . '</div>';
-            }
-            return $output;
-        }
-
-        // Search results
-        if (is_search()) {
-            $prefix = 'monospace_search_';
-            $desktop = get_option($prefix . 'sidebar_desktop', '');
-            $mobile = get_option($prefix . 'sidebar_mobile', '');
-            $mirror = get_option($prefix . 'mirror_sidebar', '');
-            if ($mirror === '') $mirror = '1';
-
-            if ($mirror === '1') {
-                return do_shortcode($desktop);
-            }
-
-            // Output both with CSS classes
-            $output = '';
-            if ($desktop) {
-                $output .= '<div class="content-desktop">' . do_shortcode($desktop) . '</div>';
-            }
-            if ($mobile) {
-                $output .= '<div class="content-mobile">' . do_shortcode($mobile) . '</div>';
-            }
-            return $output;
-        }
-
-        // 404 page
-        if (is_404()) {
-            $prefix = 'monospace_404_';
-            $desktop = get_option($prefix . 'sidebar_desktop', '');
-            $mobile = get_option($prefix . 'sidebar_mobile', '');
-            $mirror = get_option($prefix . 'mirror_sidebar', '');
-            if ($mirror === '') $mirror = '1';
-
-            if ($mirror === '1') {
-                return do_shortcode($desktop);
-            }
-
-            // Output both with CSS classes
-            $output = '';
-            if ($desktop) {
-                $output .= '<div class="content-desktop">' . do_shortcode($desktop) . '</div>';
-            }
-            if ($mobile) {
-                $output .= '<div class="content-mobile">' . do_shortcode($mobile) . '</div>';
-            }
-            return $output;
-        }
+        // Art Feed, search results, 404: the type's own sidebar where it has one, else the Site default (layout-inherit.php)
+        if (is_home())   return monospace_sidebar_from_options(monospace_layout_prefix('blog-feed', 'sidebar'));
+        if (is_search()) return monospace_sidebar_from_options(monospace_layout_prefix('search', 'sidebar'));
+        if (is_404())    return monospace_sidebar_from_options(monospace_layout_prefix('404', 'sidebar'));
 
         return '';
     }
 
     $post_type = get_post_type($post_id);
+    if ($post_type === 'product') return ''; // product pages never show a sidebar
     $use_override = get_post_meta($post_id, '_monospace_use_sidebar_override', true);
     $override_mode = get_post_meta($post_id, '_monospace_override_mode', true) ?: 'replace';
 
     // Get default content for this post type
-    $prefix = 'monospace_' . $post_type . 's_';
+    $prefix = monospace_layout_prefix($post_type === 'post' ? 'posts' : 'pages', 'sidebar'); // Posts / Pages override, else the Site default
     $default_desktop = get_option($prefix . 'sidebar_desktop', '');
     $default_mobile = get_option($prefix . 'sidebar_mobile', '');
+    $default_desktop = function_exists('monospace_line_breaks') ? monospace_line_breaks($default_desktop) : $default_desktop;
+    $default_mobile  = function_exists('monospace_line_breaks') ? monospace_line_breaks($default_mobile) : $default_mobile;
     $default_mirror = get_option($prefix . 'mirror_sidebar', '');
     if ($default_mirror === '') $default_mirror = '1';
 
@@ -396,6 +346,8 @@ function monospace_get_sidebar_content($post_id = null) {
     // Get post-specific content
     $custom_desktop = get_post_meta($post_id, '_monospace_custom_sidebar', true);
     $custom_mobile = get_post_meta($post_id, '_monospace_mobile_sidebar', true);
+    $custom_desktop = function_exists('monospace_line_breaks') ? monospace_line_breaks($custom_desktop) : $custom_desktop;
+    $custom_mobile  = function_exists('monospace_line_breaks') ? monospace_line_breaks($custom_mobile) : $custom_mobile;
     $custom_mirror = get_post_meta($post_id, '_monospace_mirror_sidebar', true);
     if ($custom_mirror === '') $custom_mirror = '1';
 
@@ -487,8 +439,9 @@ function monospace_layout_context() {
 
 /** Layout Manager default for a page type (products: hidden, like before) */
 function monospace_sidebar_default_visible($context) {
-    $option = 'monospace_' . str_replace('-', '_', $context) . '_show_sidebar';
-    return get_option($option, $context === 'products' ? '0' : '1') === '1';
+    if ($context === 'products') return false; // product pages never show a sidebar
+    $prefix = $context === 'site' ? 'monospace_site_' : monospace_layout_prefix($context, 'sidebar'); // the type's own, else the Site default
+    return get_option($prefix . 'show_sidebar', '1') === '1';
 }
 
 /** A post's own choice: 'show', 'hide' or '' (use default). Reads the old "Hide sidebar" flag too. */
@@ -499,25 +452,42 @@ function monospace_sidebar_override_choice($post_id) {
 }
 
 /**
- * The full-width top content area (index.php / 404.php, above .two-column-layout):
- * the post's own choice (Custom / None) first, else the Layout Manager default for the page type.
+ * The full-width top content area (index.php / 404.php, above .two-column-layout; the home page: start_template.php):
+ * the post's own choice (Custom / None) first, else the Layout Manager default for the page type - the home page its
+ * own (Layout Manager > Home Page). Drawn as a banner (design/banner-style.php: the page type's style, dates, close).
  */
 function monospace_render_top_content() {
-    $context = monospace_layout_context();
-    if (! $context) return;
+    $context = is_front_page() ? 'home' : monospace_layout_context();
+    if (! $context || $context === 'products') return;
 
     $content = null;
-    if (is_singular(['post', 'page', 'product'])) {
+    $style   = null;
+    // A category / tag / place page: its own top content, or none (its edit screen - term-areas.php), else the shared one
+    if (is_category() || is_tag() || is_tax()) {
+        $term = get_queried_object();
+        $mode = $term && ! empty($term->term_id) ? get_term_meta($term->term_id, '_monospace_top_mode', true) : '';
+        if ($mode === 'none') return;
+        if ($mode === 'custom') {
+            $content = (string) get_term_meta($term->term_id, '_monospace_top_content', true);
+            $style   = (array) get_term_meta($term->term_id, '_monospace_top_style', true);
+        }
+    }
+    if ($context !== 'home' && is_singular(['post', 'page', 'product'])) {
         $mode = get_post_meta(get_the_ID(), '_monospace_top_mode', true);
         if ($mode === 'none') return;
-        if ($mode === 'custom') $content = get_post_meta(get_the_ID(), '_monospace_top_content', true);
+        if ($mode === 'custom') {
+            $content = get_post_meta(get_the_ID(), '_monospace_top_content', true);
+            $style   = (array) get_post_meta(get_the_ID(), '_monospace_top_style', true); // its own style, dates, close (2026-10-22)
+        }
     }
     if ($content === null) {
-        $content = get_option('monospace_' . str_replace('-', '_', $context) . '_top_content', '');
+        $content = monospace_layout_option($context, 'top', 'top_content', ''); // the type's own, else the Site default
     }
     if (trim((string) $content) === '') return;
 
-    echo '<div class="top-content-area">' . do_shortcode(wpautop($content)) . '</div>';
+    $html = do_shortcode(wpautop(function_exists('monospace_markdown_lite') ? monospace_markdown_lite($content) : $content));
+    $key  = monospace_layout_prefix($context, 'top') . 'top_style';
+    echo function_exists('monospace_banner_wrap') ? monospace_banner_wrap($html, monospace_banner_area($style !== null ? $style : $key), $context) : '<div class="top-content-area">' . $html . '</div>';
 }
 
 function monospace_sidebar_visible() {

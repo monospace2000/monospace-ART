@@ -4,7 +4,7 @@
  *
  * monospace_print_mockup_render() draws one print the way it hangs: the artwork centre-cropped to the
  * print's shape (as Printful prints it - "fill"), unframed (matte paper, soft shadow) or in a frame
- * (Black / White: flat colour; Red Oak: the owner's wood sample, assets/images/red-oak-texture.jpg,
+ * (Black / White: flat color; Red Oak: the owner's wood sample, assets/images/red-oak-texture.jpg,
  * a copy of red-oak-sample.jpg at a working size), mitred corners, light from above. Front-on, square,
  * **transparent background** (owner's wish: the mockup can be put on the site's background or any
  * other later) - WebP, which keeps the transparency at a tenth of a PNG's size. GD only (the host
@@ -87,7 +87,7 @@ function monospace_mockup_oak() {
 }
 
 /**
- * One side of the frame's face: $len along the moulding, $fw across it, grain along its length.
+ * One side of the frame's face: $len along the molding, $fw across it, grain along its length.
  * $scale = texture px per canvas px (the same for all four sides, so the grain matches); $seed picks
  * a different piece of the wood per side. Returns $fw × $len (vertical side) or $len × $fw.
  */

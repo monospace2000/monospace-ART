@@ -10,7 +10,7 @@
  * Gallery | Gallery QR.
  *   - the SKU's number (how the owner identifies a piece; hover = the full SKU)
  *   - Price: saved on Enter or when the field is left
- *   - Availability: saved when picked (coloured per status, as in the editors)
+ *   - Availability: saved when picked (colored per status, as in the editors)
  *   - Publish / Unpublish (owner's words): Unpublish = the post becomes a Draft, off the site for visitors (asks
  *     first; the bar turns brown and says "Unpublished"), Publish = back on the site
  * Each change saves at once through Core's own saving (monospace_artwork_editor_save_row() - the same path as
