@@ -211,7 +211,8 @@ function mit_render_terminal() {
 
             if ($availability_key === 'available') {
                 $order = wc_create_order();
-                $order->add_product($product_obj, 1);
+                // The listed price as paid (add_product alone would take the NJ tax off a tax-inclusive price)
+                $order->add_product($product_obj, 1, ['subtotal' => $product_obj->get_price(), 'total' => $product_obj->get_price()]);
                 $order->set_payment_method($payment_method);
                 $order->set_status('completed');
                 $order->update_meta_data('order_label', 'in-person-sale'); // Orders list > Label (Core, order-labels.php)
@@ -220,7 +221,7 @@ function mit_render_terminal() {
                     $order->add_order_note($notes);
                 }
 
-                $order->calculate_totals();
+                $order->calculate_totals(false); // in-person sale: no tax line, like the terminal
                 $order->save();
 
                 update_post_meta($product_id, 'painting_availability_status', 'sold');
