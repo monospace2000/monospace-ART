@@ -15,7 +15,21 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 /** Start of every print product's name (and so its variations'), e.g. "Print: Bird Box, DeKorte Park" */
 const MONOSPACE_PRINT_NAME_PREFIX = 'Print: ';
 
+/**
+ * The print types the creation screens loop over (New artwork, New prints, the Prints box, All prints, the Artwork Editor, the Quick
+ * Artwork Editor). A type with 'shop' => false is left out here, so those screens and their "make all prints" flows don't pick it up -
+ * none is at the moment: the postcard was one until 2026-11-22, when it was added to those screens (the artworks that already had
+ * prints got theirs from the paced background job in prints-postcard-rollout.php).
+ */
 function monospace_print_templates() {
+    return array_filter( monospace_print_all_templates(), function ( $t ) { return ! isset( $t['shop'] ) || $t['shop']; } );
+}
+
+/**
+ * Every print type, shop or not. The print job, linking, mockups and removal use this: a print product of any type
+ * (a Sightings postcard too) goes through the same steps.
+ */
+function monospace_print_all_templates() {
     $frames = [ 'black' => 'Black', 'red-oak' => 'Red Oak', 'white' => 'White' ];
     $framed = [];
     $sizes = [ [ '8x10', '8x10-2', [ 8, 10 ], 50, [ 'black' => 4651, 'red-oak' => 15021, 'white' => 10754 ] ],
@@ -47,6 +61,18 @@ function monospace_print_templates() {
             'attributes'      => [ 'pa_color', 'pa_size' ],
             'variants'        => $framed,
         ],
+        // The 4x6 postcard (Printful "Standard Postcard", catalog product 433, one variant). Sold on the Sightings site and, since 2026-11-22,
+        // an option on every screen that makes prints, on the price card of every artwork with prints. Printful prints it landscape (1842x1240 px = 6x4 in with bleed), so a portrait
+        // picture is sent turned 90 degrees (monospace_prints_card_file(), create-prints.php).
+        'postcard' => [
+            'label'           => 'Postcard',
+            'meta_key'        => '_postcard_product_id',
+            'catalog_product' => 433,
+            'attributes'      => [ 'pa_size' ],
+            'variants'        => [
+                '4x6' => [ 'label' => '4x6', 'size' => '4x6', 'inches' => [ 4, 6 ], 'price' => 20, 'attributes' => [ 'pa_size' => '4x6' ], 'catalog' => 11513 ],
+            ],
+        ],
     ];
 
     // Default prices saved on Prints > New prints replace the ones above (new prints only)
@@ -66,7 +92,7 @@ function monospace_print_default_prices() {
 /** The template variant a WooCommerce variation matches (by its attribute terms), or null */
 function monospace_print_variant_for( $type, $variation ) {
     $attrs = $variation->get_attributes();
-    foreach ( monospace_print_templates()[ $type ]['variants'] as $key => $v ) {
+    foreach ( monospace_print_all_templates()[ $type ]['variants'] as $key => $v ) {
         $match = true;
         foreach ( $v['attributes'] as $tax => $slug ) {
             if ( ( $attrs[ $tax ] ?? '' ) !== $slug ) { $match = false; break; }
@@ -78,6 +104,8 @@ function monospace_print_variant_for( $type, $variation ) {
 
 /** Which template a WooCommerce print product follows: framed if it has frame colors */
 function monospace_print_type_of( $product ) {
+    $set = (string) $product->get_meta( '_ms_print_type' ); // made by monospace_prints_create_product for the types that aren't plain unframed / framed
+    if ( $set !== '' && isset( monospace_print_all_templates()[ $set ] ) ) return $set;
     return isset( $product->get_attributes()['pa_color'] ) ? 'framed' : 'unframed';
 }
 

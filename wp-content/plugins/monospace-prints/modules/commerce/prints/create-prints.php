@@ -35,7 +35,7 @@ function monospace_prints_unlinked( $post_id ) {
         'meta_query' => [ [ 'key' => '_related_post_id', 'value' => (string) $post_id ] ],
         'tax_query'  => [ [ 'taxonomy' => 'product_cat', 'field' => 'slug', 'terms' => 'print' ] ],
     ] );
-    $linked = [ (int) get_post_meta( $post_id, '_print_product_id', true ), (int) get_post_meta( $post_id, '_framed_print_product_id', true ) ];
+    $linked = array_map( fn( $tpl ) => (int) get_post_meta( $post_id, $tpl['meta_key'], true ), array_values( monospace_print_all_templates() ) );
     $out = [];
     foreach ( $ids as $id ) {
         $p = wc_get_product( $id );
@@ -132,13 +132,44 @@ function monospace_prints_orientation( $px ) {
     return $px[1] > $px[0] ? 'vertical' : 'horizontal';
 }
 
+/**
+ * Turn an image file 90 degrees counterclockwise into $dest (a JPEG). Used for the postcard: Printful prints it landscape, so a portrait
+ * picture is sent turned and reads upright when the card is turned clockwise. WordPress's own image editor does the work (Imagick when the
+ * host has it, else GD). Shared by the artworks' postcards and the Sightings postcards.
+ */
+function monospace_prints_turn_file( $src, $dest ) {
+    $editor = wp_get_image_editor( $src );
+    if ( is_wp_error( $editor ) ) throw new Exception( 'Could not open ' . basename( $src ) . ': ' . $editor->get_error_message() );
+    $r = $editor->rotate( 90 ); // counterclockwise
+    if ( is_wp_error( $r ) ) throw new Exception( 'Could not turn the postcard file: ' . $r->get_error_message() );
+    $editor->set_quality( 95 );
+    $saved = $editor->save( $dest, 'image/jpeg' );
+    if ( is_wp_error( $saved ) ) throw new Exception( 'Could not save the postcard file: ' . $saved->get_error_message() );
+    return $dest;
+}
+
+/**
+ * The file URL Printful gets for a postcard made from $image_id. Its card is landscape (1842x1240), so a portrait picture is turned once
+ * into "<name>-postcard.jpg" beside the original (made again when the original is newer); a landscape or square one goes as it is.
+ * Never a watermarked file: $image_id has already been through monospace_prints_usable_file().
+ */
+function monospace_prints_card_file_url( $image_id ) {
+    $url = wp_get_original_image_url( $image_id );
+    $path = wp_get_original_image_path( $image_id );
+    $px = monospace_print_image_size( $image_id );
+    if ( ! $url || ! $path || $px[1] <= $px[0] ) return $url; // landscape or square (the Sightings cards are made landscape)
+    $dest = preg_replace( '/\.[^.\/]+$/', '', $path ) . '-postcard.jpg';
+    if ( ! file_exists( $dest ) || filemtime( $dest ) < filemtime( $path ) ) monospace_prints_turn_file( $path, $dest );
+    return dirname( $url ) . '/' . basename( $dest );
+}
+
 /* ============================================================
  * STEPS
  * ============================================================ */
 
 /** Create one print product. $prices: template variant key => price */
 function monospace_prints_create_product( $post_id, $type, $prices, $image_id ) {
-    $tpl = monospace_print_templates()[ $type ];
+    $tpl = monospace_print_all_templates()[ $type ];
 
     // Attribute terms the chosen variants use
     $terms = [];
@@ -173,6 +204,7 @@ function monospace_prints_create_product( $post_id, $type, $prices, $image_id ) 
     }
     $product->set_attributes( $attributes );
     $product->update_meta_data( '_related_post_id', $post_id );
+    if ( ! in_array( $type, [ 'unframed', 'framed' ], true ) ) $product->update_meta_data( '_ms_print_type', $type ); // e.g. the postcard (monospace_print_type_of reads it)
     $pid = $product->save();
     foreach ( $terms as $tax => $ids ) wp_set_object_terms( $pid, array_values( $ids ), $tax );
 
@@ -212,7 +244,11 @@ function monospace_prints_sync_product( $type, $pid, $image_id, $force = false )
     foreach ( wc_get_product( $pid )->get_children() as $vid ) {
         if ( ! array_key_exists( $vid, $synced ) ) return 'waiting'; // a new variation Printful hasn't picked up yet
     }
-    $file = wp_get_original_image_url( $image_id );
+    try {
+        $file = $type === 'postcard' ? monospace_prints_card_file_url( $image_id ) : wp_get_original_image_url( $image_id );
+    } catch ( Exception $e ) {
+        return $e->getMessage();
+    }
 
     foreach ( wc_get_product( $pid )->get_children() as $vid ) {
         if ( ! $force && ! empty( $synced[ $vid ] ) ) continue;
@@ -234,7 +270,7 @@ function monospace_printful_wait( $r ) {
 
 /** Link to the artwork - the price card's print tabs appear */
 function monospace_prints_link( $post_id, $type, $pid ) {
-    update_post_meta( $post_id, monospace_print_templates()[ $type ]['meta_key'], $pid );
+    update_post_meta( $post_id, monospace_print_all_templates()[ $type ]['meta_key'], $pid );
     // When - so a save from an editor opened before this keeps the link (print-jobs.php)
     $stamps = (array) get_post_meta( $post_id, '_ms_print_linked_at', true );
     $stamps[ $type ] = [ 'at' => time(), 'id' => (int) $pid ];
@@ -273,7 +309,7 @@ function monospace_prints_variant_keys( $pid, $type ) {
 
 /** Add sizes / frames ($prices: key => price) a print product lacks. Returns the new variation IDs. */
 function monospace_prints_add_variants( $pid, $type, $prices ) {
-    $tpl = monospace_print_templates()[ $type ];
+    $tpl = monospace_print_all_templates()[ $type ];
     $product = wc_get_product( $pid );
     $have = monospace_prints_variant_keys( $pid, $type );
     $attributes = $product->get_attributes();
@@ -355,7 +391,7 @@ function monospace_prints_remove_variants( $pid, $type, $keys ) {
  * No prints left = the post leaves the "print" category and nothing stays hidden.
  */
 function monospace_prints_remove( $post_id, $type ) {
-    $templates = monospace_print_templates();
+    $templates = monospace_print_all_templates();
     if ( empty( $templates[ $type ] ) ) throw new Exception( 'Unknown print type.' );
     if ( monospace_prints_get_job( $post_id ) ) throw new Exception( 'A print job for this artwork is running - wait until it\'s done.' );
     $key = $templates[ $type ]['meta_key'];

@@ -207,7 +207,7 @@ function monospace_mockup_source( $image_id ) {
 /**
  * What a print variation's mockup shows, or null (not a print variation of a linked artwork):
  * [ post, name (e.g. framed-red-oak-8x10), hash, frame, inches, image ]. The hash changes with the
- * print file (attachment and file time) and MONOSPACE_MOCKUP_VERSION, so a new file or a new look
+ * print file (attachment and file time) and MONOSPACE_MOCKUP_VERSION (a Red Oak one also the wood sample's file time), so a new file or a new look
  * gives new URLs - nothing is ever served stale.
  */
 function monospace_print_mockup_spec( $variation_id ) {
@@ -220,11 +220,15 @@ function monospace_print_mockup_spec( $variation_id ) {
     $post_id = $parent ? (int) $parent->get_meta( '_related_post_id' ) : 0;
     $type    = $parent ? monospace_print_type_of( $parent ) : '';
     $v       = $post_id ? monospace_print_variant_for( $type, $variation ) : null;
-    $image   = $v ? (int) monospace_prints_file_for( $post_id ) : 0;
+    // Filter: a print whose print file is not what a buyer should see (the Sightings postcard's file is turned sideways for Printful) gives its picture here
+    $image   = $v ? (int) apply_filters( 'monospace_print_mockup_image', (int) monospace_prints_file_for( $post_id ), $post_id, $type ) : 0;
     if ( ! $image ) return null;
     $file = get_attached_file( $image );
     $name = $type . '-' . $v['key'];
-    $hash = substr( md5( implode( '|', [ MONOSPACE_MOCKUP_VERSION, $name, $image, $file && file_exists( $file ) ? filemtime( $file ) : 0 ] ) ), 0, 10 );
+    // A Red Oak mockup also changes with the wood sample file (owner's new sample 2026-11-15): Black and White keep their URLs and files
+    $oak_file = MONOSPACE_PRINTS_DIR . '/assets/red-oak-texture.jpg';
+    $wood     = strpos( $name, 'red-oak' ) !== false && file_exists( $oak_file ) ? filemtime( $oak_file ) : 0;
+    $hash = substr( md5( implode( '|', array_merge( [ MONOSPACE_MOCKUP_VERSION, $name, $image, $file && file_exists( $file ) ? filemtime( $file ) : 0 ], $wood ? [ $wood ] : [] ) ) ), 0, 10 );
     return $cache[ $variation_id ] = [ 'post' => $post_id, 'name' => $name, 'hash' => $hash,
         'frame' => $variation->get_attributes()['pa_color'] ?? '', 'inches' => $v['inches'], 'image' => $image ];
 }
@@ -239,7 +243,7 @@ function monospace_print_mockup_scale( $variation_id ) {
     $long = fn( $inches, $framed ) => max( $inches ) + ( $framed ? 2 * MONOSPACE_FRAME_IN : 0 );
     if ( $ref === null ) {
         $ref = 0;
-        foreach ( monospace_print_templates() as $t ) {
+        foreach ( monospace_print_all_templates() as $t ) {
             foreach ( $t['variants'] as $v ) $ref = max( $ref, $long( $v['inches'], isset( $v['attributes']['pa_color'] ) ) );
         }
     }
@@ -285,7 +289,7 @@ function monospace_print_mockup_make( $spec, $art = null ) {
 /** Draw every missing mockup of an artwork's prints now (the print job does this ahead of visitors). Returns how many. */
 function monospace_print_mockups_warm( $post_id ) {
     $art = null; $made = 0;
-    foreach ( monospace_print_templates() as $tpl ) {
+    foreach ( monospace_print_all_templates() as $tpl ) {
         $product = wc_get_product( (int) get_post_meta( $post_id, $tpl['meta_key'], true ) );
         if ( ! $product ) continue;
         foreach ( $product->get_children() as $vid ) {
@@ -310,7 +314,7 @@ add_action( 'parse_request', function () {
     [ , $post_id, $name, $hash, $ext ] = $m;
 
     $spec = null;
-    foreach ( monospace_print_templates() as $tpl ) {
+    foreach ( monospace_print_all_templates() as $tpl ) {
         $product = wc_get_product( (int) get_post_meta( (int) $post_id, $tpl['meta_key'], true ) );
         foreach ( $product ? $product->get_children() : [] as $vid ) {
             $s = monospace_print_mockup_spec( $vid );
@@ -348,7 +352,7 @@ add_filter( 'woocommerce_cart_item_thumbnail', function ( $html, $item ) {
  */
 function monospace_print_mockups_to_meta( $post_id ) {
     $changed = 0;
-    foreach ( monospace_print_templates() as $tpl ) {
+    foreach ( monospace_print_all_templates() as $tpl ) {
         $product = wc_get_product( (int) get_post_meta( $post_id, $tpl['meta_key'], true ) );
         foreach ( $product ? $product->get_children() : [] as $vid ) {
             $url = monospace_print_mockup_url( $vid, 'jpg' );
@@ -362,3 +366,46 @@ function monospace_print_mockups_to_meta( $post_id ) {
     }
     return $changed;
 }
+
+/**
+ * Redraw the missing previews and send the new links to Meta, in the background, a few artworks at a time (2026-11-15: after
+ * the owner's new Red Oak sample; the same job as scripts/print-mockups-2026-10-18.php "warm" then "meta", but in small
+ * steps through Action Scheduler so it can be started for a quiet hour and never holds a request for long). Start it with
+ * monospace_print_mockups_refresh_schedule( $timestamp ); progress is in the option monospace_mockups_refresh
+ * (state scheduled | running | finished, artworks done / total, previews drawn, Meta links changed, errors).
+ */
+const MONOSPACE_MOCKUP_REFRESH_STEP = 4; // artworks per step
+
+function monospace_print_mockups_refresh_schedule( $when = 0 ) {
+    if ( ! function_exists( 'as_schedule_single_action' ) ) return false;
+    $when = $when ?: time();
+    update_option( 'monospace_mockups_refresh', [ 'state' => 'scheduled', 'start' => (int) $when, 'done' => 0, 'total' => 0, 'drawn' => 0, 'meta' => 0, 'errors' => [] ], false );
+    as_schedule_single_action( $when, 'monospace_mockups_refresh_step', [ 0 ], 'monospace-mockups' );
+    return true;
+}
+
+add_action( 'monospace_mockups_refresh_step', function ( $offset ) {
+    global $wpdb;
+    $offset = (int) $offset;
+    $posts  = array_map( 'intval', $wpdb->get_col( "SELECT DISTINCT post_id FROM $wpdb->postmeta WHERE meta_key IN ('_print_product_id','_framed_print_product_id') AND meta_value <> '' ORDER BY post_id" ) );
+    $log    = (array) get_option( 'monospace_mockups_refresh', [] ) + [ 'drawn' => 0, 'meta' => 0, 'errors' => [] ];
+    $log['state'] = 'running'; $log['total'] = count( $posts );
+    @set_time_limit( 120 );
+    foreach ( array_slice( $posts, $offset, MONOSPACE_MOCKUP_REFRESH_STEP ) as $post_id ) {
+        try {
+            $log['drawn'] += monospace_print_mockups_warm( $post_id );
+            $log['meta']  += monospace_print_mockups_to_meta( $post_id );
+        } catch ( Throwable $e ) {
+            $log['errors'][] = $post_id . ': ' . $e->getMessage();
+        }
+    }
+    $log['done'] = min( count( $posts ), $offset + MONOSPACE_MOCKUP_REFRESH_STEP );
+    if ( $log['done'] < count( $posts ) ) {
+        as_schedule_single_action( time() + 20, 'monospace_mockups_refresh_step', [ $log['done'] ], 'monospace-mockups' );
+    } else {
+        $log['state'] = 'finished'; $log['finished'] = time();
+        if ( function_exists( 'sg_cachepress_purge_cache' ) ) sg_cachepress_purge_cache();
+    }
+    $log['errors'] = array_slice( (array) $log['errors'], -20 );
+    update_option( 'monospace_mockups_refresh', $log, false );
+} );

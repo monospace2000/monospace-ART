@@ -57,7 +57,7 @@ function monospace_prints_describe( $pid, $pf ) {
         $variants[ $match ? $match['key'] : 'v' . $vid ] = [ 'label' => $label, 'price' => $v->get_regular_price(), 'id' => $vid, 'known' => (bool) $match ];
     }
     // In the template's order (smallest first, frames grouped), anything non-standard last
-    $order = array_flip( array_keys( monospace_print_templates()[ $type ]['variants'] ) );
+    $order = array_flip( array_keys( monospace_print_all_templates()[ $type ]['variants'] ) );
     uksort( $variants, function ( $a, $b ) use ( $order ) { return ( $order[ $a ] ?? 99 ) <=> ( $order[ $b ] ?? 99 ); } );
     $count = count( $variants );
     $f = $pf[ $pid ] ?? null;
@@ -82,9 +82,9 @@ function monospace_prints_overview_data( $refresh = false ) {
 
     // Artwork -> print links
     $links = [];
-    foreach ( $wpdb->get_results( "SELECT post_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE meta_key IN ('_print_product_id','_framed_print_product_id') AND meta_value <> ''" ) as $m ) {
+    foreach ( $wpdb->get_results( "SELECT post_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE meta_key IN ('_print_product_id','_framed_print_product_id','_postcard_product_id') AND meta_value <> ''" ) as $m ) {
         if ( get_post_type( $m->post_id ) !== 'post' || get_post_status( $m->post_id ) === 'trash' ) continue;
-        $links[ (int) $m->post_id ][ $m->meta_key === '_print_product_id' ? 'unframed' : 'framed' ] = (int) $m->meta_value;
+        $links[ (int) $m->post_id ][ [ '_print_product_id' => 'unframed', '_framed_print_product_id' => 'framed', '_postcard_product_id' => 'postcard' ][ $m->meta_key ] ] = (int) $m->meta_value;
     }
     $linked_ids = [];
     $artworks = []; $broken = [];
@@ -126,7 +126,7 @@ add_action( 'wp_ajax_monospace_prints_manage', function () {
                 $keys  = array_map( 'sanitize_text_field', (array) ( $_POST['keys'] ?? [] ) );
                 $price = round( (float) ( $_POST['price'] ?? 0 ), 2 );
                 $only  = array_map( 'absint', (array) ( $_POST['products'] ?? [] ) );
-                $tpl   = monospace_print_templates()[ $type ] ?? null;
+                $tpl   = monospace_print_all_templates()[ $type ] ?? null;
                 if ( ! $tpl || ! $keys || $price <= 0 ) throw new Exception( 'Choose a print type, at least one size / frame and a price.' );
                 $changed = 0; $products = 0;
                 foreach ( monospace_prints_overview_data()['prints'] as $pid ) {
@@ -167,7 +167,7 @@ add_action( 'wp_ajax_monospace_prints_manage', function () {
                 $post_id = $p ? (int) $p->get_meta( '_related_post_id' ) : 0;
                 if ( ! $p || ! $post_id || get_post_type( $post_id ) !== 'post' ) throw new Exception( 'This print doesn’t know its artwork - link it in the artwork’s Quick Artwork Editor.' );
                 $type = monospace_print_type_of( $p );
-                $meta = monospace_print_templates()[ $type ]['meta_key'];
+                $meta = monospace_print_all_templates()[ $type ]['meta_key'];
                 $current = (int) get_post_meta( $post_id, $meta, true );
                 if ( $current && wc_get_product( $current ) ) throw new Exception( 'That artwork already has another ' . $type . ' print (#' . $current . ').' );
                 monospace_prints_link( $post_id, $type, $pid );
@@ -180,7 +180,7 @@ add_action( 'wp_ajax_monospace_prints_manage', function () {
                 $p = wc_get_product( $pid );
                 if ( ! $p || ! has_term( 'print', 'product_cat', $pid ) ) throw new Exception( 'Not a print product.' );
                 $type = monospace_print_type_of( $p );
-                $keys = array_values( array_intersect( array_map( 'sanitize_text_field', (array) ( $_POST['keys'] ?? [] ) ), array_keys( monospace_print_templates()[ $type ]['variants'] ) ) );
+                $keys = array_values( array_intersect( array_map( 'sanitize_text_field', (array) ( $_POST['keys'] ?? [] ) ), array_keys( monospace_print_all_templates()[ $type ]['variants'] ) ) );
                 if ( ! $keys ) throw new Exception( 'Nothing to do for this print.' );
                 delete_transient( 'ms_pf_index' );
 
@@ -195,7 +195,7 @@ add_action( 'wp_ajax_monospace_prints_manage', function () {
                 if ( monospace_prints_get_job( $post_id ) ) throw new Exception( 'Skipped: a print job for this artwork is running - try again when it’s done.' );
                 try { monospace_prints_usable_file( $post_id ); } // before any variation is made
                 catch ( Exception $e ) { throw new Exception( 'Skipped: ' . $e->getMessage() ); }
-                $tpl = monospace_print_templates()[ $type ];
+                $tpl = monospace_print_all_templates()[ $type ];
                 $have = monospace_prints_variant_keys( $pid, $type );
                 $px = monospace_print_image_size( monospace_prints_file_for( $post_id ) );
                 $prices = []; $small = [];
@@ -338,7 +338,7 @@ function monospace_prints_overview_page() {
             <a href="<?php echo esc_url( admin_url( 'admin.php?page=monospace-prints-all&problems=1' ) ); ?>" <?php if ( $problems_only ) echo 'class="current"'; ?>>With problems</a>
         </p>
         <table class="widefat striped ms-table">
-            <thead><tr><td class="check-column"><input type="checkbox" class="ms-all"></td><th style="width:60px"></th><th>Artwork</th><th>Unframed print</th><th>Framed print</th></tr></thead>
+            <thead><tr><td class="check-column"><input type="checkbox" class="ms-all"></td><th style="width:60px"></th><th>Artwork</th><th>Unframed print</th><th>Framed print</th><th>Postcard</th></tr></thead>
             <tbody>
             <?php foreach ( $data['artworks'] as $post_id => $types ) :
                 $bad = array_filter( $types, function ( $d ) { return $d['state'][0] !== 'ready'; } );
@@ -346,7 +346,7 @@ function monospace_prints_overview_page() {
                 $ids = implode( ',', wp_list_pluck( $types, 'id' ) ); ?>
                 <?php $job = monospace_prints_status( $post_id ); $busy = in_array( $job['state'], [ 'waiting', 'linking', 'mockups', 'error' ], true ); ?>
                 <tr data-products="<?php echo esc_attr( $ids ); ?>" data-post="<?php echo (int) $post_id; ?>"
-                    data-unframed="<?php echo (int) ( $types['unframed']['id'] ?? 0 ); ?>" data-framed="<?php echo (int) ( $types['framed']['id'] ?? 0 ); ?>">
+                    data-unframed="<?php echo (int) ( $types['unframed']['id'] ?? 0 ); ?>" data-framed="<?php echo (int) ( $types['framed']['id'] ?? 0 ); ?>" data-postcard="<?php echo (int) ( $types['postcard']['id'] ?? 0 ); ?>">
                     <th class="check-column"><input type="checkbox" class="ms-pick"></th>
                     <td><?php echo get_the_post_thumbnail( $post_id, [ 50, 50 ] ); ?></td>
                     <td><a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>"><strong><?php echo esc_html( get_the_title( $post_id ) ); ?></strong></a><br>
@@ -360,6 +360,7 @@ function monospace_prints_overview_page() {
                         <div class="ms-preview" style="display:none"></div></td>
                     <td><?php echo monospace_prints_overview_cell( $types['unframed'] ?? null ); ?></td>
                     <td><?php echo monospace_prints_overview_cell( $types['framed'] ?? null ); ?></td>
+                    <td><?php echo monospace_prints_overview_cell( $types['postcard'] ?? null ); ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>

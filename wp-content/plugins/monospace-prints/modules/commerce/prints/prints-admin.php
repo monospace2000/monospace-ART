@@ -3,7 +3,7 @@
  * Prints (wp-admin menu) - the start of the Printful <-> WooCommerce control center (owner's wish,
  * 2026-10-15: one place, on the site, through the API).
  *
- * "New prints": artworks missing a print (none, or only unframed / framed), newest first - tick several, one click queues them all
+ * "New prints": artworks missing a print (none, or only some of unframed / framed / postcard), newest first - tick several, one click queues them all
  * (print-jobs.php: products created now, Printful linking + mockups in the background). Defaults
  * (sizes, frames, prices) at the top - "Save as default prices" stores the prices (option
  * monospace_print_default_prices, read by monospace_print_templates()); sizes an artwork's image is too small for (< 100 dpi)
@@ -34,7 +34,8 @@ function monospace_prints_admin_rows( $args ) {
             [ 'key' => '_qp_product_id', 'compare' => 'EXISTS' ],
             [ 'relation' => 'OR',
                 [ 'key' => '_print_product_id', 'compare' => 'NOT EXISTS' ], [ 'key' => '_print_product_id', 'value' => '' ],
-                [ 'key' => '_framed_print_product_id', 'compare' => 'NOT EXISTS' ], [ 'key' => '_framed_print_product_id', 'value' => '' ] ],
+                [ 'key' => '_framed_print_product_id', 'compare' => 'NOT EXISTS' ], [ 'key' => '_framed_print_product_id', 'value' => '' ],
+                [ 'key' => '_postcard_product_id', 'compare' => 'NOT EXISTS' ], [ 'key' => '_postcard_product_id', 'value' => '' ] ],
         ],
     ];
     if ( $args['hide_minis'] ) $q['category__not_in'] = array_filter( [ (int) ( get_category_by_slug( 'miniature' )->term_id ?? 0 ) ] );
@@ -132,7 +133,7 @@ function monospace_prints_admin_page() {
                             <?php if ( $wm === 'watermarked' ) echo '<br><span style="color:#9a6700">watermarked - a clean copy is used</span>'; ?>
                         <?php else : ?><span style="color:#b32d2e">no featured image</span><?php endif; ?></td>
                     <td><?php
-                        $has = array_filter( [ get_post_meta( $id, '_print_product_id', true ) ? 'unframed' : '', get_post_meta( $id, '_framed_print_product_id', true ) ? 'framed' : '' ] );
+                        $has = array_keys( array_filter( array_map( fn( $tpl ) => get_post_meta( $id, $tpl['meta_key'], true ), monospace_print_templates() ) ) );
                         echo $has ? esc_html( implode( ' + ', $has ) ) . ' <span class="description">(only the missing one is made)</span>' : '<span class="description">none</span>'; ?></td>
                     <td class="ms-prints-row-status" data-state="<?php echo esc_attr( $st['state'] ); ?>"><?php
                         if ( $wm === 'blocked' ) echo '<span style="color:#b32d2e;font-weight:600">Image is watermarked, no clean copy - add a clean photo (artwork’s Prints box: Replace print file)</span>';

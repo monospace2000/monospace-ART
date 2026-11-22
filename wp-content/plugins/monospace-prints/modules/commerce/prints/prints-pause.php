@@ -9,7 +9,7 @@
  * Printful: unsync / ignore there only stops fulfilment, not sales. Out of stock = gone from the price
  * card's tab, "Prints available", "See a preview" and the market terminal.
  *
- * State: post meta _ms_prints_paused = [ 'framed' => [ variation IDs ], 'unframed' => [ … ] ] - a type
+ * State: post meta _ms_prints_paused = [ 'framed' => [ variation IDs ], 'unframed' => [ … ], 'postcard' => [ … ] ] - a type
  * present = hidden ([ 0 ] when it had nothing in stock). The 2026-10-17 format (one flat list for the
  * whole artwork) is read as "every linked print hidden" (monospace_prints_hidden()).
  * The post is in the "print" category while at least one of its prints is shown; with all hidden it
@@ -30,8 +30,8 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 /** The artwork's linked print products that exist: [ type => product ID ] */
 function monospace_prints_linked( $post_id ) {
     $out = [];
-    foreach ( [ 'unframed' => '_print_product_id', 'framed' => '_framed_print_product_id' ] as $type => $key ) {
-        $pid = (int) get_post_meta( $post_id, $key, true );
+    foreach ( monospace_print_all_templates() as $type => $tpl ) { // unframed, framed, postcard
+        $pid = (int) get_post_meta( $post_id, $tpl['meta_key'], true );
         if ( $pid && wc_get_product( $pid ) ) $out[ $type ] = $pid;
     }
     return $out;
@@ -46,7 +46,7 @@ function monospace_prints_of_artwork( $post_id ) {
 function monospace_prints_hidden( $post_id ) {
     $saved = get_post_meta( $post_id, '_ms_prints_paused', true );
     if ( ! is_array( $saved ) || ! $saved ) return [];
-    if ( ! isset( $saved['framed'] ) && ! isset( $saved['unframed'] ) ) {
+    if ( ! array_intersect_key( $saved, monospace_print_all_templates() ) ) {
         // The first format: one list for the whole artwork = every linked print hidden
         $hidden = [];
         $linked = monospace_prints_linked( $post_id );
@@ -59,7 +59,7 @@ function monospace_prints_hidden( $post_id ) {
         foreach ( $hidden as $type => $vids ) if ( ! $vids ) $hidden[ $type ] = [ 0 ];
         return $hidden;
     }
-    return array_intersect_key( $saved, [ 'framed' => 1, 'unframed' => 1 ] );
+    return array_intersect_key( $saved, monospace_print_all_templates() );
 }
 
 function monospace_prints_save_hidden( $post_id, array $hidden ) {
@@ -80,10 +80,10 @@ function monospace_prints_is_paused( $post_id ) {
 }
 
 /**
- * Hide ($hide true) or show an artwork's prints - $types: [ 'framed', 'unframed' ], null = both.
- * Returns how many variations changed.
+ * Hide ($hide true) or show an artwork's prints - $types: [ 'framed', 'unframed', 'postcard' ], null = all of its prints.
+ * Returns how many variations changed. $purge = false leaves the page cache alone (a batch purges once itself).
  */
-function monospace_prints_set_hidden( $post_id, $hide, $types = null ) {
+function monospace_prints_set_hidden( $post_id, $hide, $types = null, $purge = true ) {
     $linked = monospace_prints_linked( $post_id );
     if ( ! $linked ) throw new Exception( 'This artwork has no prints.' );
     $types = $types ? array_intersect_key( $linked, array_flip( (array) $types ) ) : $linked;
@@ -128,7 +128,7 @@ function monospace_prints_set_hidden( $post_id, $hide, $types = null ) {
         else wp_set_post_categories( $post_id, [ (int) $print_cat->term_id ], true );
     }
     delete_transient( 'ms_pf_index' );
-    if ( function_exists( 'sg_cachepress_purge_everything' ) ) sg_cachepress_purge_everything();
+    if ( $purge && function_exists( 'sg_cachepress_purge_everything' ) ) sg_cachepress_purge_everything(); // $purge false: a batch purges once at the end
     return $changed;
 }
 
@@ -143,7 +143,9 @@ function monospace_prints_hidden_words( $post_id ) {
     $hidden = array_intersect_key( monospace_prints_hidden( $post_id ), $linked );
     if ( ! $hidden ) return 'Prints shown';
     if ( ! array_diff_key( $linked, $hidden ) ) return 'Prints hidden';
-    return ( isset( $hidden['framed'] ) ? 'Framed' : 'Unframed' ) . ' print hidden';
+    $names = [];
+    foreach ( array_keys( $hidden ) as $type ) $names[] = [ 'framed' => 'Framed print', 'unframed' => 'Unframed print', 'postcard' => 'Postcard' ][ $type ] ?? $type;
+    return implode( ', ', $names ) . ' hidden';
 }
 
 // With every print hidden, the post stays out of "print" whatever sets its categories
@@ -163,14 +165,14 @@ add_action( 'wp_ajax_monospace_prints_pause', function () {
     if ( ! $post_id || ! current_user_can( 'edit_products' ) || ! current_user_can( 'edit_post', $post_id ) ) wp_send_json_error( 'Not allowed' );
     $op = [ 'pause' => 'hide', 'resume' => 'show' ][ sanitize_key( $_POST['op'] ?? '' ) ] ?? sanitize_key( $_POST['op'] ?? '' );
     if ( ! in_array( $op, [ 'hide', 'show' ], true ) ) wp_send_json_error( 'Unknown operation' );
-    $types = array_values( array_intersect( (array) ( $_POST['types'] ?? [] ), [ 'framed', 'unframed' ] ) );
+    $types = array_values( array_intersect( (array) ( $_POST['types'] ?? [] ), array_keys( monospace_print_all_templates() ) ) );
     try {
         $n = monospace_prints_set_hidden( $post_id, $op === 'hide', $types ?: null );
         $words = monospace_prints_hidden_words( $post_id );
         wp_send_json_success( [
             'hidden'  => monospace_prints_is_hidden( $post_id ),
             'paused'  => monospace_prints_is_hidden( $post_id ), // older name
-            'types'   => [ 'framed' => monospace_prints_is_hidden( $post_id, 'framed' ), 'unframed' => monospace_prints_is_hidden( $post_id, 'unframed' ) ],
+            'types'   => [ 'framed' => monospace_prints_is_hidden( $post_id, 'framed' ), 'unframed' => monospace_prints_is_hidden( $post_id, 'unframed' ), 'postcard' => monospace_prints_is_hidden( $post_id, 'postcard' ) ],
             'message' => $words . ( $words === 'Prints shown' ? " - for sale on the price card and the site ($n options)." : " - off the price card and the site. Nothing is deleted ($n options)." ),
         ] );
     } catch ( Exception $e ) {

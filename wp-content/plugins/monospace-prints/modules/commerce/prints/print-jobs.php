@@ -44,7 +44,8 @@ function monospace_prints_log( &$job, $message ) {
 
 /**
  * Queue an artwork's prints. $request: [ 'unframed' => [ 'variants' => [ key => price ] ]
- * or [ 'existing' => product ID ], 'framed' => …, 'min_dpi' => skip sizes below this ].
+ * or [ 'existing' => product ID ], 'framed' => …, 'min_dpi' => skip sizes below this,
+ * 'hidden' => true: the new prints are linked but not shown - hidden as soon as they're linked (Show prints puts them on sale) ].
  * Creates the products now.
  */
 function monospace_prints_queue( $post_id, $request, $image_id = 0 ) {
@@ -54,9 +55,10 @@ function monospace_prints_queue( $post_id, $request, $image_id = 0 ) {
     $image_id = monospace_prints_usable_file( $post_id, $image_id ); // never a watermarked file (create-prints.php)
     if ( ! $image_id || ! wp_attachment_is_image( $image_id ) ) throw new Exception( 'No image to print (set a featured image).' );
 
-    $templates = monospace_print_templates();
+    $templates = monospace_print_all_templates();
     $job = [ 'image_id' => $image_id, 'orientation' => monospace_prints_orientation( monospace_print_image_size( $image_id ) ),
              'products' => [], 'started' => time(), 'waited' => 0, 'attached' => false, 'error' => '', 'log' => [] ];
+    if ( ! empty( $request['hidden'] ) ) $job['hidden'] = true;
 
     foreach ( $templates as $type => $tpl ) {
         $want = $request[ $type ] ?? null;
@@ -103,7 +105,7 @@ function monospace_prints_queue_refresh( $post_id, $file_id ) {
     $image_id = $file_id = monospace_prints_usable_file( $post_id, $file_id ); // a clean copy if it's watermarked
     $job = [ 'image_id' => $image_id, 'orientation' => monospace_prints_orientation( monospace_print_image_size( $image_id ) ),
              'products' => [], 'started' => time(), 'waited' => 0, 'attached' => true, 'error' => '', 'log' => [] ];
-    foreach ( monospace_print_templates() as $type => $tpl ) {
+    foreach ( monospace_print_all_templates() as $type => $tpl ) {
         $pid = (int) get_post_meta( $post_id, $tpl['meta_key'], true );
         if ( ! $pid || ! wc_get_product( $pid ) ) continue;
         $job['products'][ $type ] = [ 'id' => $pid, 'linked' => false, 'force' => true ];
@@ -129,7 +131,7 @@ function monospace_prints_queue_variants( $post_id, $type, $pid, $new_vids ) {
     $job = [ 'image_id' => $image_id, 'orientation' => monospace_prints_orientation( monospace_print_image_size( $image_id ) ),
              'products' => [ $type => [ 'id' => $pid, 'linked' => false, 'force' => false ] ],
              'started' => time(), 'waited' => 0, 'attached' => true, 'error' => '', 'log' => [] ];
-    monospace_prints_log( $job, monospace_print_templates()[ $type ]['label'] . ': ' . count( $new_vids ) . ' new variant(s) added, Printful notified.' );
+    monospace_prints_log( $job, monospace_print_all_templates()[ $type ]['label'] . ': ' . count( $new_vids ) . ' new variant(s) added, Printful notified.' );
     update_post_meta( $post_id, '_ms_print_job', $job );
     delete_post_meta( $post_id, '_ms_print_status' );
     monospace_prints_schedule( $post_id, 30 );
@@ -141,7 +143,7 @@ add_action( MONOSPACE_PRINTS_HOOK, 'monospace_prints_tick' );
 function monospace_prints_tick( $post_id ) {
     $job = monospace_prints_get_job( $post_id );
     if ( ! $job || $job['error'] !== '' ) return;
-    $templates = monospace_print_templates();
+    $templates = monospace_print_all_templates();
     $save = function () use ( $post_id, &$job ) { update_post_meta( $post_id, '_ms_print_job', $job ); };
 
     try {
@@ -179,7 +181,14 @@ function monospace_prints_tick( $post_id ) {
         if ( empty( $job['attached'] ) ) {
             foreach ( $job['products'] as $type => $p ) monospace_prints_link( $post_id, $type, $p['id'] );
             $job['attached'] = true;
-            monospace_prints_log( $job, 'Linked to the artwork - the prints are on sale.' );
+            if ( ! empty( $job['hidden'] ) ) { // made hidden: off the price card and the site until Show prints
+                monospace_prints_set_hidden( $post_id, true, array_keys( $job['products'] ) );
+                $with = get_post_meta( $post_id, '_ms_prints_hidden_with_artwork', true ); // the artwork is hidden: showing it must show these too
+                if ( is_array( $with ) ) update_post_meta( $post_id, '_ms_prints_hidden_with_artwork', array_values( array_unique( array_merge( $with, array_keys( $job['products'] ) ) ) ) );
+                monospace_prints_log( $job, 'Linked to the artwork - hidden, not on sale yet.' );
+            } else {
+                monospace_prints_log( $job, 'Linked to the artwork - the prints are on sale.' );
+            }
             if ( function_exists( 'sg_cachepress_purge_everything' ) ) sg_cachepress_purge_everything();
         }
 
@@ -211,7 +220,8 @@ function monospace_prints_tick( $post_id ) {
  */
 function monospace_prints_status( $post_id ) {
     $status = monospace_prints_status_core( $post_id );
-    $status['ids'] = [ 'unframed' => (int) get_post_meta( $post_id, '_print_product_id', true ), 'framed' => (int) get_post_meta( $post_id, '_framed_print_product_id', true ) ];
+    $status['ids'] = [];
+    foreach ( monospace_print_all_templates() as $type => $tpl ) $status['ids'][ $type ] = (int) get_post_meta( $post_id, $tpl['meta_key'], true );
     return $status;
 }
 
@@ -229,7 +239,7 @@ function monospace_prints_status_core( $post_id ) {
     }
     $status = get_post_meta( $post_id, '_ms_print_status', true );
     if ( is_array( $status ) ) return [ 'state' => 'done', 'text' => 'Done ' . human_time_diff( $status['done'] ) . ' ago.', 'log' => $status['log'] ?? [] ];
-    if ( get_post_meta( $post_id, '_print_product_id', true ) || get_post_meta( $post_id, '_framed_print_product_id', true ) ) return [ 'state' => 'linked', 'text' => 'Prints linked.', 'log' => [] ];
+    if ( get_post_meta( $post_id, '_print_product_id', true ) || get_post_meta( $post_id, '_framed_print_product_id', true ) || get_post_meta( $post_id, '_postcard_product_id', true ) ) return [ 'state' => 'linked', 'text' => 'Prints linked.', 'log' => [] ];
     return [ 'state' => 'none', 'text' => '', 'log' => [] ];
 }
 
@@ -252,7 +262,7 @@ add_action( 'wp_ajax_monospace_prints', function () {
             wp_send_json_success( $out );
         }
         if ( $op === 'save_prices' ) { // New prints page: default prices for new prints; existing ones keep theirs
-            $templates = monospace_print_templates();
+            $templates = monospace_print_all_templates();
             $saved = [];
             foreach ( (array) json_decode( wp_unslash( $_POST['prices'] ?? '' ), true ) as $type => $prices ) {
                 foreach ( (array) $prices as $key => $price ) {
@@ -281,7 +291,7 @@ add_action( 'wp_ajax_monospace_prints', function () {
                 if ( ! wp_attachment_is_image( $file ) ) throw new Exception( 'That file is not an image.' );
                 $px = monospace_print_image_size( $file );
                 $rows = [];
-                foreach ( monospace_print_templates() as $type => $tpl ) {
+                foreach ( monospace_print_all_templates() as $type => $tpl ) {
                     $p = wc_get_product( (int) get_post_meta( $post_id, $tpl['meta_key'], true ) );
                     if ( ! $p ) continue;
                     foreach ( $p->get_children() as $vid ) {
@@ -321,7 +331,7 @@ add_action( 'save_post_post', function ( $post_id ) {
     if ( ! isset( $_POST['ms_prints_loaded_at'] ) || wp_is_post_revision( $post_id ) ) return;
     $loaded = (int) $_POST['ms_prints_loaded_at'];
     $stamps = (array) get_post_meta( $post_id, '_ms_print_linked_at', true );
-    foreach ( monospace_print_templates() as $type => $tpl ) {
+    foreach ( monospace_print_all_templates() as $type => $tpl ) {
         $field = 'qp' . $tpl['meta_key']; // qp_print_product_id / qp_framed_print_product_id
         $stamp = $stamps[ $type ] ?? null;
         if ( ! is_array( $stamp ) || $stamp['at'] < $loaded || ! isset( $_POST[ $field ] ) || (int) $_POST[ $field ] ) continue;

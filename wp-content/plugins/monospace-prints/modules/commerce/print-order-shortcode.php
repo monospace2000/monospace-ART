@@ -6,7 +6,7 @@
  * size radio options; the framed pane adds frame-color options.
  *
  * The panes are tabs on the price card ([price_card], see monospace_render_painting_card()), read from the
- * post's _print_product_id / _framed_print_product_id meta (set in the Quick Artwork Editor). The separate
+ * post's _print_product_id / _framed_print_product_id / _postcard_product_id meta (set in the Quick Artwork Editor). The separate
  * print-only card was retired on 2026-10-20 and its leftovers removed on 2026-10-21 (owner: "one less thing to
  * maintain"), incl. the [print_order_button] shortcode (nothing used it): the Print category shows the regular
  * Full card, opening on Prints ("Opens on", Core's price-card-presets.php).
@@ -179,11 +179,19 @@ function monospace_print_types() {
                 'Frame'           => 'Unframed',
             ],
         ],
+        // The 4x6 postcard (2026-11-21), the same product the Sightings drawings sell: one size, no frame
+        'postcard' => [
+            'label'    => 'Postcard',
+            'specs'    => [
+                'Service'  => 'Print on Demand',
+                'Product'  => 'Standard postcard',
+            ],
+        ],
     ];
 }
 
 /**
- * Print panes for the given Printful products, keyed 'framed' / 'unframed' in tab order.
+ * Print panes for the given Printful products, keyed 'framed' / 'unframed' / 'postcard' in tab order.
  * A type is left out when its ID is empty, not a variable product, or has nothing in stock.
  * Each entry: [ 'label' => ..., 'html' => pane contents ].
  */
@@ -192,14 +200,15 @@ add_filter( 'monospace_price_card_panes', function ( $panes, $post_id ) {
     return $panes + monospace_get_print_panes(
         intval( get_post_meta( $post_id, '_print_product_id', true ) ),
         intval( get_post_meta( $post_id, '_framed_print_product_id', true ) ),
-        monospace_post_is_portrait( $post_id )   // print sizes in the painting's orientation
+        monospace_post_is_portrait( $post_id ),  // print sizes in the painting's orientation
+        intval( get_post_meta( $post_id, '_postcard_product_id', true ) )
     );
 }, 10, 2 );
 
-function monospace_get_print_panes( $unframed_id, $framed_id, $is_portrait ) {
+function monospace_get_print_panes( $unframed_id, $framed_id, $is_portrait, $postcard_id = 0 ) {
     if ( ! function_exists( 'wc_get_product' ) ) return [];
 
-    $ids   = [ 'framed' => $framed_id, 'unframed' => $unframed_id ];
+    $ids   = [ 'framed' => $framed_id, 'unframed' => $unframed_id, 'postcard' => $postcard_id ];
     $panes = [];
     foreach ( monospace_print_types() as $key => $type ) {
         $product = $ids[ $key ] ? wc_get_product( $ids[ $key ] ) : null;
