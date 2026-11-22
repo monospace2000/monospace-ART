@@ -36,7 +36,7 @@ class MSD_Additional_Tracker {
             ?>
 
             <div style="margin-top: 20px;">
-                <a href="<?php echo admin_url('admin.php?page=wc-settings&tab=msd&section=bulk_editor'); ?>" class="button button-primary">
+                <a href="<?php echo MSD_Settings::url('bulk_editor'); ?>" class="button button-primary">
                     <?php _e('Go to Bulk Editor', 'monospace-sales'); ?>
                 </a>
                 <button type="button" id="msd-export-additional-list" class="button" style="margin-left: 10px;">

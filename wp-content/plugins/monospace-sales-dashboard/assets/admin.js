@@ -45,22 +45,6 @@
             }
         }).trigger('change');
 
-        // Date picker validation
-        $('#msd_schedule_start, #msd_schedule_end').on('blur', function() {
-            const value = $(this).val().trim();
-
-            if (value === '') return;
-
-            const datePattern = /^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}$/;
-
-            if (!datePattern.test(value)) {
-                $(this).css('border-color', '#dc3232');
-                alert('Invalid date format. Use: YYYY-MM-DD HH:MM');
-            } else {
-                $(this).css('border-color', '#46b450');
-            }
-        });
-
         // Conflict resolution info
         $('#msd_priority').on('change', function() {
             const priority = $(this).val();

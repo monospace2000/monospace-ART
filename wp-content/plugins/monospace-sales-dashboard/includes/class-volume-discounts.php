@@ -23,6 +23,36 @@ class MSD_Volume_Discounts {
 
         // Filter WooCommerce notices to make them product-specific
         add_filter('woocommerce_add_notice', [__CLASS__, 'filter_shipping_notice'], 10, 1);
+
+        // The same rules for a list that is not a cart (the Market terminal's sale, 2026-11-14)
+        add_filter('monospace_volume_prices', [__CLASS__, 'price_lines'], 10, 2);
+    }
+
+    /**
+     * The volume prices of a list of products, one of each, by the very rules and code the cart uses (2026-11-14,
+     * for the Market terminal - so the cart and a sale at a market cannot drift apart).
+     * Filter monospace_volume_prices: $prices [ product_id => [ 'price' => unit price, 'label' => rule text ] ],
+     * only the products whose price a rule changed; $product_ids in the order they were added.
+     */
+    public static function price_lines($prices, $product_ids) {
+        $cart = new MSD_Line_Cart();
+        $start = [];
+        foreach ((array) $product_ids as $product_id) {
+            $product = wc_get_product((int) $product_id);
+            if (!$product) continue;
+            $key = 'line' . $product_id;
+            $cart->cart_contents[$key] = ['key' => $key, 'product_id' => (int) $product_id, 'quantity' => 1, 'data' => $product];
+            $start[$key] = (float) $product->get_price();
+        }
+        self::apply_to_cart($cart);
+        $prices = is_array($prices) ? $prices : [];
+        foreach ($cart->cart_contents as $key => $item) {
+            $price = (float) $item['data']->get_price();
+            if (abs($price - $start[$key]) > 0.0001) {
+                $prices[$item['product_id']] = ['price' => $price, 'label' => (string) ($item['volume_discount_label'] ?? '')];
+            }
+        }
+        return $prices;
     }
 
     /**
@@ -54,6 +84,11 @@ class MSD_Volume_Discounts {
      */
     private static function product_matches_rule_key($product_id, $rule_key) {
         if (!$product_id || !$rule_key) return false;
+
+        // Core's one group test (2026-11-14): "miniature" = a single miniature by its SKU, as on the price card
+        if (function_exists('monospace_product_in_group')) {
+            return monospace_product_in_group($product_id, $rule_key);
+        }
 
         // Check if it's a product category
         if (has_term($rule_key, 'product_cat', $product_id)) {
@@ -89,6 +124,13 @@ class MSD_Volume_Discounts {
         if (is_admin() && !defined('DOING_AJAX')) return;
         if (!$cart || $cart->is_empty()) return;
 
+        self::apply_to_cart($cart);
+    }
+
+    /**
+     * The rules, applied to a cart or to a stand-in with the same few members (MSD_Line_Cart)
+     */
+    private static function apply_to_cart($cart) {
         // Global enable check
         if (get_option('msd_global_enable') !== 'yes') return;
 
@@ -130,9 +172,14 @@ class MSD_Volume_Discounts {
 
             if ($total_qty === 0) continue;
 
-            // Apply each rule
+            // The fixed bundles ("2 for $55", "3 for $80") work together: the cheapest way to group the pieces
+            self::apply_fixed_bundles(array_filter((array) $rules, function ($rule) {
+                return is_array($rule) && ($rule['type'] ?? '') === 'fixed_bundle';
+            }), $items, $cart);
+
+            // Apply each of the other rules
             foreach ($rules as $rule) {
-                if (empty($rule['type'])) continue;
+                if (empty($rule['type']) || $rule['type'] === 'fixed_bundle') continue;
 
                 self::apply_rule($rule, $items, $total_qty, $cart);
             }
@@ -144,10 +191,6 @@ class MSD_Volume_Discounts {
      */
     private static function apply_rule($rule, $items, $total_qty, $cart) {
         switch ($rule['type']) {
-            case 'fixed_bundle':
-                self::apply_fixed_bundle($rule, $items, $total_qty, $cart);
-                break;
-
             case 'buy_x_get_y':
                 self::apply_buy_x_get_y($rule, $items, $total_qty, $cart);
                 break;
@@ -171,27 +214,77 @@ class MSD_Volume_Discounts {
     }
 
     /**
-     * Rule: Fixed bundle (e.g., 3 for $99)
+     * Rule: Fixed bundles (e.g. 2 for $55 and 3 for $80), applied together (2026-11-14, owner): the pieces are grouped
+     * the cheapest way - 4 pieces are 2 + 2 or 3 + 1 (both $110 at $30 each), 5 are 3 + 2 - and the pieces left over
+     * stay at their own price. A bundle's total is exact to the cent: it is split over its pieces, the odd cents going to
+     * the first ones ($80 over 3 = 26.67 + 26.67 + 26.66), so a cart and a sale at a market never add up a cent too much.
+     * When a bundle holds pieces of different prices it takes the dearest first. A line of several (quantity > 1) gets
+     * its pieces' average, rounded - originals are sold individually, so that does not happen to them.
      */
-    private static function apply_fixed_bundle($rule, $items, $total_qty, $cart) {
-        if (!isset($rule['qty'], $rule['total'])) return;
+    private static function apply_fixed_bundles($rules, $items, $cart) {
+        $mult    = pow(10, wc_get_price_decimals());
+        $bundles = [];
+        foreach ($rules as $rule) {
+            $qty   = isset($rule['qty']) ? intval($rule['qty']) : 0;
+            $total = isset($rule['total']) ? (int) round(floatval($rule['total']) * $mult) : 0;
+            if ($qty >= 2 && $total > 0) $bundles[] = ['qty' => $qty, 'cents' => $total, 'total' => floatval($rule['total'])];
+        }
+        if (!$bundles || !$items) return;
+        usort($bundles, function ($a, $b) { return $a['qty'] <=> $b['qty']; });
 
-        $sets = floor($total_qty / $rule['qty']);
-        if ($sets < 1) return;
+        // One unit per piece, dearest first
+        $units = [];
+        foreach ($items as $key => $cart_item) {
+            $cents = (int) round(floatval($cart->cart_contents[$key]['data']->get_price()) * $mult);
+            for ($i = 0; $i < intval($cart_item['quantity']); $i++) $units[] = ['key' => $key, 'cents' => $cents];
+        }
+        usort($units, function ($a, $b) { return $b['cents'] <=> $a['cents']; });
+        $n = count($units);
+        if ($n < 2) return;
 
-        $bundle_price = round($rule['total'] / $rule['qty'], wc_get_price_decimals());
-        $qty_to_discount = $sets * $rule['qty'];
+        // The cheapest grouping of the first $i pieces; a bundle wins a tie with full price, a smaller one a tie with a larger
+        $best = [0];
+        $pick = [];
+        for ($i = 1; $i <= $n; $i++) {
+            $best[$i] = null;
+            foreach ($bundles as $bundle) {
+                if ($bundle['qty'] > $i) continue;
+                $cost = $best[$i - $bundle['qty']] + $bundle['cents'];
+                if ($best[$i] === null || $cost < $best[$i]) { $best[$i] = $cost; $pick[$i] = $bundle; }
+            }
+            $single = $best[$i - 1] + $units[$i - 1]['cents'];
+            if ($best[$i] === null || $single < $best[$i]) { $best[$i] = $single; $pick[$i] = null; }
+        }
 
-        foreach ($items as $cart_key => $cart_item) {
-            if ($qty_to_discount <= 0) break;
+        // Walk back through the choices; the bundled pieces get their share of the bundle's total
+        $cost_of = [];
+        $label_of = [];
+        for ($i = $n; $i > 0;) {
+            $bundle = $pick[$i];
+            if (!$bundle) { $i--; continue; }
+            $base = intdiv($bundle['cents'], $bundle['qty']);
+            $rest = $bundle['cents'] % $bundle['qty'];
+            for ($j = 0; $j < $bundle['qty']; $j++) {
+                $u = $i - $bundle['qty'] + $j;
+                $cost_of[$u]  = $base + ($j < $rest ? 1 : 0);
+                $label_of[$u] = sprintf('%d items for $%s', $bundle['qty'], number_format($bundle['total'], 2));
+            }
+            $i -= $bundle['qty'];
+        }
+        if (!$cost_of) return;
 
-            $apply_qty = min($cart_item['quantity'], $qty_to_discount);
-            $cart->cart_contents[$cart_key]['data']->set_price($bundle_price);
-            $cart->cart_contents[$cart_key]['volume_discount_label'] =
-                sprintf('%d items for $%s', $rule['qty'], number_format($rule['total'], 2));
-            self::$discounted_product_ids[$cart_item['product_id']] = true;
-
-            $qty_to_discount -= $apply_qty;
+        // Back to the lines: a line's price is its pieces' (average) price
+        $line_cents = [];
+        $line_label = [];
+        foreach ($units as $u => $unit) {
+            $line_cents[$unit['key']][] = $cost_of[$u] ?? $unit['cents'];
+            if (isset($label_of[$u])) $line_label[$unit['key']] = $label_of[$u];
+        }
+        foreach ($line_label as $key => $label) {
+            $cents = $line_cents[$key];
+            $cart->cart_contents[$key]['data']->set_price(round(array_sum($cents) / count($cents) / $mult, wc_get_price_decimals()));
+            $cart->cart_contents[$key]['volume_discount_label'] = $label;
+            self::$discounted_product_ids[$cart->cart_contents[$key]['product_id']] = true;
         }
     }
 
@@ -444,4 +537,14 @@ class MSD_Volume_Discounts {
 
         return $notice;
     }
+}
+
+/**
+ * A stand-in for WC_Cart with only what the volume rules touch (cart_contents, get_cart(), is_empty()): lets the
+ * same rule code price a list that is not a cart. Nothing here is stored or sent anywhere.
+ */
+class MSD_Line_Cart {
+    public $cart_contents = [];
+    public function get_cart() { return $this->cart_contents; }
+    public function is_empty() { return empty($this->cart_contents); }
 }

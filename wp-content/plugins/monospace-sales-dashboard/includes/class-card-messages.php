@@ -9,6 +9,8 @@
  * Two built-in rows live in the Original list and are evaluated by the theme:
  *   - qr_note: gallery-reserved paintings (text editable, {gallery} = gallery name)
  *   - volume:  the volume-discount note; its wording templates are edited in its row
+ *   - oversized: items 16 x 20 in. or bigger (the "Oversized Item" pill's rule); {shipping} / {shipping_na} /
+ *     {shipping_world} are filled in from the WooCommerce zones, like the fine print
  * A post can override any tab in the Quick Product box (post meta _qp_card_message).
  * The theme's monospace_card_sales_message() renders the strip.
  *
@@ -81,6 +83,7 @@ class MSD_Card_Messages {
             'original' => [
                 self::row('qr_note', 'This item can only be purchased through the QR code link at {gallery}', 'gray'),
                 self::row('volume', '', 'green'),
+                self::row('oversized', 'Oversized item: a higher shipping rate applies. {shipping}', 'blue'),
             ],
             'framed'   => [],
             'unframed' => [],
@@ -132,7 +135,7 @@ class MSD_Card_Messages {
         foreach (array_keys(self::tabs()) as $tab) {
             $clean[$tab] = [];
             foreach ((array) ($data[$tab] ?? []) as $row) {
-                $type = in_array($row['type'] ?? '', ['custom', 'qr_note', 'volume'], true) ? $row['type'] : 'custom';
+                $type = in_array($row['type'] ?? '', ['custom', 'qr_note', 'volume', 'oversized'], true) ? $row['type'] : 'custom';
                 if ($type !== 'custom' && ($tab !== 'original' || isset($seen[$type]))) {
                     continue;
                 }
@@ -150,7 +153,7 @@ class MSD_Card_Messages {
                     $cats = $term ? [$term->term_id] : [];
                 }
 
-                $default_style = $type === 'qr_note' ? 'gray' : 'green';
+                $default_style = $type === 'qr_note' ? 'gray' : ($type === 'oversized' ? 'blue' : 'green');
                 $style = array_key_exists($row['style'] ?? '', self::styles()) ? $row['style'] : $default_style;
 
                 $clean[$tab][] = self::row($type, $type === 'volume' ? '' : $text, $style, ! empty($row['enabled']), $cats, $date($row['start'] ?? ''), $date($row['end'] ?? ''));
@@ -351,7 +354,9 @@ class MSD_Card_Messages {
                     });
                 } else {
                     h += '<div class="f"><label>Message</label><div><input type="text" class="msd-cm-f-text" value="' + esc(r.text) + '">' +
-                         '<p class="description">{gallery} = the painting’s gallery</p></div></div>';
+                         '<p class="description">' + (r.type === 'oversized'
+                            ? '{shipping} = this item’s shipping sentence, {shipping_na} / {shipping_world} = just the cost - all from your WooCommerce shipping zones. Shown on items 16 × 20 in. or bigger that can be bought.'
+                            : '{gallery} = the painting’s gallery') + '</p></div></div>';
                 }
                 h += '<div class="f"><label>Style</label><div class="msd-cm-styles">' + Object.keys(STYLES).map(function (s) {
                         return '<label><input type="radio" name="msd-cm-style" value="' + s + '"' + (s === r.style ? ' checked' : '') + '> ' +
@@ -373,7 +378,8 @@ class MSD_Card_Messages {
                         main = ($ed.find('[data-key=msd_hint_template_bundle]').val() || '').replace('{qty}', '3').replace('{total}', '80');
                         sub  = $ed.find('[data-key=msd_hint_secondary_text]').val();
                     } else {
-                        main = ($ed.find('.msd-cm-f-text').val() || '').replace('{gallery}', 'Fork Hill Kitchen');
+                        main = ($ed.find('.msd-cm-f-text').val() || '').replace('{gallery}', 'Fork Hill Kitchen')
+                            .replace('{shipping}', 'Shipping: $__ to the US, Canada and Mexico, $__ elsewhere').replace('{shipping_na}', '$__').replace('{shipping_world}', '$__');
                     }
                     $ed.find('.msd-cm-preview').html(boxHtml(style, main, sub));
                 }

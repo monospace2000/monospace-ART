@@ -1,25 +1,6 @@
 /* monospace Sales Dashboard Admin Styles */
 
-.msd-settings-wrap {
-    margin-top: 20px;
-}
 
-.msd-tabs {
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #ddd;
-}
-
-.msd-tabs li a {
-    text-decoration: none;
-    padding: 8px 12px;
-    border-radius: 4px 4px 0 0;
-}
-
-.msd-tabs li a.current {
-    background: #f0f0f1;
-    font-weight: 600;
-}
 
 /* Section headers */
 .msd-settings-wrap h2,
@@ -305,3 +286,100 @@ input[type="color"] {
 }
 
 .msd-settings-wrap .description { font-style: normal; }
+
+
+/* ==========================================================================
+   Fresh look (2026-11-17): the Sales Dashboard is its own menu page. Section links as a pill row, status cards
+   with soft depth. WordPress-native colors only (#2271b1 / #c3c4c7 / #646970).
+   ========================================================================== */
+.msd-settings-wrap .msd-title-chip {
+    margin-left: 10px;
+    position: relative;
+    top: -2px;
+    font-size: 12px;
+    padding: 2px 10px;
+}
+.msd-settings-wrap .msd-title-chip.is-on { background: #edfaef; color: #00450c; }
+
+.msd-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 16px 0 22px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #dcdcde;
+}
+.msd-nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px 6px 9px;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    color: #50575e;
+    text-decoration: none;
+    font-size: 13px;
+    line-height: 1.5;
+    transition: background-color .15s, color .15s;
+}
+.msd-nav-link .dashicons { width: 18px; height: 18px; font-size: 18px; color: #8c8f94; }
+.msd-nav-link:hover { background: #f0f0f1; color: #1d2327; }
+.msd-nav-link:focus { box-shadow: 0 0 0 2px #2271b1; outline: 2px solid transparent; }
+.msd-nav-link.is-current { background: #2271b1; color: #fff; font-weight: 600; }
+.msd-nav-link.is-current .dashicons { color: #fff; }
+
+/* Overview cards */
+.msd-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+.msd-status-card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+}
+.msd-status-card h3 {
+    margin: 0 0 10px;
+    padding: 0 0 10px;
+    border-bottom: 1px solid #f0f0f1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+}
+.msd-status-badge {
+    display: inline-block;
+    padding: 0 9px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.8;
+}
+.msd-status-badge.active { background: #edfaef; color: #00450c; }
+.msd-status-badge.inactive { background: #fcf9e8; color: #6e4e00; }
+.msd-status-badge.disabled { background: #f6f7f7; color: #8c8f94; }
+.msd-status-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f6f7f7;
+}
+.msd-status-item:last-child { border-bottom: none; }
+.msd-status-label { font-weight: 500; color: #1d2327; }
+.msd-status-value { color: #646970; text-align: right; }
+.msd-status-value.highlight { color: #135e96; font-weight: 600; }
+.msd-quick-links { margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f0f1; }
+.msd-stat-number { font-size: 32px; font-weight: 600; color: #2271b1; margin: 10px 0; line-height: 1.1; }
+.msd-stat-label { font-size: 12px; color: #646970; text-transform: uppercase; letter-spacing: .5px; }
+
+/* The Save button sits with the panels, not under a gap */
+.msd-settings-wrap form#msd-settings-form > p.submit { max-width: 1100px; margin-top: 4px; padding-top: 0; }
+@media (max-width: 782px) {
+    .msd-nav { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 12px; }
+    .msd-nav-link { white-space: nowrap; }
+}

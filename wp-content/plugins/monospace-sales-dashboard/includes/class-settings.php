@@ -7,30 +7,58 @@ if (!defined('ABSPATH')) exit;
 
 class MSD_Settings {
 
+    /** Menu slug of the Sales Dashboard screen (admin.php?page=monospace-sales) */
+    const PAGE = 'monospace-sales';
+
+    /** Sections whose fields are WooCommerce-style fields saved by this screen's own form */
+    const FORM_SECTIONS = ['global', 'volume_discounts', 'free_shipping', 'messages'];
+
     public static function init() {
-        add_filter('woocommerce_settings_tabs_array', [__CLASS__, 'add_settings_tab'], 50);
-        add_action('woocommerce_settings_tabs_msd', [__CLASS__, 'output_settings']);
-        add_action('woocommerce_update_options_msd', [__CLASS__, 'save_settings']);
+        add_action('admin_menu', [__CLASS__, 'add_menu']);
+        add_action('admin_init', [__CLASS__, 'redirect_old_tab'], 1);
+        add_action('admin_init', [__CLASS__, 'maybe_save']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_assets']);
     }
 
     /**
-     * Add settings tab
+     * Address of a section of the screen (used by every link and redirect)
      */
-    public static function add_settings_tab($tabs) {
-        $tabs['msd'] = __('Sales Dashboard', 'monospace-sales');
-        return $tabs;
+    public static function url($section = 'dashboard', $args = []) {
+        return add_query_arg(array_merge(['page' => self::PAGE, 'section' => $section], $args), admin_url('admin.php'));
+    }
+
+    /**
+     * Top-level menu (it used to be a tab in WooCommerce > Settings)
+     */
+    public static function add_menu() {
+        add_menu_page(
+            __('Sales Dashboard', 'monospace-sales'),
+            __('Sales', 'monospace-sales'),
+            'manage_woocommerce',
+            self::PAGE,
+            [__CLASS__, 'output_settings'],
+            'dashicons-tag',
+            '56.5'
+        );
+    }
+
+    /**
+     * Old bookmarks and links: WooCommerce > Settings > Sales Dashboard now lives at the menu page
+     */
+    public static function redirect_old_tab() {
+        if (!is_admin() || ($_GET['page'] ?? '') !== 'wc-settings' || ($_GET['tab'] ?? '') !== 'msd') {
+            return;
+        }
+        $args = array_intersect_key($_GET, array_flip(['saved', 'success', 'updated', 'error', 'settings-updated']));
+        wp_safe_redirect(self::url(sanitize_key($_GET['section'] ?? 'dashboard'), array_map('sanitize_text_field', $args)));
+        exit;
     }
 
     /**
      * Enqueue admin assets
      */
     public static function enqueue_assets($hook) {
-        if ('woocommerce_page_wc-settings' !== $hook) {
-            return;
-        }
-
-        if (!isset($_GET['tab']) || $_GET['tab'] !== 'msd') {
+        if ('toplevel_page_' . self::PAGE !== $hook) {
             return;
         }
 
@@ -46,50 +74,106 @@ class MSD_Settings {
     }
 
     /**
-     * Output settings page with tabs
+     * The sections, in menu order, with a dashicon each
+     */
+    private static function sections() {
+        return [
+            'dashboard' => [__('Overview', 'monospace-sales'), 'dashicons-chart-area'],
+            'global' => [__('Global Controls', 'monospace-sales'), 'dashicons-admin-generic'],
+            'campaigns' => [__('Campaigns', 'monospace-sales'), 'dashicons-megaphone'],
+            'volume_discounts' => [__('Volume Discounts', 'monospace-sales'), 'dashicons-database'],
+            'free_shipping' => [__('Free Shipping', 'monospace-sales'), 'dashicons-airplane'],
+            'messages' => [__('Messages', 'monospace-sales'), 'dashicons-format-status'],
+            'bulk_editor' => [__('Bulk Editor', 'monospace-sales'), 'dashicons-edit'],
+            'additional_tracker' => [__('Additional % Tracker', 'monospace-sales'), 'dashicons-chart-line'],
+            'import_export' => [__('Import/Export', 'monospace-sales'), 'dashicons-database-export'],
+        ];
+    }
+
+    /**
+     * Output the screen: heading, section links, then the section
      */
     public static function output_settings() {
-        $current_section = isset($_GET['section']) ? sanitize_text_field($_GET['section']) : 'dashboard';
+        if (!current_user_can('manage_woocommerce')) {
+            wp_die(__('Insufficient permissions', 'monospace-sales'));
+        }
 
-        $sections = [
-            'dashboard' => __('Dashboard', 'monospace-sales'),
-            'global' => __('Global Controls', 'monospace-sales'),
-            'price_adjustments' => __('Price Adjustments', 'monospace-sales'),
-            'sale_rules' => __('Sale Rules', 'monospace-sales'),
-            'volume_discounts' => __('Volume Discounts', 'monospace-sales'),
-            'free_shipping' => __('Free Shipping', 'monospace-sales'),
-            'scheduling' => __('Scheduling', 'monospace-sales'),
-            'messages' => __('Messages', 'monospace-sales'),
-            'bulk_editor' => __('Bulk Editor', 'monospace-sales'),
-            'additional_tracker' => __('Additional % Tracker', 'monospace-sales'),
-            'import_export' => __('Import/Export', 'monospace-sales'),
-        ];
+        $sections = self::sections();
+        $current_section = isset($_GET['section']) ? sanitize_key($_GET['section']) : 'dashboard';
+        if (in_array($current_section, ['price_adjustments', 'sale_rules', 'scheduling'], true)) $current_section = 'campaigns'; // old links
+        if (in_array($current_section, ['badges', 'card_messages'], true)) $current_section = 'messages'; // old links
+        if (!isset($sections[$current_section])) $current_section = 'dashboard';
 
-        echo '<div class="msd-settings-wrap">';
+        $on = get_option('msd_global_enable') === 'yes';
+
+        echo '<div class="wrap msd-settings-wrap">';
+        echo '<h1 class="wp-heading-inline">' . esc_html__('Sales Dashboard', 'monospace-sales') . '</h1>';
+        echo '<span class="msd-chip ' . ($on ? 'is-on' : '') . ' msd-title-chip">' . ($on ? esc_html__('Sales system on', 'monospace-sales') : esc_html__('Sales system off', 'monospace-sales')) . '</span>';
+        echo '<hr class="wp-header-end">';
 
         // Show success/error messages
         if (isset($_GET['settings-updated']) && $_GET['settings-updated'] === 'true') {
             echo '<div class="notice notice-success is-dismissible"><p>' . __('Settings saved successfully.', 'monospace-sales') . '</p></div>';
         }
 
-        if (isset($_GET['error'])) {
+        if (isset($_GET['error']) && $_GET['error'] === '1') {
             echo '<div class="notice notice-error is-dismissible"><p>' . __('Error saving settings. Please try again.', 'monospace-sales') . '</p></div>';
         }
 
-        // Section tabs
-        echo '<ul class="subsubsub msd-tabs">';
-        $i = 0;
-        foreach ($sections as $id => $label) {
-            $class = ($id === $current_section) ? 'current' : '';
-            $separator = ($i++ > 0) ? ' | ' : '';
-            echo $separator . '<li><a href="' . admin_url('admin.php?page=wc-settings&tab=msd&section=' . $id) . '" class="' . $class . '">' . esc_html($label) . '</a></li>';
+        // Section links
+        echo '<nav class="msd-nav" aria-label="' . esc_attr__('Sales Dashboard sections', 'monospace-sales') . '">';
+        foreach ($sections as $id => $info) {
+            $class = 'msd-nav-link' . ($id === $current_section ? ' is-current' : '');
+            echo '<a href="' . esc_url(self::url($id)) . '" class="' . $class . '"' . ($id === $current_section ? ' aria-current="page"' : '') . '>'
+                . '<span class="dashicons ' . esc_attr($info[1]) . '" aria-hidden="true"></span>' . esc_html($info[0]) . '</a>';
         }
-        echo '</ul><br class="clear" />';
+        echo '</nav>';
 
-        // Output section content
+        // Sections made of settings fields share one form and one Save button; the others have their own forms
+        $has_form = in_array($current_section, self::FORM_SECTIONS, true);
+        if ($has_form) {
+            echo '<form method="post" action="' . esc_url(self::url($current_section)) . '" id="msd-settings-form">';
+            wp_nonce_field('msd_save_settings', 'msd_settings_nonce');
+            echo '<input type="hidden" name="msd_section" value="' . esc_attr($current_section) . '">';
+        }
+
         self::output_section($current_section);
 
+        if ($has_form) {
+            echo '<p class="submit">';
+            echo '<button type="submit" name="msd_save_settings" value="1" class="button button-primary">' . esc_html__('Save changes', 'monospace-sales') . '</button>';
+            echo '</p></form>';
+        }
+
         echo '</div>';
+    }
+
+    /**
+     * Save a section made of settings fields (this screen's own form), then come back with a notice
+     */
+    public static function maybe_save() {
+        if (empty($_POST['msd_save_settings']) || ($_GET['page'] ?? '') !== self::PAGE) {
+            return;
+        }
+        if (!current_user_can('manage_woocommerce') || !isset($_POST['msd_settings_nonce']) || !wp_verify_nonce($_POST['msd_settings_nonce'], 'msd_save_settings')) {
+            wp_die(__('Insufficient permissions', 'monospace-sales'));
+        }
+
+        $section = sanitize_key($_POST['msd_section'] ?? '');
+        if (!in_array($section, self::FORM_SECTIONS, true)) {
+            return;
+        }
+
+        try {
+            self::save_section($section);
+        } catch (Exception $e) {
+            error_log('MSD Settings Save Error: ' . $e->getMessage());
+            wp_safe_redirect(self::url($section, ['error' => '1']));
+            exit;
+        }
+
+        wp_safe_redirect(self::url($section, ['settings-updated' => 'true']));
+        exit;
     }
 
     /**
@@ -103,20 +187,14 @@ class MSD_Settings {
             case 'global':
                 self::output_global_section();
                 break;
-            case 'price_adjustments':
-                self::output_price_adjustments_section();
-                break;
-            case 'sale_rules':
-                self::output_sale_rules_section();
+            case 'campaigns':
+                MSD_Campaigns::output_section();
                 break;
             case 'volume_discounts':
                 self::output_volume_discounts_section();
                 break;
             case 'free_shipping':
                 self::output_free_shipping_section();
-                break;
-            case 'scheduling':
-                self::output_scheduling_section();
                 break;
             case 'messages':
             case 'badges':          // old links
@@ -143,21 +221,7 @@ class MSD_Settings {
         woocommerce_admin_fields($settings);
     }
 
-    /**
-     * Price Adjustments Section
-     */
-    private static function output_price_adjustments_section() {
-        $settings = self::get_price_adjustments_fields();
-        woocommerce_admin_fields($settings);
-    }
 
-    /**
-     * Sale Rules Section
-     */
-    private static function output_sale_rules_section() {
-        $settings = self::get_sale_rules_fields();
-        woocommerce_admin_fields($settings);
-    }
 
     /**
      * Volume Discounts Section
@@ -270,133 +334,6 @@ class MSD_Settings {
         echo '</div>';
     }
 
-    /**
-     * Scheduling Section
-     */
-    private static function output_scheduling_section() {
-        echo '<h3>' . __('Sale Scheduling', 'monospace-sales') . '</h3>';
-        echo '<p>' . __('Schedule sales to start and end automatically.', 'monospace-sales') . '</p>';
-
-        $settings = [
-            [
-                'title' => __('One-Time Schedule', 'monospace-sales'),
-                'type' => 'title',
-                'id' => 'msd_schedule_title',
-            ],
-            [
-                'title' => __('Enable One-Time Schedule', 'monospace-sales'),
-                'id' => 'msd_schedule_enable',
-                'type' => 'checkbox',
-                'default' => 'no',
-            ],
-            [
-                'title' => __('Start Date', 'monospace-sales'),
-                'id' => 'msd_schedule_start',
-                'type' => 'text',
-                'desc' => __('Format: YYYY-MM-DD HH:MM (leave empty for immediate)', 'monospace-sales'),
-                'css' => 'width:200px;',
-            ],
-            [
-                'title' => __('End Date', 'monospace-sales'),
-                'id' => 'msd_schedule_end',
-                'type' => 'text',
-                'desc' => __('Format: YYYY-MM-DD HH:MM (leave empty for no end)', 'monospace-sales'),
-                'css' => 'width:200px;',
-            ],
-            [
-                'type' => 'sectionend',
-                'id' => 'msd_schedule_onetime_end',
-            ],
-            [
-                'title' => __('Recurring Schedule', 'monospace-sales'),
-                'type' => 'title',
-                'desc' => __('Automatically enable sales on specific days/times', 'monospace-sales'),
-                'id' => 'msd_recurring_title',
-            ],
-            [
-                'title' => __('Enable Recurring Schedule', 'monospace-sales'),
-                'id' => 'msd_recurring_enable',
-                'type' => 'checkbox',
-                'default' => 'no',
-            ],
-            [
-                'title' => __('Recurrence Pattern', 'monospace-sales'),
-                'id' => 'msd_recurring_pattern',
-                'type' => 'select',
-                'options' => [
-                    'daily' => __('Daily', 'monospace-sales'),
-                    'weekends' => __('Every Weekend (Sat-Sun)', 'monospace-sales'),
-                    'weekdays' => __('Weekdays Only (Mon-Fri)', 'monospace-sales'),
-                    'weekly' => __('Specific Day Each Week', 'monospace-sales'),
-                    'monthly_date' => __('Specific Date Each Month', 'monospace-sales'),
-                    'monthly_day' => __('Specific Weekday Each Month', 'monospace-sales'),
-                ],
-                'default' => 'weekends',
-            ],
-            [
-                'title' => __('Day of Week', 'monospace-sales'),
-                'desc' => __('For "Weekly" pattern', 'monospace-sales'),
-                'id' => 'msd_recurring_weekday',
-                'type' => 'select',
-                'options' => [
-                    '1' => __('Monday', 'monospace-sales'),
-                    '2' => __('Tuesday', 'monospace-sales'),
-                    '3' => __('Wednesday', 'monospace-sales'),
-                    '4' => __('Thursday', 'monospace-sales'),
-                    '5' => __('Friday', 'monospace-sales'),
-                    '6' => __('Saturday', 'monospace-sales'),
-                    '0' => __('Sunday', 'monospace-sales'),
-                ],
-            ],
-            [
-                'title' => __('Day of Month', 'monospace-sales'),
-                'desc' => __('For "Monthly Date" pattern (1-31)', 'monospace-sales'),
-                'id' => 'msd_recurring_monthday',
-                'type' => 'number',
-                'css' => 'width:80px;',
-                'custom_attributes' => [
-                    'min' => '1',
-                    'max' => '31',
-                ],
-                'default' => '1',
-            ],
-            [
-                'title' => __('Week of Month', 'monospace-sales'),
-                'desc' => __('For "Monthly Weekday" pattern', 'monospace-sales'),
-                'id' => 'msd_recurring_week',
-                'type' => 'select',
-                'options' => [
-                    'first' => __('First', 'monospace-sales'),
-                    'second' => __('Second', 'monospace-sales'),
-                    'third' => __('Third', 'monospace-sales'),
-                    'fourth' => __('Fourth', 'monospace-sales'),
-                    'last' => __('Last', 'monospace-sales'),
-                ],
-            ],
-            [
-                'title' => __('Start Time', 'monospace-sales'),
-                'desc' => __('Format: HH:MM (24-hour)', 'monospace-sales'),
-                'id' => 'msd_recurring_start_time',
-                'type' => 'text',
-                'css' => 'width:100px;',
-                'default' => '00:00',
-            ],
-            [
-                'title' => __('End Time', 'monospace-sales'),
-                'desc' => __('Format: HH:MM (24-hour)', 'monospace-sales'),
-                'id' => 'msd_recurring_end_time',
-                'type' => 'text',
-                'css' => 'width:100px;',
-                'default' => '23:59',
-            ],
-            [
-                'type' => 'sectionend',
-                'id' => 'msd_recurring_end',
-            ],
-        ];
-
-        woocommerce_admin_fields($settings);
-    }
 
     /**
      * Badges & Messages Section
@@ -728,45 +665,17 @@ class MSD_Settings {
     }
 
     /**
-     * Save settings
+     * Save the fields of one section
      */
-    public static function save_settings() {
-        // Verify we're on the right tab
-        if (!isset($_GET['tab']) || $_GET['tab'] !== 'msd') {
-            return;
-        }
-
-        $current_section = isset($_GET['section']) ? sanitize_text_field($_GET['section']) : 'global';
-
-        if (in_array($current_section, ['messages', 'badges', 'card_messages'], true)) {
+    private static function save_section($section) {
+        if ($section === 'messages') {
             MSD_Card_Messages::save();
             return;
         }
 
-        // Skip for sections that handle their own saving or are read-only
-        if (in_array($current_section, ['dashboard', 'bulk_editor', 'additional_tracker', 'import_export'])) {
-            return;
-        }
-
-        try {
-            // Get all settings fields for the current section
-            $fields = self::get_section_fields($current_section);
-
-            if (!empty($fields)) {
-                woocommerce_update_options($fields);
-            }
-        } catch (Exception $e) {
-            // Log error
-            error_log('MSD Settings Save Error: ' . $e->getMessage());
-
-            // Redirect with error
-            wp_redirect(add_query_arg([
-                'page' => 'wc-settings',
-                'tab' => 'msd',
-                'section' => $current_section,
-                'error' => '1',
-            ], admin_url('admin.php')));
-            exit;
+        $fields = self::get_section_fields($section);
+        if (!empty($fields)) {
+            woocommerce_update_options($fields);
         }
     }
 
@@ -777,16 +686,10 @@ class MSD_Settings {
         switch ($section) {
             case 'global':
                 return self::get_global_fields();
-            case 'price_adjustments':
-                return self::get_price_adjustments_fields();
-            case 'sale_rules':
-                return self::get_sale_rules_fields();
             case 'volume_discounts':
                 return self::get_volume_discounts_fields();
             case 'free_shipping':
                 return self::get_free_shipping_fields();
-            case 'scheduling':
-                return self::get_scheduling_fields();
             case 'badges':
                 return self::get_badges_fields();
             default:
@@ -801,43 +704,13 @@ class MSD_Settings {
         return [
             ['title' => 'Global Sale Controls', 'type' => 'title', 'id' => 'msd_global_title'],
             ['title' => 'Enable Sales System', 'id' => 'msd_global_enable', 'type' => 'checkbox', 'default' => 'no'],
-            ['title' => 'Sale Mode', 'id' => 'msd_sale_mode', 'type' => 'select', 'options' => ['global' => 'Global', 'taxonomy' => 'Taxonomy'], 'default' => 'taxonomy'],
             ['title' => 'Show Original Price', 'id' => 'msd_show_original_price', 'type' => 'checkbox', 'default' => 'yes'],
             ['title' => 'Conflict Resolution Priority', 'id' => 'msd_priority', 'type' => 'select', 'options' => ['best' => 'Best for customer', 'product' => 'Product override', 'volume' => 'Volume discount'], 'default' => 'best'],
             ['type' => 'sectionend', 'id' => 'msd_global_end'],
         ];
     }
 
-    /**
-     * Get price adjustments fields
-     */
-    private static function get_price_adjustments_fields() {
-        return [
-            ['title' => 'Global Price Adjustments', 'type' => 'title', 'id' => 'msd_price_adj_title'],
-            ['title' => 'Enable Price Adjustments', 'id' => 'msd_price_adj_enable', 'type' => 'checkbox', 'default' => 'no'],
-            ['title' => 'Adjustment Percentage', 'id' => 'msd_price_adj_percentage', 'type' => 'number', 'default' => '25'],
-            ['title' => 'Apply to Categories', 'id' => 'msd_price_adj_categories', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'options' => self::get_product_categories()],
-            ['title' => 'Apply to Tags', 'id' => 'msd_price_adj_tags', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'options' => self::get_product_tags()],
-            ['title' => 'Exclude Categories', 'id' => 'msd_price_adj_exclude_cats', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'options' => self::get_product_categories()],
-            ['title' => 'Exclude Tags', 'id' => 'msd_price_adj_exclude_tags', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'options' => self::get_product_tags()],            ['title' => 'Rounding', 'id' => 'msd_rounding', 'type' => 'select', 'options' => ['none' => 'None', 'up' => 'Round up', 'down' => 'Round down', 'nearest' => 'Round to nearest'], 'default' => 'none'],
-            ['title' => 'Charm Pricing', 'id' => 'msd_charm_pricing', 'type' => 'select', 'options' => ['none' => 'None', 'up' => 'Round up to .99', 'down' => 'Round down to .99'], 'default' => 'none'],
-            ['type' => 'sectionend', 'id' => 'msd_price_adj_end'],
-        ];
-    }
 
-    /**
-     * Get sale rules fields
-     */
-    private static function get_sale_rules_fields() {
-        return [
-            ['title' => 'Taxonomy-Based Sale Rules', 'type' => 'title', 'id' => 'msd_sale_rules_title'],
-            ['title' => 'Allowed Categories', 'id' => 'msd_sale_categories', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'options' => self::get_product_categories()],
-            ['title' => 'Allowed Tags', 'id' => 'msd_sale_tags', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'options' => self::get_product_tags()],
-            ['title' => 'Excluded Categories', 'id' => 'msd_sale_exclude_categories', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'options' => self::get_product_categories()],
-            ['title' => 'Excluded Tags', 'id' => 'msd_sale_exclude_tags', 'type' => 'multiselect', 'class' => 'wc-enhanced-select', 'options' => self::get_product_tags()],
-            ['type' => 'sectionend', 'id' => 'msd_sale_rules_end'],
-        ];
-    }
 
     /**
      * Get volume discounts fields
@@ -912,28 +785,6 @@ class MSD_Settings {
         ];
     }
 
-    /**
-     * Get scheduling fields
-     */
-    private static function get_scheduling_fields() {
-        return [
-            ['title' => 'One-Time Schedule', 'type' => 'title', 'id' => 'msd_schedule_title'],
-            ['title' => 'Enable One-Time Schedule', 'id' => 'msd_schedule_enable', 'type' => 'checkbox', 'default' => 'no'],
-            ['title' => 'Start Date', 'id' => 'msd_schedule_start', 'type' => 'text'],
-            ['title' => 'End Date', 'id' => 'msd_schedule_end', 'type' => 'text'],
-            ['type' => 'sectionend', 'id' => 'msd_schedule_onetime_end'],
-
-            ['title' => 'Recurring Schedule', 'type' => 'title', 'id' => 'msd_recurring_title'],
-            ['title' => 'Enable Recurring Schedule', 'id' => 'msd_recurring_enable', 'type' => 'checkbox', 'default' => 'no'],
-            ['title' => 'Recurrence Pattern', 'id' => 'msd_recurring_pattern', 'type' => 'select', 'options' => ['daily' => 'Daily', 'weekends' => 'Weekends', 'weekdays' => 'Weekdays', 'weekly' => 'Weekly', 'monthly_date' => 'Monthly Date', 'monthly_day' => 'Monthly Weekday'], 'default' => 'weekends'],
-            ['title' => 'Day of Week', 'id' => 'msd_recurring_weekday', 'type' => 'select', 'options' => ['1' => 'Monday', '2' => 'Tuesday', '3' => 'Wednesday', '4' => 'Thursday', '5' => 'Friday', '6' => 'Saturday', '0' => 'Sunday']],
-            ['title' => 'Day of Month', 'id' => 'msd_recurring_monthday', 'type' => 'number', 'default' => '1'],
-            ['title' => 'Week of Month', 'id' => 'msd_recurring_week', 'type' => 'select', 'options' => ['first' => 'First', 'second' => 'Second', 'third' => 'Third', 'fourth' => 'Fourth', 'last' => 'Last']],
-            ['title' => 'Start Time', 'id' => 'msd_recurring_start_time', 'type' => 'text', 'default' => '00:00'],
-            ['title' => 'End Time', 'id' => 'msd_recurring_end_time', 'type' => 'text', 'default' => '23:59'],
-            ['type' => 'sectionend', 'id' => 'msd_recurring_end'],
-        ];
-    }
 
     /**
      * Get badges fields

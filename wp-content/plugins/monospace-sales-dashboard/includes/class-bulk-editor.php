@@ -219,8 +219,7 @@ class MSD_Bulk_Editor {
 
         if (empty($product_ids)) {
             wp_redirect(add_query_arg([
-                'page' => 'wc-settings',
-                'tab' => 'msd',
+                'page' => MSD_Settings::PAGE,
                 'section' => 'bulk_editor',
                 'error' => 'no_products',
             ], admin_url('admin.php')));
@@ -295,8 +294,7 @@ class MSD_Bulk_Editor {
 
         // Add debug info to redirect
         $redirect_args = [
-            'page' => 'wc-settings',
-            'tab' => 'msd',
+            'page' => MSD_Settings::PAGE,
             'section' => 'bulk_editor',
             'success' => '1',
             'updated' => $updated,

@@ -295,8 +295,7 @@ class MSD_Import_Export {
 
         if (empty($_FILES['import_file']['tmp_name'])) {
             wp_redirect(add_query_arg([
-                'page' => 'wc-settings',
-                'tab' => 'msd',
+                'page' => MSD_Settings::PAGE,
                 'section' => 'import_export',
                 'error' => 'no_file',
             ], admin_url('admin.php')));
@@ -308,8 +307,7 @@ class MSD_Import_Export {
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             wp_redirect(add_query_arg([
-                'page' => 'wc-settings',
-                'tab' => 'msd',
+                'page' => MSD_Settings::PAGE,
                 'section' => 'import_export',
                 'error' => 'invalid_json',
             ], admin_url('admin.php')));
@@ -376,8 +374,7 @@ class MSD_Import_Export {
         }
 
         wp_redirect(add_query_arg([
-            'page' => 'wc-settings',
-            'tab' => 'msd',
+            'page' => MSD_Settings::PAGE,
             'section' => 'import_export',
             'success' => '1',
         ], admin_url('admin.php')));

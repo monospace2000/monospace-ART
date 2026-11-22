@@ -112,6 +112,17 @@ class MSD_Free_Shipping {
     }
 
     /**
+     * Does a product belong to a rule key's group? Core's one test (2026-11-14: "miniature" = a single miniature by
+     * its SKU, as for the volume discounts); without Core, the product category as before.
+     */
+    private static function product_in_group($product_id, $rule_key) {
+        if (function_exists('monospace_product_in_group')) {
+            return monospace_product_in_group($product_id, $rule_key);
+        }
+        return has_term($rule_key, 'product_cat', $product_id);
+    }
+
+    /**
      * Check category-specific amount
      */
     private static function check_category_amount($rule, $category_slug) {
@@ -124,7 +135,7 @@ class MSD_Free_Shipping {
         foreach (WC()->cart->get_cart() as $cart_item) {
             $product_id = $cart_item['product_id'];
 
-            if (has_term($category_slug, 'product_cat', $product_id)) {
+            if (self::product_in_group($product_id, $category_slug)) {
                 $category_total += $cart_item['line_subtotal'];
             }
         }
@@ -145,7 +156,7 @@ class MSD_Free_Shipping {
         foreach (WC()->cart->get_cart() as $cart_item) {
             $product_id = $cart_item['product_id'];
 
-            if (has_term($category_slug, 'product_cat', $product_id)) {
+            if (self::product_in_group($product_id, $category_slug)) {
                 $category_qty += $cart_item['quantity'];
             }
         }
@@ -164,7 +175,7 @@ class MSD_Free_Shipping {
         foreach (WC()->cart->get_cart() as $cart_item) {
             $product_id = $cart_item['product_id'];
 
-            if (!has_term($category_slug, 'product_cat', $product_id)) {
+            if (!self::product_in_group($product_id, $category_slug)) {
                 return false; // Found item NOT in category
             }
         }
@@ -419,6 +430,14 @@ class MSD_Free_Shipping {
 
         foreach (WC()->cart->get_cart() as $cart_item) {
             $product_id = $cart_item['product_id'];
+
+            // Core's one group test (the same as the rules above use)
+            if (function_exists('monospace_product_in_group')) {
+                if (monospace_product_in_group($product_id, $rule_key)) {
+                    return true;
+                }
+                continue;
+            }
 
             // Check category
             if (has_term($rule_key, 'product_cat', $product_id)) {

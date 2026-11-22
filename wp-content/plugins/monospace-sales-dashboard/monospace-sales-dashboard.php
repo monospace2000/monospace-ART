@@ -3,7 +3,7 @@
  * Plugin Name: monospace Sales Dashboard
  * Update URI: false
  * Plugin URI: https://monospace.art
- * Description: Comprehensive sales management for WooCommerce - global pricing, taxonomy rules, volume discounts, and scheduling
+ * Description: Comprehensive sales management for WooCommerce - price campaigns (several at once, each with its own schedule and products), sale prices, volume discounts and free shipping
  * Version: 1.0.0
  * Author: Hens Breet
  * Author URI: https://monospace.art
@@ -28,9 +28,9 @@ add_filter('monospace_feature_sales', '__return_true');
 add_filter('dashboard_shortcuts_choices', function ($groups) {
     if (!current_user_can('manage_woocommerce')) return $groups;
     $sales = [];
-    foreach (['dashboard' => 'Sales Dashboard', 'messages' => 'Messages', 'volume_discounts' => 'Volume Discounts',
+    foreach (['dashboard' => 'Overview', 'messages' => 'Messages', 'volume_discounts' => 'Volume Discounts',
               'free_shipping' => 'Free Shipping', 'bulk_editor' => 'Bulk Editor'] as $section => $label) {
-        $sales[] = ['label' => $label, 'url' => admin_url('admin.php?page=wc-settings&tab=msd&section=' . $section)];
+        $sales[] = ['label' => $label, 'url' => class_exists('MSD_Settings') ? MSD_Settings::url($section) : admin_url('admin.php?page=monospace-sales&section=' . $section)];
     }
     $first = array_slice($groups, 0, 1, true);
     return $first + ['Sales Dashboard' => $sales] + array_slice($groups, 1, null, true);
@@ -71,6 +71,7 @@ function msd_init() {
     // Load core classes
     require_once MSD_PLUGIN_DIR . 'includes/class-settings.php';
     require_once MSD_PLUGIN_DIR . 'includes/class-dashboard-overview.php';
+    require_once MSD_PLUGIN_DIR . 'includes/class-campaigns.php';
     require_once MSD_PLUGIN_DIR . 'includes/class-sale-control.php';
     require_once MSD_PLUGIN_DIR . 'includes/class-price-adjustments.php';
     require_once MSD_PLUGIN_DIR . 'includes/class-volume-discounts.php';
@@ -84,6 +85,7 @@ function msd_init() {
     // Initialize
     MSD_Settings::init();
     MSD_Dashboard_Overview::init();
+    MSD_Campaigns::init();
     MSD_Sale_Control::init();
     MSD_Price_Adjustments::init();
     MSD_Volume_Discounts::init();

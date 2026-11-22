@@ -1,0 +1,2 @@
+2026-01-19 06:05:36 - Handler called
+Passed permission check

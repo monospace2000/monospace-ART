@@ -1,0 +1,80 @@
+2026-01-19 06:03:43 - admin_init fired with msd_bulk_edit action
+POST data: Array
+(
+    [action] => msd_bulk_edit
+    [msd_bulk_nonce] => 7c11d9f319
+    [_wp_http_referer] => /wp-admin/admin.php?page=wc-settings&tab=msd&section=bulk_editor
+    [filter_method] => manual
+    [filter_category] => 
+    [filter_tag] => 
+    [filter_search] => 
+    [filter_manual] => 2984
+3041
+3038
+4568
+6572
+3044
+2999
+3001
+4949
+2974
+2854
+4005
+2961
+4860
+2997
+2954
+6576
+3073
+3017
+3005
+3057
+2990
+4834
+    [bulk_enable_sale] => 
+    [bulk_show_original] => 
+    [bulk_additional_percentage] => 30
+    [bulk_custom_badge] => 
+    [product_ids] => 6576,6572,4949,4860,4834,4568,4005,3073,3057,3044,3041,3038,3017,3005,3001,2999,2997,2990,2984,2974,2961,2954,2854
+)
+
+2026-01-19 06:05:36 - admin_init fired with msd_bulk_edit action
+POST data: Array
+(
+    [action] => msd_bulk_edit
+    [msd_bulk_nonce] => 7c11d9f319
+    [_wp_http_referer] => /wp-admin/admin.php?page=wc-settings&tab=msd&section=bulk_editor
+    [filter_method] => manual
+    [filter_category] => 
+    [filter_tag] => 
+    [filter_search] => 
+    [filter_manual] => 2984
+3041
+3038
+4568
+6572
+3044
+2999
+3001
+4949
+2974
+2854
+4005
+2961
+4860
+2997
+2954
+6576
+3073
+3017
+3005
+3057
+2990
+4834
+    [bulk_enable_sale] => 
+    [bulk_show_original] => 
+    [bulk_additional_percentage] => 30
+    [bulk_custom_badge] => 
+    [product_ids] => 6576,6572,4949,4860,4834,4568,4005,3073,3057,3044,3041,3038,3017,3005,3001,2999,2997,2990,2984,2974,2961,2954,2854
+)
+
