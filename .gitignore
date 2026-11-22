@@ -1,11 +1,30 @@
-wp-content/themes/monospace-art-theme/assets
+# Only the site's own code is versioned. Everything else in this folder (WordPress core, third-party plugins,
+# uploads, wp-config.php) is mirrored from the live server by ../scripts/mirror-art-site.sh and stays out of git.
+# (Files already tracked, e.g. wp-settings.php, stay tracked: ignore rules never untrack.)
+/*
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/index.php
+!/wp-content/
+/wp-content/*
+!/wp-content/mu-plugins/
+!/wp-content/plugins/
+!/wp-content/themes/
+/wp-content/plugins/*
+!/wp-content/plugins/monospace-*/
+/wp-content/themes/*
+!/wp-content/themes/monospace-art-theme/
+# The theme's assets: the sources ARE versioned (scss, scripts, compiled css - 2026-11-22: two weeks of SCSS once had to be rescued
+# from the mirror's overwritten folder because they were not in git); the big pictures and third-party vendor files are not.
+wp-content/themes/monospace-art-theme/assets/images/
+wp-content/themes/monospace-art-theme/assets/vendor/
 
-# WordPress configuration
+# never these, even inside the kept folders
+node_modules/
 wp-config.php
-
-# Error logs
 php_errorlog
 error_log
 *.log
 debug.log
-wp-content/debug.log
+.DS_Store
