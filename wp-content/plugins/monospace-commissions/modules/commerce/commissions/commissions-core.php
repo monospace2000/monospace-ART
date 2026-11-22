@@ -10,27 +10,33 @@
 if (!defined('ABSPATH')) exit;
 
 // Constants
-define('MS_COMMISSION_VERSION', '2.0.0');
+define('MS_COMMISSION_VERSION', '2.1.0');
 define('MS_COMMISSION_META_PREFIX', '_ms_commission_');
 define('MS_COMMISSION_UPLOAD_DIR', 'commissions');
 define('MS_COMMISSION_MAX_FILE_SIZE', 10 * 1024 * 1024); // 10MB
 define('MS_COMMISSION_MAX_FILES', 5);
-define('MS_COMMISSION_ADMIN_EMAIL', 'hens@monospace.com');
 
 /**
  * ===========================
  * ACTIVATION & SETUP
  * ===========================
  */
-register_activation_hook(__FILE__, 'ms_commission_activate');
+// This file is a module, so register_activation_hook( __FILE__ ) never fired here: the setup runs once per
+// version on init instead (the option below records which version has run).
+add_action('init', function() {
+    if (get_option('ms_commission_activated') !== MS_COMMISSION_VERSION) {
+        ms_commission_activate();
+    }
+}, 20);
+
 function ms_commission_activate() {
-    // Create upload directory
-    $upload_dir = wp_upload_dir();
-    $custom_dir = trailingslashit($upload_dir['basedir']) . MS_COMMISSION_UPLOAD_DIR;
-    if (!file_exists($custom_dir)) {
-        wp_mkdir_p($custom_dir);
-        // Security: prevent direct access
+    // Create upload directory with protection files
+    $custom_dir = untrailingslashit(ms_commission_paths()['dir']);
+    wp_mkdir_p($custom_dir);
+    if (!file_exists($custom_dir . '/.htaccess')) {
         file_put_contents($custom_dir . '/.htaccess', 'Options -Indexes');
+    }
+    if (!file_exists($custom_dir . '/index.php')) {
         file_put_contents($custom_dir . '/index.php', '<?php // Silence is golden');
     }
 
@@ -166,9 +172,113 @@ function ms_validate_upload_file($file) {
 }
 
 /**
+ * Upload folder of the commissions, always with a trailing slash (dir and url)
+ */
+function ms_commission_paths() {
+    $upload_dir = wp_upload_dir();
+    return [
+        'dir' => trailingslashit($upload_dir['basedir']) . MS_COMMISSION_UPLOAD_DIR . '/',
+        'url' => trailingslashit($upload_dir['baseurl']) . MS_COMMISSION_UPLOAD_DIR . '/',
+    ];
+}
+
+function ms_is_commission_product($product_id) {
+    return get_post_meta($product_id, '_is_commission_product', true) === 'yes';
+}
+
+/**
+ * How the deposit is booked (D2, owner 2026-10-27). 'b' (default): the deposit order's line IS the deposit
+ * ("Deposit (60%) - X" at the deposit price, no negative fee) and the balance order carries a fee line - each
+ * piece is counted once in product reports. 'a': the old shape (full-price line + negative "Balance Due Later"
+ * fee; the balance order has a product line). The model is stored per commission (commission_data / item
+ * meta `model`), so orders of either shape keep working whatever this returns.
+ */
+function ms_commission_model() {
+    $model = apply_filters('ms_commission_model', get_option('ms_commission_model', 'b'));
+    return $model === 'a' ? 'a' : 'b';
+}
+
+/**
+ * The lines of a balance order that carry the commission marker: a product line (model a) or a fee line (model b)
+ */
+function ms_commission_final_items($order) {
+    $found = [];
+    foreach ($order->get_items(['line_item', 'fee']) as $item) {
+        if (ms_get_commission_meta($item, 'is_final_payment')) $found[] = $item;
+    }
+    return $found;
+}
+
+/**
+ * Customers' reference photos live OUTSIDE the web root (next to public_html, like the backups) and are served
+ * by ms_commission_serve_file() to the order's customer and to shop admins only.
+ */
+function ms_commission_private_dir() {
+    return trailingslashit(dirname(untrailingslashit(realpath(ABSPATH)))) . 'commission-files/';
+}
+
+function ms_commission_file_url($folder, $filename) {
+    // the slash is encoded up front: the host redirects an unencoded one to its encoded form
+    return home_url('/') . '?ms_commission_file=' . rawurlencode($folder . '/' . $filename);
+}
+
+/** The small-copy address of a stored reference photo URL (see the file handler below) */
+function ms_commission_thumb_url($url) {
+    return strpos((string) $url, 'ms_commission_file=') !== false ? add_query_arg('ms_commission_thumb', 1, $url) : $url;
+}
+
+/**
+ * Re-save a reference photo: applies the camera's rotation, then re-encodes it, which drops all metadata (GPS
+ * location, camera, date) - and caps huge photos at 2400 px. False if it couldn't be processed.
+ */
+function ms_commission_clean_image($path) {
+    $editor = wp_get_image_editor($path);
+    if (is_wp_error($editor)) return false;
+
+    $editor->maybe_exif_rotate();
+    $size = $editor->get_size();
+    if (max($size['width'], $size['height']) > 2400) {
+        $editor->resize(2400, 2400, false);
+    }
+    $editor->set_quality(88);
+
+    $saved = $editor->save($path);
+    return !is_wp_error($saved);
+}
+
+/**
+ * Delete a folder inside the commissions folder (nothing outside it)
+ */
+function ms_commission_remove_dir($dir) {
+    $real = realpath($dir);
+    $inside = false;
+    foreach ([ms_commission_paths()['dir'], ms_commission_private_dir()] as $base) {
+        $base = realpath($base);
+        if ($base && $real && $real !== $base && strpos($real, $base . DIRECTORY_SEPARATOR) === 0) $inside = true;
+    }
+    if (!$inside) return;
+
+    foreach (scandir($real) as $entry) {
+        if ($entry === '.' || $entry === '..') continue;
+        $path = $real . DIRECTORY_SEPARATOR . $entry;
+        if (is_dir($path) && !is_link($path)) {
+            ms_commission_remove_dir($path);
+        } else {
+            @unlink($path);
+        }
+    }
+    @rmdir($real);
+}
+
+/**
  * Log commission error
  */
 function ms_commission_log($message, $data = []) {
+    // the last 50 problems stay visible under WooCommerce -> Commission files (and WP_DEBUG still writes the log file)
+    $log = get_option('ms_commission_log', []);
+    $log[] = ['t' => time(), 'm' => (string) $message, 'd' => $data];
+    update_option('ms_commission_log', array_slice($log, -50), false);
+
     if (defined('WP_DEBUG') && WP_DEBUG) {
         error_log(sprintf('[MS Commission] %s | Data: %s', $message, print_r($data, true)));
     }
@@ -314,12 +424,12 @@ add_action('woocommerce_before_add_to_cart_button', function() {
     echo '<strong>Total Price:</strong> ' . wc_price($full_price);
     echo '</p>';
 
-    echo '<p class="commission-deposit-info" style="margin-bottom: 2em !important; font-size: 0.9em; color: #444;">';
+    echo '<p class="commission-deposit-info" style="margin-bottom: 2em !important; font-size: 0.9em; opacity: .85;">';
     echo '<strong>Upfront payment:</strong> ' . wc_price($deposit_price) . ' (' . intval($deposit_percent) . '%)';
     echo '</p>';
 
-    echo '<p"><strong>Medium:</strong> ' . (!empty($allowed_mediums) ? implode(', ', array_map(fn($k) => $options['mediums'][$k] ?? $k, $allowed_mediums)) : 'N/A') . '</p>';
-    echo '<p"><strong>Surface:</strong> ' . (!empty($allowed_surfaces) ? implode(', ', array_map(fn($k) => $options['surfaces'][$k] ?? $k, $allowed_surfaces)) : 'N/A') . '</p>';
+    echo '<p><strong>Medium:</strong> ' . (!empty($allowed_mediums) ? implode(', ', array_map(fn($k) => $options['mediums'][$k] ?? $k, $allowed_mediums)) : 'N/A') . '</p>';
+    echo '<p><strong>Surface:</strong> ' . (!empty($allowed_surfaces) ? implode(', ', array_map(fn($k) => $options['surfaces'][$k] ?? $k, $allowed_surfaces)) : 'N/A') . '</p>';
     echo '<p style="margin-bottom: 1em !important"><strong>Size:</strong> ' . (!empty($allowed_sizes) ? implode(', ', array_map(fn($k) => $options['sizes'][$k] ?? $k, $allowed_sizes)) : 'N/A') . '</p>';
 
     echo '<p><label>Notes/Special Requests (optional)<br/>
@@ -328,10 +438,65 @@ add_action('woocommerce_before_add_to_cart_button', function() {
 
     echo '<p style="margin-bottom: 1em !important"><label>Reference Image(s) <span style="color:red">(required)</span><br/>';
     echo '<input type="file" name="commission_reference_upload[]" accept="image/*" multiple required />';
-    echo '<small class="description" style="display:block;margin-top:5px;">Max ' . MS_COMMISSION_MAX_FILES . ' images, ' . (MS_COMMISSION_MAX_FILE_SIZE / 1024 / 1024) . 'MB each</small>';
+    echo '<small class="description" style="display:block;margin-top:5px;">Max ' . MS_COMMISSION_MAX_FILES . ' images (JPEG, PNG, GIF or WebP), ' . (MS_COMMISSION_MAX_FILE_SIZE / 1024 / 1024) . 'MB each</small>';
     echo '</label></p>';
+    echo '<div id="ms-ref-msg" role="alert" style="color:#b32d2e;font-size:0.9em"></div>';
+    echo '<div id="ms-ref-previews" style="margin-bottom:1em"></div>';
 
     echo '</div>';
+    ?>
+    <script>
+    (function(){
+        var inp = document.querySelector('input[name="commission_reference_upload[]"]');
+        if (!inp || !window.DataTransfer) return;
+        var MAX = <?php echo (int) MS_COMMISSION_MAX_FILES; ?>, MAX_BYTES = <?php echo (int) MS_COMMISSION_MAX_FILE_SIZE; ?>;
+        var box = document.getElementById('ms-ref-previews'), msg = document.getElementById('ms-ref-msg');
+        var okType = /^image\/(jpeg|png|gif|webp)$/, files = [];
+
+        function sync() {
+            var dt = new DataTransfer();
+            files.forEach(function(f){ dt.items.add(f); });
+            inp.files = dt.files;
+            box.textContent = '';
+            files.forEach(function(f, i) {
+                var wrap = document.createElement('span');
+                wrap.style.cssText = 'position:relative;display:inline-block;margin:6px 8px 0 0';
+                var img = document.createElement('img');
+                img.src = URL.createObjectURL(f);
+                img.alt = f.name;
+                img.style.cssText = 'width:64px;height:64px;object-fit:cover;border:1px solid #ccc;display:block';
+                var rm = document.createElement('span');
+                rm.setAttribute('role', 'button');
+                rm.tabIndex = 0;
+                rm.textContent = String.fromCharCode(215); // not a literal x: an output filter rewrites it to &times; in scripts
+                rm.setAttribute('aria-label', 'Remove ' + f.name);
+                rm.style.cssText = 'position:absolute;top:-8px;right:-8px;width:20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:#b32d2e;color:#fff;font:700 14px/20px sans-serif;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.5)';
+                var drop = function(){ msg.textContent = ''; files.splice(i, 1); sync(); };
+                rm.addEventListener('click', drop);
+                rm.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); drop(); } });
+                wrap.appendChild(img);
+                wrap.appendChild(rm);
+                box.appendChild(wrap);
+            });
+        }
+
+        // each selection ADDS to the list (the native input would replace its files every time)
+        inp.addEventListener('change', function() {
+            var problems = [];
+            Array.prototype.slice.call(inp.files).forEach(function(f) {
+                if (!okType.test(f.type)) { problems.push('"' + f.name + '" is not a JPEG, PNG, GIF or WebP image.'); return; }
+                if (f.size > MAX_BYTES) { problems.push('"' + f.name + '" is larger than ' + (MAX_BYTES / 1048576) + ' MB.'); return; }
+                var dupe = files.some(function(x){ return x.name === f.name && x.size === f.size && x.lastModified === f.lastModified; });
+                if (dupe) return;
+                if (files.length >= MAX) { problems.push('Only ' + MAX + ' images fit - "' + f.name + '" was not added.'); return; }
+                files.push(f);
+            });
+            msg.textContent = problems.join(' ');
+            sync();
+        });
+    })();
+    </script>
+    <?php
 });
 
 /**
@@ -339,22 +504,110 @@ add_action('woocommerce_before_add_to_cart_button', function() {
  * CART: ADD COMMISSION DATA
  * ===========================
  */
+
+/**
+ * Collect and check the uploaded reference images (WP_Error on the first problem)
+ */
+function ms_commission_collect_uploads() {
+    $files = $_FILES['commission_reference_upload'] ?? null;
+    $required = 'Reference images are required for commission orders (JPEG, PNG, GIF or WebP, max ' . (MS_COMMISSION_MAX_FILE_SIZE / 1024 / 1024) . 'MB each).';
+
+    if (!$files || empty($files['name']) || !is_array($files['name'])) {
+        return new WP_Error('no_files', $required);
+    }
+
+    $list = [];
+    foreach ($files['name'] as $i => $name) {
+        if ($name === '') continue;
+        $list[] = [
+            'name' => $name,
+            'type' => $files['type'][$i],
+            'tmp_name' => $files['tmp_name'][$i],
+            'error' => $files['error'][$i],
+            'size' => $files['size'][$i],
+        ];
+    }
+
+    if (!$list) return new WP_Error('no_files', $required);
+
+    if (count($list) > MS_COMMISSION_MAX_FILES) {
+        return new WP_Error('too_many', sprintf('Maximum %d reference images allowed.', MS_COMMISSION_MAX_FILES));
+    }
+
+    foreach ($list as $file) {
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            return new WP_Error('upload_error', sprintf('"%s" could not be uploaded - it may be too large. Please try again.', $file['name']));
+        }
+        $check = ms_validate_upload_file($file);
+        if (is_wp_error($check)) {
+            return new WP_Error($check->get_error_code(), sprintf('"%s": %s', $file['name'], $check->get_error_message()));
+        }
+    }
+
+    return $list;
+}
+
+/**
+ * Images staged by the validation below, picked up by woocommerce_add_cart_item_data in the same request
+ */
+function ms_commission_staged($product_id, $set = null) {
+    static $staged = [];
+    if ($set !== null) $staged[$product_id] = $set;
+    return $staged[$product_id] ?? null;
+}
+
+/**
+ * Add to cart: all checks happen here, because only this filter can stop the add. A failed upload leaves
+ * the cart untouched (before 2.1.0 the product went in as a plain full-price product).
+ */
+add_filter('woocommerce_add_to_cart_validation', function($passed, $product_id) {
+    if (!$passed || !ms_is_commission_product($product_id)) return $passed;
+
+    // Limit upload attempts per visitor (the product page is open to guests)
+    $limit_key = 'ms_comm_up_' . substr(hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . wp_salt()), 0, 32);
+    $attempts = (int) get_transient($limit_key);
+    if ($attempts >= 10) {
+        wc_add_notice('Too many upload attempts. Please try again in an hour.', 'error');
+        return false;
+    }
+    set_transient($limit_key, $attempts + 1, HOUR_IN_SECONDS);
+
+    $files = ms_commission_collect_uploads();
+    if (is_wp_error($files)) {
+        wc_add_notice($files->get_error_message(), 'error');
+        return false;
+    }
+
+    // Move the files into a private temp folder; it is renamed to order-{id} when the order is created
+    $private = ms_commission_private_dir();
+    $folder = 'temp-' . bin2hex(random_bytes(8));
+    $references_dir = $private . $folder . '/references/';
+    wp_mkdir_p($references_dir);
+
+    $urls = [];
+    foreach ($files as $file) {
+        $filename = wp_unique_filename($references_dir, current_time('Y-m-d_H-i-s') . '_' . sanitize_file_name($file['name']));
+        if (!move_uploaded_file($file['tmp_name'], $references_dir . $filename) || !ms_commission_clean_image($references_dir . $filename)) {
+            ms_commission_log('File upload failed', ['file' => $filename]);
+            ms_commission_remove_dir($private . $folder);
+            wc_add_notice(sprintf('"%s" could not be processed. Please try another photo.', $file['name']), 'error');
+            return false;
+        }
+        $urls[] = ms_commission_file_url($folder, $filename);
+    }
+
+    ms_commission_staged($product_id, $urls);
+    return true;
+}, 10, 2);
+
 add_filter('woocommerce_add_cart_item_data', function($cart_item_data, $product_id, $variation_id) {
-    if (get_post_meta($product_id, '_is_commission_product', true) !== 'yes') {
+    if (!ms_is_commission_product($product_id)) {
         return $cart_item_data;
     }
 
-    // Validate file upload
-    if (empty($_FILES['commission_reference_upload']['name'][0])) {
-        wc_add_notice('Reference images are required for commission orders.', 'error');
-        return $cart_item_data;
-    }
-
-    $files = $_FILES['commission_reference_upload'];
-    $file_count = count(array_filter($files['name']));
-
-    if ($file_count > MS_COMMISSION_MAX_FILES) {
-        wc_add_notice(sprintf('Maximum %d reference images allowed.', MS_COMMISSION_MAX_FILES), 'error');
+    // No staged images: leave the line plain; woocommerce_check_cart_items removes it again
+    $uploaded_urls = ms_commission_staged($product_id);
+    if (empty($uploaded_urls)) {
         return $cart_item_data;
     }
 
@@ -375,68 +628,30 @@ add_filter('woocommerce_add_cart_item_data', function($cart_item_data, $product_
         'full_price' => $full_price,
         'deposit_paid' => $deposit_price,
         'key' => uniqid('commission_', true),
+        'terms_accepted' => wp_date('Y-m-d H:i'),
+        'model' => ms_commission_model(),
     ];
-
-    // Handle file uploads with validation
-    $uploaded_urls = [];
-    $upload_dir = wp_upload_dir();
-    $base_dir = trailingslashit($upload_dir['basedir']) . MS_COMMISSION_UPLOAD_DIR;
-    $base_url = trailingslashit($upload_dir['baseurl']) . MS_COMMISSION_UPLOAD_DIR;
-
-    // We don't have order ID yet (cart stage), so use temp commission key
-    $temp_key = uniqid('temp_', true);
-
-    // Create order folder structure: /commissions/temp-{key}/references/
-    $order_dir = trailingslashit($base_dir) . 'temp-' . $temp_key;
-    $references_dir = trailingslashit($order_dir) . 'references';
-    $references_url = trailingslashit($base_url) . 'temp-' . $temp_key . '/references';
-
-    if (!file_exists($references_dir)) {
-        wp_mkdir_p($references_dir);
-        file_put_contents($order_dir . '/.htaccess', 'Options -Indexes');
-        file_put_contents($order_dir . '/index.php', '<?php // Silence is golden');
-    }
-
-    foreach ($files['name'] as $i => $name) {
-        if (!$name) continue;
-
-        $file_array = [
-            'name' => $files['name'][$i],
-            'type' => $files['type'][$i],
-            'tmp_name' => $files['tmp_name'][$i],
-            'error' => $files['error'][$i],
-            'size' => $files['size'][$i]
-        ];
-
-        // Validate
-        $validation = ms_validate_upload_file($file_array);
-        if (is_wp_error($validation)) {
-            wc_add_notice($validation->get_error_message(), 'error');
-            continue;
-        }
-
-        // Sanitize filename with timestamp
-        $timestamp = current_time('Y-m-d_H-i-s');
-        $filename = $timestamp . '_' . sanitize_file_name($name);
-        $filename = wp_unique_filename($references_dir, $filename);
-
-        if (move_uploaded_file($file_array['tmp_name'], $references_dir . '/' . $filename)) {
-            $uploaded_urls[] = $references_url . '/' . $filename;
-        } else {
-            ms_commission_log('File upload failed', ['file' => $filename]);
-        }
-    }
-
-    if (empty($uploaded_urls)) {
-        wc_add_notice('Failed to upload reference images. Please try again.', 'error');
-        return $cart_item_data;
-    }
 
     $data['reference_images'] = $uploaded_urls;
     $cart_item_data['commission_data'] = $data;
 
     return $cart_item_data;
 }, 20, 3);
+
+/**
+ * Safety net: a commission line without its data (added some other way than the form) can't be bought -
+ * it would be charged in full with no references. It is removed and the customer told (cart and checkout).
+ */
+add_action('woocommerce_check_cart_items', function() {
+    if (!WC()->cart) return;
+
+    foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
+        if (ms_is_commission_product($cart_item['product_id']) && empty($cart_item['commission_data'])) {
+            WC()->cart->remove_cart_item($cart_item_key);
+            wc_add_notice(sprintf('"%s" was removed from your cart because its reference photos are missing. Please order it again from its page and add your photos.', $cart_item['data']->get_name()), 'error');
+        }
+    }
+});
 
 /**
  * ===========================
@@ -498,56 +713,183 @@ add_action('woocommerce_checkout_create_order_line_item', function($item, $cart_
     $final_payment = max(0, $data['full_price'] - $data['deposit_paid']);
     ms_set_commission_meta($item, 'final_payment', $final_payment);
 
+    // Model b: the line carries the deposit (its price is set in the cart, below) - say so in its name
+    if (($data['model'] ?? 'a') === 'b') {
+        $percent = $data['full_price'] > 0 ? (int) round($data['deposit_paid'] / $data['full_price'] * 100) : 0;
+        $item->set_name(sprintf('Deposit (%d%%) %s %s', $percent, "\u{2014}", $item->get_name()));
+    }
+
 }, 10, 4);
 
 /**
- * Move temp reference images to proper order folder after order is created
+ * Move the temp reference images into the order's folder after the order is created
+ * (temp-{key}/references/ -> order-{id}/references/); a file that can't be moved is logged and noted on the order.
  */
 add_action('woocommerce_checkout_order_created', function($order) {
-    $upload_dir = wp_upload_dir();
-    $base_dir = trailingslashit($upload_dir['basedir']) . MS_COMMISSION_UPLOAD_DIR;
-    $base_url = trailingslashit($upload_dir['baseurl']) . MS_COMMISSION_UPLOAD_DIR;
+    $private = ms_commission_private_dir();
+    $order_id = $order->get_id();
 
     foreach ($order->get_items() as $item) {
-        $reference_images = ms_get_commission_meta($item, 'reference_images');
-        if (empty($reference_images)) continue;
+        $images = ms_normalize_image_array(ms_get_commission_meta($item, 'reference_images'));
+        if (!$images) continue;
 
-        $reference_images = is_array($reference_images) ? $reference_images : [$reference_images];
+        $new_images = [];
+        $temp_folders = [];
+        $moved = false;
 
-        // Check if images are in temp folder
-        $first_image = $reference_images[0];
-        if (strpos($first_image, '/temp-') === false) continue;
-
-        // Extract temp key from URL
-        preg_match('/temp-([^\/]+)/', $first_image, $matches);
-        if (empty($matches[1])) continue;
-
-        $temp_key = $matches[1];
-        $temp_dir = $base_dir . 'temp-' . $temp_key;
-        $order_dir = $base_dir . 'order-' . $order->get_id();
-
-        // Move temp folder to order folder
-        if (file_exists($temp_dir) && !file_exists($order_dir)) {
-            rename($temp_dir, $order_dir);
-
-            // Update image URLs in meta
-            $new_images = [];
-            foreach ($reference_images as $url) {
-                $new_url = str_replace('/temp-' . $temp_key . '/', '/order-' . $order->get_id() . '/', $url);
-                $new_images[] = $new_url;
+        foreach ($images as $url) {
+            $query = (string) wp_parse_url($url, PHP_URL_QUERY);
+            parse_str($query, $args);
+            $ref = $args['ms_commission_file'] ?? '';
+            if (!preg_match('#^(temp-[A-Za-z0-9_.-]+)/([A-Za-z0-9._-]+)$#', $ref, $m)) {
+                $new_images[] = $url;
+                continue;
             }
 
+            $source = $private . $m[1] . '/references/' . $m[2];
+            $target_dir = $private . 'order-' . $order_id . '/references/';
+            wp_mkdir_p($target_dir);
+            $name = wp_unique_filename($target_dir, $m[2]);
+
+            if (is_file($source) && rename($source, $target_dir . $name)) {
+                $new_images[] = ms_commission_file_url('order-' . $order_id, $name);
+                $temp_folders[$m[1]] = true;
+                $moved = true;
+            } else {
+                $new_images[] = $url;
+                ms_commission_log('Reference image could not be moved', ['order_id' => $order_id, 'file' => $source]);
+                $order->add_order_note('Reference photo could not be moved to the order folder: ' . $m[2]);
+            }
+        }
+
+        if ($moved) {
             ms_set_commission_meta($item, 'reference_images', $new_images);
             $item->save();
-
-            ms_commission_log('Moved temp folder to order folder', [
-                'order_id' => $order->get_id(),
-                'temp_key' => $temp_key
-            ]);
+            foreach (array_keys($temp_folders) as $folder) {
+                ms_commission_remove_dir($private . $folder);
+            }
         }
     }
 }, 10);
 
+/**
+ * Serve a reference photo: /?ms_commission_file=order-{id}/{file} - the order's customer and shop admins only
+ * (temp folders: admins only).
+ */
+add_action('template_redirect', function() {
+    if (empty($_GET['ms_commission_file']) || !is_string($_GET['ms_commission_file'])) return;
+
+    if (!preg_match('#^((?:order|temp)-[A-Za-z0-9_.-]+)/([A-Za-z0-9._-]+)$#', wp_unslash($_GET['ms_commission_file']), $m)) {
+        status_header(404);
+        exit;
+    }
+
+    $allowed = current_user_can('edit_shop_orders');
+    if (!$allowed && is_user_logged_in() && preg_match('/^order-(\d+)$/', $m[1], $o)) {
+        $order = wc_get_order((int) $o[1]);
+        $allowed = $order && $order->get_customer_id() === get_current_user_id();
+    }
+
+    $file = ms_commission_private_dir() . $m[1] . '/references/' . $m[2];
+    if (!$allowed || !is_file($file)) {
+        status_header($allowed ? 404 : 403);
+        nocache_headers();
+        exit;
+    }
+
+    // &ms_commission_thumb=1: a small copy (made once, kept in references/thumbs/) for the page's thumbnails
+    if (!empty($_GET['ms_commission_thumb'])) {
+        $thumb = ms_commission_private_dir() . $m[1] . '/references/thumbs/' . $m[2];
+        if (!is_file($thumb)) {
+            wp_mkdir_p(dirname($thumb));
+            $editor = wp_get_image_editor($file);
+            if (!is_wp_error($editor)) {
+                $editor->resize(360, 360, false);
+                $editor->set_quality(80);
+                $editor->save($thumb);
+            }
+        }
+        if (is_file($thumb)) $file = $thumb;
+    }
+
+    $type = wp_check_filetype($file)['type'];
+    if (!$type || strpos($type, 'image/') !== 0) {
+        status_header(404);
+        exit;
+    }
+
+    nocache_headers();
+    header('Content-Type: ' . $type);
+    header('Content-Length: ' . filesize($file));
+    header('X-Content-Type-Options: nosniff');
+    header('X-Robots-Tag: noindex, nofollow');
+    readfile($file);
+    exit;
+}, 1); // not on init: the modules load during init, a priority-1 hook would be too late
+
+/**
+ * When a commission's reference photos are deleted: 6 months after every one of its balance orders is completed
+ * (the customer keeps the rights to them; owner's rule 2026-10-27). 0 = not scheduled yet.
+ */
+function ms_commission_references_expire($order) {
+    $items = ms_commission_order_items($order);
+    if (!$items) return 0;
+
+    $latest = 0;
+    foreach ($items as $item) {
+        $final_id = ms_get_commission_meta($item, 'final_payment_order_id');
+        $final = $final_id ? wc_get_order($final_id) : null;
+        if (!$final || !$final->has_status('completed') || !$final->get_date_completed()) return 0;
+        $latest = max($latest, $final->get_date_completed()->getTimestamp());
+    }
+    return $latest + 6 * MONTH_IN_SECONDS;
+}
+
+/**
+ * Delete a commission's reference photos now (the cron, or the Commission files screen) and say so on the order
+ */
+function ms_commission_delete_references($order, $how) {
+    // only the photos: the commission's records (manifest, notes, correspondence) stay in the folder
+    ms_commission_remove_dir(ms_commission_private_dir() . 'order-' . $order->get_id() . '/references');
+    foreach ($order->get_items() as $item) {
+        if (!ms_get_commission_meta($item, 'key')) continue;
+        ms_set_commission_meta($item, 'references_deleted', wp_date('Y-m-d'));
+        $item->save_meta_data();
+    }
+    $order->add_order_note('Reference photos deleted ' . $how . '.');
+}
+
+/**
+ * Daily: delete temp folders of carts that never became an order (older than 3 days), and the reference photos
+ * of commissions completed more than 6 months ago (the customer keeps the rights to them; owner's rule 2026-10-27).
+ * The old-style public folders (temp-temp_...) are left alone - an early order still points into one.
+ */
+add_action('init', function() {
+    if (!wp_next_scheduled('ms_commission_cleanup_temp')) {
+        wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', 'ms_commission_cleanup_temp');
+    }
+}, 20);
+
+add_action('ms_commission_cleanup_temp', function() {
+    $private = ms_commission_private_dir();
+
+    foreach ((array) glob($private . 'temp-*', GLOB_ONLYDIR) as $folder) {
+        if (filemtime($folder) < time() - 3 * DAY_IN_SECONDS) {
+            ms_commission_remove_dir($folder);
+        }
+    }
+
+    foreach ((array) glob($private . 'order-*', GLOB_ONLYDIR) as $folder) {
+        if (!preg_match('/order-(\d+)$/', $folder, $o) || !is_dir($folder . '/references')) continue;
+        $order = wc_get_order((int) $o[1]);
+        if (!$order) continue;
+
+        $expires = ms_commission_references_expire($order);
+        if (!$expires || $expires > time()) continue;
+
+        ms_commission_delete_references($order, 'automatically (6 months after completion)');
+    }
+});
 
 /**
  * ===========================
@@ -562,6 +904,9 @@ add_filter('woocommerce_hidden_order_itemmeta', function($hidden) {
         MS_COMMISSION_META_PREFIX . 'surface',
         MS_COMMISSION_META_PREFIX . 'special_request',
         MS_COMMISSION_META_PREFIX . 'reference_images',
+        MS_COMMISSION_META_PREFIX . 'references_deleted',
+        MS_COMMISSION_META_PREFIX . 'terms_accepted',
+        MS_COMMISSION_META_PREFIX . 'model',
         MS_COMMISSION_META_PREFIX . 'deposit_paid',
         MS_COMMISSION_META_PREFIX . 'full_price',
         MS_COMMISSION_META_PREFIX . 'final_payment',
@@ -586,8 +931,8 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
     foreach ($order->get_items() as $item) {
         if (!ms_get_commission_meta($item, 'key')) continue;
 
-        echo '<div style="margin-top:20px; padding:15px; background:#f7f7f7; border-left:4px solid #0073aa;">';
-        echo '<h4 style="margin-top:0;">Custom Order Details: ' . esc_html($item->get_name()) . '</h4>';
+        echo '<div class="ms-order-panel ms-zone-brief ms-commission-details">';
+        echo '<h4>Custom Order Details: ' . esc_html($item->get_name()) . '</h4>';
 
         $options = ms_get_commission_options();
         $display_map = [
@@ -603,9 +948,12 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
         echo '<table class="commission-details" style="width:100%;">';
         foreach ($display_map as $meta_key => $label) {
             $value = ms_get_commission_meta($item, $meta_key);
-            if (empty($value)) continue;
-
-            if ($meta_key === 'reference_images') {
+            if ($meta_key === 'reference_images' && ($deleted = ms_get_commission_meta($item, 'references_deleted'))) {
+                $value = 'Deleted automatically on ' . $deleted . ' (6 months after completion)';
+            } elseif (empty($value)) {
+                continue;
+            }
+            if ($meta_key === 'reference_images' && empty($deleted)) {
                 $images = ms_normalize_image_array($value);
                 $links = [];
                 foreach ($images as $url) {
@@ -633,10 +981,11 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
 add_action('woocommerce_cart_calculate_fees', function($cart) {
     if (is_admin() && !defined('DOING_AJAX')) return;
 
+    // Model a only: the full-price line is reduced to the deposit by a negative fee
     $deposit_total = 0;
 
     foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
-        if (isset($cart_item['commission_data'])) {
+        if (isset($cart_item['commission_data']) && ($cart_item['commission_data']['model'] ?? 'a') === 'a') {
             $full_price = floatval($cart_item['commission_data']['full_price']);
             $deposit_price = floatval($cart_item['commission_data']['deposit_paid']);
             $deposit_total += $full_price - $deposit_price;
@@ -648,21 +997,58 @@ add_action('woocommerce_cart_calculate_fees', function($cart) {
     }
 });
 
-/**
- * ===========================
- * CHECKOUT: REQUIRE LOGIN
- * ===========================
- */
-add_action('woocommerce_before_checkout_form', function() {
-    if (!is_user_logged_in()) {
-        foreach (WC()->cart->get_cart() as $cart_item) {
-            if (isset($cart_item['commission_data'])) {
-                wc_add_notice('You must be logged in to order custom commissions.', 'error');
-                wp_safe_redirect(wc_get_page_permalink('myaccount'));
-                exit;
-            }
+// Model b: the line is priced at the deposit
+add_action('woocommerce_before_calculate_totals', function($cart) {
+    if (is_admin() && !defined('DOING_AJAX')) return;
+
+    foreach ($cart->get_cart() as $cart_item) {
+        if (isset($cart_item['commission_data']) && ($cart_item['commission_data']['model'] ?? 'a') === 'b') {
+            $cart_item['data']->set_price(floatval($cart_item['commission_data']['deposit_paid']));
         }
     }
+}, 20);
+
+// ...and called one in the cart and at checkout
+add_filter('woocommerce_cart_item_name', function($name, $cart_item) {
+    $d = $cart_item['commission_data'] ?? null;
+    if (!$d || ($d['model'] ?? 'a') !== 'b') return $name;
+
+    $percent = $d['full_price'] > 0 ? (int) round($d['deposit_paid'] / $d['full_price'] * 100) : 0;
+    return sprintf('Deposit (%d%%) %s %s', $percent, "\u{2014}", $name);
+}, 10, 2);
+
+
+/**
+ * ===========================
+ * CHECKOUT: ACCOUNT FOR COMMISSIONS
+ * ===========================
+ * A guest ordering a commission gets an account created at checkout (My Commissions needs one) instead of
+ * being redirected mid-page. WooCommerce's own account settings (auto-generated password, set-password email) apply.
+ */
+function ms_cart_has_commission() {
+    if (!function_exists('WC') || !WC()->cart) return false;
+    foreach (WC()->cart->get_cart() as $cart_item) {
+        if (ms_is_commission_product($cart_item['product_id'])) return true;
+    }
+    return false;
+}
+
+/**
+ * Orders list > Label: a commission deposit order is labelled "Commission" at checkout (before Core's own rule, which would
+ * call a fully-discounted order "Loan" and any other "Online Sale"; it leaves an existing label alone)
+ */
+add_action('woocommerce_checkout_order_processed', function($order_id) {
+    $order = wc_get_order($order_id);
+    if (!$order || $order->get_meta('order_label', true) || !ms_commission_order_items($order)) return;
+    $order->update_meta_data('order_label', 'commission');
+    $order->save();
+}, 10);
+
+add_filter('woocommerce_checkout_registration_required', function($required) {
+    return ms_cart_has_commission() ? true : $required;
+});
+add_filter('woocommerce_checkout_registration_enabled', function($enabled) {
+    return ms_cart_has_commission() ? true : $enabled;
 });
 
 /**
@@ -792,10 +1178,9 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
     $item_ids = array_column($commission_items, 'item_id');
     $item_ids_json = json_encode($item_ids);
     ?>
-    <br class="clear" />
-    <div style="margin: 20px 0; padding: 20px; border: 1px solid #c3c4c7; background: #f9f9f9;">
-        <h3 style="margin: 0 0 15px 0; font-size: 14px;">💰 Commission Final Payment</h3>
-        <p style="margin: 0 0 15px 0;">When the artwork is complete, create a final payment invoice for the customer.</p>
+    <div class="ms-order-panel ms-zone-main">
+        <h3>Next step: the balance</h3>
+        <p style="margin: 0 0 12px 0;">When the artwork is complete, create the final payment invoice for the customer.</p>
 
         <div style="margin-bottom: 15px; padding: 12px; background: #fff; border: 1px solid #ddd;">
             <div style="margin-bottom: 12px; font-weight: 600;">Items ready for final payment:</div>
@@ -807,76 +1192,162 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
         <button type="button" class="button button-primary ms-create-final-payment-btn"
                 data-order-id="<?php echo esc_attr($order->get_id()); ?>"
                 data-item-ids='<?php echo esc_attr($item_ids_json); ?>'>
-            Create Final Payment Invoice (<?php echo count($commission_items); ?> item<?php echo count($commission_items) > 1 ? 's' : ''; ?>)
+            Review final payment (<?php echo count($commission_items); ?> item<?php echo count($commission_items) > 1 ? 's' : ''; ?>)
         </button>
     </div>
 
     <script>
     jQuery(function($){
+        var nonce = '<?php echo esc_js(wp_create_nonce('ms_final_payment')); ?>';
+
+        function money(c, n) { return c + Number(n).toFixed(2); }
+        function el(tag, text, css) { var e = document.createElement(tag); if (text) e.textContent = text; if (css) e.style.cssText = css; return e; }
+
         $('.ms-create-final-payment-btn').on('click', function(e){
             e.preventDefault();
-            var $btn = $(this);
-            var orderId = $btn.data('order-id');
-            var itemIds = $btn.data('item-ids');
+            var $btn = $(this), orderId = $btn.data('order-id'), itemIds = $btn.data('item-ids');
+            $('.ms-fp-review').remove();
+            $btn.prop('disabled', true).text('Calculating...');
 
-            $btn.prop('disabled', true).html('⏳ Calculating...');
+            $.post(ajaxurl, { action: 'ms_preview_final_payment', order_id: orderId, item_ids: JSON.stringify(itemIds), nonce: nonce }, function(response){
+                $btn.prop('disabled', false).text('Review final payment');
+                if (!response.success) { alert('Error: ' + response.data.message); return; }
+                var d = response.data, c = d.currency;
+                var box = el('div', '', 'margin-top:15px;padding:15px;background:#fff;border:1px solid #c3c4c7;border-radius:6px');
+                box.className = 'ms-fp-review';
+                box.appendChild(el('h4', 'Review the final payment', 'margin:0 0 10px'));
 
-            $.post(ajaxurl, {
-                action: 'ms_preview_final_payment',
-                order_id: orderId,
-                item_ids: JSON.stringify(itemIds),
-                nonce: '<?php echo wp_create_nonce('ms_final_payment'); ?>'
-            }, function(response){
-                if(response.success){
-                    var data = response.data;
-                    var message = '⚠️ CONFIRM FINAL PAYMENT\n\n';
-                    message += '─────────────────────────\n';
+                d.items.forEach(function(it){
+                    box.appendChild(el('div', it.product_name + ' - full ' + money(c, it.full_price) + ', deposit paid ' + money(c, it.deposit_paid) + ', balance ' + money(c, it.remaining_balance), 'margin-bottom:4px'));
+                });
+                box.appendChild(el('p', 'Ship to: ' + (d.address || '(no shipping address on the order)'), 'margin:10px 0'));
 
-                    data.items.forEach(function(item){
-                        message += item.product_name + '\n';
-                        message += '  Full Price: $' + item.full_price.toFixed(2) + '\n';
-                        message += '  Deposit Paid: $' + item.deposit_paid.toFixed(2) + '\n';
-                        message += '  Balance Due: $' + item.remaining_balance.toFixed(2) + '\n';
-                        message += '─────────────────────────\n';
-                    });
-
-                    message += 'TOTAL BALANCE: $' + data.total_balance.toFixed(2) + '\n';
-                    message += 'Shipping: $' + data.shipping_total.toFixed(2) + '\n';
-                    message += '─────────────────────────\n';
-                    message += 'TOTAL DUE: $' + data.final_total.toFixed(2) + '\n\n';
-                    message += 'Create invoice? (You can send it manually after review)';
-
-                    if(confirm(message)){
-                        $btn.html('⏳ Creating order...');
-
-                        $.post(ajaxurl, {
-                            action: 'ms_create_final_payment_order',
-                            order_id: orderId,
-                            item_ids: JSON.stringify(itemIds),
-                            confirmed: 'yes',
-                            nonce: '<?php echo wp_create_nonce('ms_final_payment'); ?>'
-                        }, function(createResponse){
-                            if(createResponse.success){
-                                alert('✅ Final payment order created!\n\nOrder #' + createResponse.data.order_id + '\n\nReview before sending invoice.');
-                                window.location.href = '<?php echo admin_url("post.php?post="); ?>' + createResponse.data.order_id + '&action=edit';
-                            } else {
-                                alert('❌ Error: ' + createResponse.data.message);
-                                $btn.prop('disabled', false).html('Create Final Payment Invoice');
-                            }
-                        });
-                    } else {
-                        $btn.prop('disabled', false).html('Create Final Payment Invoice');
-                    }
-                } else {
-                    alert('❌ Error: ' + response.data.message);
-                    $btn.prop('disabled', false).html('Create Final Payment Invoice');
+                if (!d.address_ok) {
+                    var w = el('div', 'This order has no shipping country, so WooCommerce can\u2019t offer shipping methods. Add the address to the deposit order first, or choose "No shipping" on purpose.', 'padding:8px 12px;border-left:4px solid #dba617;background:#fcf9e8;margin:10px 0');
+                    box.appendChild(w);
+                } else if (!d.rates.length) {
+                    box.appendChild(el('div', 'No shipping method matches this address in your WooCommerce shipping zones.', 'padding:8px 12px;border-left:4px solid #dba617;background:#fcf9e8;margin:10px 0'));
                 }
+
+                var opts = d.rates.slice();
+                opts.push({ id: 'none', label: 'No shipping', cost: 0 });
+                var checked = d.rates.length ? 0 : opts.length - 1;
+                var cost = el('input'); cost.type = 'number'; cost.step = '0.01'; cost.min = '0'; cost.style.width = '90px';
+                var total = el('strong');
+                var zero = el('div', 'Shipping is 0.00 - check that this is right before creating the order.', 'padding:8px 12px;border-left:4px solid #dba617;background:#fcf9e8;margin:10px 0;display:none');
+
+                function refresh() {
+                    var sel = box.querySelector('input[name=ms_fp_rate]:checked');
+                    var o = opts[sel.value];
+                    if (document.activeElement !== cost) cost.value = Number(o.cost).toFixed(2);
+                    cost.disabled = o.id === 'none';
+                    var ship = o.id === 'none' ? 0 : (parseFloat(cost.value) || 0);
+                    total.textContent = 'Total due: ' + money(c, d.total_balance + ship);
+                    zero.style.display = (o.id !== 'none' && ship === 0) ? 'block' : 'none';
+                }
+
+                opts.forEach(function(o, i){
+                    var label = el('label', '', 'display:block;margin:3px 0');
+                    var r = el('input'); r.type = 'radio'; r.name = 'ms_fp_rate'; r.value = i; r.checked = i === checked;
+                    r.addEventListener('change', function(){ cost.value = Number(o.cost).toFixed(2); refresh(); });
+                    label.appendChild(r);
+                    label.appendChild(document.createTextNode(' ' + o.label + (o.id === 'none' ? '' : ' - ' + money(c, o.cost))));
+                    box.appendChild(label);
+                });
+
+                var costRow = el('p', 'Shipping amount (editable): ', 'margin:10px 0');
+                costRow.appendChild(document.createTextNode(c + ' '));
+                costRow.appendChild(cost);
+                box.appendChild(costRow);
+                cost.addEventListener('input', refresh);
+
+                box.appendChild(zero);
+                box.appendChild(el('p', '', 'margin:10px 0')).appendChild(total);
+
+                var go = el('button', 'Create final payment order'); go.type = 'button'; go.className = 'button button-primary';
+                var cancel = el('button', 'Cancel', 'margin-left:8px'); cancel.type = 'button'; cancel.className = 'button';
+                cancel.addEventListener('click', function(){ box.remove(); });
+                go.addEventListener('click', function(){
+                    var o = opts[box.querySelector('input[name=ms_fp_rate]:checked').value];
+                    go.disabled = true; go.textContent = 'Creating order...';
+                    $.post(ajaxurl, {
+                        action: 'ms_create_final_payment_order', order_id: orderId, item_ids: JSON.stringify(itemIds), confirmed: 'yes', nonce: nonce,
+                        shipping: JSON.stringify({ rate_id: o.id, cost: cost.value })
+                    }, function(res){
+                        if (res.success) {
+                            window.location.href = res.data.edit_url;
+                        } else {
+                            alert('Error: ' + res.data.message);
+                            go.disabled = false; go.textContent = 'Create final payment order';
+                        }
+                    });
+                });
+                var row = el('p', '', 'margin:15px 0 0');
+                row.appendChild(go); row.appendChild(cancel);
+                box.appendChild(row);
+                box.appendChild(el('p', 'The order is created as pending - you send the invoice from it after a last look.', 'margin:10px 0 0;color:#646970'));
+
+                $btn.closest('div').after(box);
+                refresh();
             });
         });
     });
     </script>
     <?php
 }, 10);
+
+/**
+ * Shipping rates WooCommerce offers for a balance order, from the shipping zones (never typed amounts).
+ * $lines: [ ['product' => WC_Product, 'balance' => float], ... ]
+ */
+function ms_commission_balance_shipping($address, $lines) {
+    $result = ['rates' => [], 'address_ok' => !empty($address['country'])];
+    if (!$result['address_ok']) return $result;
+
+    $contents = [];
+    $cost = 0;
+    foreach ($lines as $idx => $line) {
+        $contents['item_' . $idx] = [
+            'data' => $line['product'],
+            'quantity' => 1,
+            'line_subtotal' => $line['balance'],
+            'line_total' => $line['balance'],
+        ];
+        $cost += $line['balance'];
+    }
+
+    $package = [
+        'contents' => $contents,
+        'contents_cost' => $cost,
+        'destination' => [
+            'country' => $address['country'],
+            'state' => $address['state'] ?? '',
+            'postcode' => $address['postcode'] ?? '',
+            'city' => $address['city'] ?? '',
+            'address' => $address['address_1'] ?? '',
+            'address_2' => $address['address_2'] ?? '',
+        ],
+    ];
+
+    try {
+        WC()->shipping()->calculate_shipping([$package]);
+        $packages = WC()->shipping()->get_packages();
+        $pkg = $packages ? reset($packages) : null;
+        foreach (($pkg['rates'] ?? []) as $rate) {
+            $result['rates'][] = [
+                'id' => $rate->get_id(),
+                'label' => $rate->get_label(),
+                'method_id' => $rate->get_method_id(),
+                'instance_id' => $rate->get_instance_id(),
+                'cost' => (float) $rate->get_cost(),
+            ];
+        }
+    } catch (Exception $e) {
+        ms_commission_log('Shipping calculation error: ' . $e->getMessage());
+    }
+
+    return $result;
+}
 
 /**
  * AJAX: Preview final payment
@@ -929,54 +1400,26 @@ add_action('wp_ajax_ms_preview_final_payment', function() {
         wp_send_json_error(['message' => 'No valid commission items found']);
     }
 
-    // Calculate shipping
-    $shipping_total = 0;
-    try {
-        $shipping_address = $original_order->get_address('shipping');
-        if (!empty($shipping_address['country'])) {
-            $package_contents = [];
-            foreach ($items_data as $idx => $item_data) {
-                $package_contents['item_' . $idx] = [
-                    'data' => $item_data['product'],
-                    'quantity' => 1,
-                    'line_subtotal' => $item_data['remaining_balance'],
-                    'line_total' => $item_data['remaining_balance'],
-                ];
-            }
-
-            $package = [
-                'contents' => $package_contents,
-                'contents_cost' => $total_balance,
-                'destination' => [
-                    'country' => $shipping_address['country'],
-                    'state' => $shipping_address['state'],
-                    'postcode' => $shipping_address['postcode'],
-                    'city' => $shipping_address['city'],
-                    'address' => $shipping_address['address_1'],
-                    'address_2' => $shipping_address['address_2'],
-                ],
-            ];
-
-            WC()->shipping()->calculate_shipping([$package]);
-            $packages = WC()->shipping()->get_packages();
-
-            if (!empty($packages)) {
-                $pkg = reset($packages);
-                if (!empty($pkg['rates'])) {
-                    $rate = reset($pkg['rates']);
-                    $shipping_total = floatval($rate->cost);
-                }
-            }
-        }
-    } catch (Exception $e) {
-        ms_commission_log('Shipping calculation error: ' . $e->getMessage());
+    $lines = [];
+    foreach ($items_data as $d) {
+        $lines[] = ['product' => $d['product'], 'balance' => $d['remaining_balance']];
     }
+    $address = $original_order->get_address('shipping');
+    if (empty($address['country'])) $address = $original_order->get_address('billing'); // no shipping address on the order
+    $shipping = ms_commission_balance_shipping($address, $lines);
+
+    foreach ($items_data as &$d) {
+        unset($d['product']); // an object, not for the browser
+    }
+    unset($d);
 
     wp_send_json_success([
         'items' => $items_data,
         'total_balance' => $total_balance,
-        'shipping_total' => $shipping_total,
-        'final_total' => $total_balance + $shipping_total
+        'address' => trim(preg_replace('/\s*\n\s*/', ', ', wp_strip_all_tags(str_replace(['<br/>', '<br>'], "\n", $original_order->get_formatted_shipping_address('')))), ', '),
+        'address_ok' => $shipping['address_ok'],
+        'rates' => $shipping['rates'],
+        'currency' => html_entity_decode(get_woocommerce_currency_symbol()),
     ]);
 });
 
@@ -1002,9 +1445,20 @@ add_action('wp_ajax_ms_create_final_payment_order', function() {
         wp_send_json_error(['message' => 'Original order not found']);
     }
 
-    // Use transaction to prevent race conditions
-    global $wpdb;
-    $wpdb->query('START TRANSACTION');
+    // Lock per original order: add_option() is atomic, so a second click / request stops here
+    $lock = 'ms_commission_fp_lock_' . $original_order_id;
+    if (!add_option($lock, time(), '', 'no')) {
+        if ((int) get_option($lock) < time() - 120) {
+            delete_option($lock); // stale lock of a request that died
+            add_option($lock, time(), '', 'no');
+        } else {
+            wp_send_json_error(['message' => 'A final payment is already being created for this order. Reload the order and check.']);
+        }
+    }
+
+    $final_order = null;
+    $original_items = [];
+    $result = null;
 
     try {
         $items_to_add = [];
@@ -1014,11 +1468,11 @@ add_action('wp_ajax_ms_create_final_payment_order', function() {
             $original_item = $original_order->get_item($item_id);
             if (!$original_item) continue;
 
-            // Check for existing final payment with lock
+            // Skip items that already have a live final payment order
             $final_id = ms_get_commission_meta($original_item, 'final_payment_order_id');
             if ($final_id) {
-                $final_order = wc_get_order($final_id);
-                if ($final_order && !$final_order->has_status('cancelled')) {
+                $existing = wc_get_order($final_id);
+                if ($existing && !$existing->has_status('cancelled')) {
                     continue;
                 }
             }
@@ -1038,12 +1492,13 @@ add_action('wp_ajax_ms_create_final_payment_order', function() {
                 'original_item' => $original_item,
                 'product' => $product,
                 'remaining_balance' => $remaining_balance,
-                'product_name' => $product->get_name()
+                'product_name' => $product->get_name(),
+                'model' => ms_get_commission_meta($original_item, 'model') === 'b' ? 'b' : 'a',
             ];
         }
 
         if (empty($items_to_add)) {
-            throw new Exception('No valid items to process');
+            throw new Exception('No valid items to process (a final payment may already exist).');
         }
 
         // Create final payment order
@@ -1052,89 +1507,103 @@ add_action('wp_ajax_ms_create_final_payment_order', function() {
             'status' => 'pending'
         ]);
 
+        if (is_wp_error($final_order)) {
+            throw new Exception($final_order->get_error_message());
+        }
+
         foreach ($items_to_add as $item_data) {
-            $item = new WC_Order_Item_Product();
-            $item->set_props([
-                'product' => $item_data['product'],
-                'quantity' => 1,
-                'subtotal' => $item_data['remaining_balance'],
-                'total' => $item_data['remaining_balance'],
-                'name' => 'Final Payment — ' . $item_data['product_name']
-            ]);
+            if ($item_data['model'] === 'b') {
+                // Model b: the balance is a fee line, so the piece is counted once (on the deposit line).
+                // Tax status none: see COMMISSIONS-ACTION-PLAN F21 if sales tax is ever collected.
+                $item = new WC_Order_Item_Fee();
+                $item->set_name('Final Payment ' . "\u{2014}" . ' ' . $item_data['product_name']);
+                $item->set_amount($item_data['remaining_balance']);
+                $item->set_total($item_data['remaining_balance']);
+                $item->set_tax_status('none');
+            } else {
+                $item = new WC_Order_Item_Product();
+                $item->set_props([
+                    'product' => $item_data['product'],
+                    'quantity' => 1,
+                    'subtotal' => $item_data['remaining_balance'],
+                    'total' => $item_data['remaining_balance'],
+                    'name' => 'Final Payment ' . "\u{2014}" . ' ' . $item_data['product_name']
+                ]);
+            }
 
             ms_set_commission_meta($item, 'is_final_payment', 'yes');
             ms_set_commission_meta($item, 'original_order_id', $original_order_id);
             ms_set_commission_meta($item, 'original_item_id', $item_data['item_id']);
 
             $final_order->add_item($item);
+        }
 
-            // Mark original item
+        // Copy addresses
+        $final_order->set_address($original_order->get_address('billing'), 'billing');
+        $ship_to = $original_order->get_address('shipping');
+        $final_order->set_address(!empty($ship_to['country']) ? $ship_to : $original_order->get_address('billing'), 'shipping');
+
+        // Shipping as chosen on the review screen (recalculated here from the WooCommerce zones)
+        $choice = json_decode(stripslashes($_POST['shipping'] ?? ''), true);
+        if (!is_array($choice) || empty($choice['rate_id'])) {
+            throw new Exception('Choose a shipping method (or "No shipping") in the review first.');
+        }
+
+        if ($choice['rate_id'] !== 'none') {
+            $lines = [];
+            foreach ($items_to_add as $item_data) {
+                $lines[] = ['product' => $item_data['product'], 'balance' => $item_data['remaining_balance']];
+            }
+            $options = ms_commission_balance_shipping($final_order->get_address('shipping'), $lines)['rates'];
+            $rate = null;
+            foreach ($options as $option) {
+                if ($option['id'] === $choice['rate_id']) $rate = $option;
+            }
+            if (!$rate) {
+                throw new Exception('That shipping method is not available for this address any more. Reload and review again.');
+            }
+
+            $cost = isset($choice['cost']) && is_numeric($choice['cost']) ? max(0, (float) $choice['cost']) : $rate['cost'];
+            $shipping_item = new WC_Order_Item_Shipping();
+            $shipping_item->set_method_title($rate['label']);
+            $shipping_item->set_method_id($rate['method_id']);
+            $shipping_item->set_instance_id($rate['instance_id']);
+            $shipping_item->set_total(wc_format_decimal($cost));
+            $final_order->add_item($shipping_item);
+        }
+
+        $final_order->update_meta_data('order_label', 'commission'); // Orders list > Label (Core, order-labels.php)
+        $final_order->calculate_totals(false); // no tax on the balance (see F21 above)
+        $final_order->add_order_note('Final payment for ' . count($items_to_add) . ' commission item(s) from Order #' . $original_order_id);
+        $final_order->add_order_note('⚠️ Review order, then use Order Actions → "Email invoice" to send to customer');
+
+        // Only now mark the original items (nothing to undo if an earlier step failed)
+        foreach ($items_to_add as $item_data) {
             ms_set_commission_meta($item_data['original_item'], 'final_payment_created', 'yes');
             ms_set_commission_meta($item_data['original_item'], 'final_payment_order_id', $final_order->get_id());
             $item_data['original_item']->save_meta_data();
         }
 
-        // Copy addresses
-        $final_order->set_address($original_order->get_address('billing'), 'billing');
-        $final_order->set_address($original_order->get_address('shipping'), 'shipping');
-
-        // Add shipping
-        $shipping_address = $final_order->get_address('shipping');
-        $package_contents = [];
-
-        foreach ($items_to_add as $idx => $item_data) {
-            $package_contents['item_' . $idx] = [
-                'data' => $item_data['product'],
-                'quantity' => 1,
-                'line_subtotal' => $item_data['remaining_balance'],
-                'line_total' => $item_data['remaining_balance'],
-            ];
-        }
-
-        $package = [
-            'contents' => $package_contents,
-            'contents_cost' => $total_balance,
-            'destination' => [
-                'country' => $shipping_address['country'],
-                'state' => $shipping_address['state'],
-                'postcode' => $shipping_address['postcode'],
-                'city' => $shipping_address['city'],
-                'address' => $shipping_address['address_1'],
-                'address_2' => $shipping_address['address_2'],
-            ],
-        ];
-
-        WC()->shipping()->calculate_shipping([$package]);
-        $packages = WC()->shipping()->get_packages();
-
-        if (!empty($packages)) {
-            $pkg = reset($packages);
-            if (!empty($pkg['rates'])) {
-                $rate = reset($pkg['rates']);
-                $shipping_item = new WC_Order_Item_Shipping();
-                $shipping_item->set_method_title($rate->label);
-                $shipping_item->set_method_id($rate->method_id);
-                $shipping_item->set_total($rate->cost);
-                $final_order->add_item($shipping_item);
-            }
-        }
-
-        $final_order->calculate_totals();
-        $final_order->add_order_note('Final payment for ' . count($items_to_add) . ' commission item(s) from Order #' . $original_order_id);
-        $final_order->add_order_note('⚠️ Review order, then use Order Actions → "Email invoice" to send to customer');
-
-        $wpdb->query('COMMIT');
-
-        wp_send_json_success([
+        $result = [
             'order_id' => $final_order->get_id(),
+            'edit_url' => $final_order->get_edit_order_url(),
             'message' => 'Final payment order created successfully'
-        ]);
-
+        ];
     } catch (Exception $e) {
-        $wpdb->query('ROLLBACK');
+        // No half-made order left behind
+        if ($final_order instanceof WC_Order && $final_order->get_id()) {
+            $final_order->delete(true);
+        }
         ms_commission_log('Final payment creation failed', ['error' => $e->getMessage()]);
-        wp_send_json_error(['message' => $e->getMessage()]);
+        $result = new WP_Error('failed', $e->getMessage());
     }
+
+    delete_option($lock);
+
+    if (is_wp_error($result)) {
+        wp_send_json_error(['message' => $result->get_error_message()]);
+    }
+    wp_send_json_success($result);
 });
 
 /**
@@ -1143,25 +1612,25 @@ add_action('wp_ajax_ms_create_final_payment_order', function() {
 add_action('woocommerce_admin_order_data_after_order_details', function($order) {
     // Check if this IS a final payment order
     $is_final_payment = false;
-    foreach ($order->get_items() as $item) {
-        if (ms_get_commission_meta($item, 'is_final_payment')) {
-            $is_final_payment = true;
-            $original_order_id = ms_get_commission_meta($item, 'original_order_id');
-            echo '<div style="margin-top:15px; padding:12px; background:#fff3cd; border-left:4px solid #ffc107;">';
-            echo '<strong>⚠️ This is a Final Payment Order</strong><br/>';
-            echo 'Original deposit order: <a href="' . admin_url('post.php?post=' . $original_order_id . '&action=edit') . '">Order #' . $original_order_id . '</a>';
-            echo '</div>';
+    foreach (ms_commission_final_items($order) as $item) {
+        $is_final_payment = true;
+        $original_order_id = ms_get_commission_meta($item, 'original_order_id');
+        $original_order = wc_get_order($original_order_id);
+        echo '<div class="ms-order-panel ms-zone-main" style="background:#fff8e5;border-left:4px solid #dba617;">';
+        echo '<strong>⚠️ This is a Final Payment Order</strong><br/>';
+        echo 'Original deposit order: <a href="' . esc_url($original_order ? $original_order->get_edit_order_url() : '') . '">Order #' . $original_order_id . '</a>';
+        echo '</div>';
 
-            // Add Send Invoice button
-            echo '<div style="margin-top:15px; padding:12px; background:#d1ecf1; border-left:4px solid #0c5460;">';
-            echo '<strong>📧 Send Invoice to Customer</strong><br/>';
-            echo '<p style="margin:10px 0;">Review the order details above, then click to send the invoice email:</p>';
-            echo '<button type="button" class="button button-primary ms-send-invoice-btn" data-order-id="' . esc_attr($order->get_id()) . '">Send Invoice Email Now</button>';
-            echo '<span class="ms-invoice-status" style="margin-left:10px;"></span>';
-            echo '</div>';
+        // Add Send Invoice button
+        echo '<div class="ms-order-panel ms-zone-main" style="border-left:4px solid #2271b1;">';
+        echo '<strong>📧 Send Invoice to Customer</strong><br/>';
+        echo '<p style="margin:10px 0;">Review the order details above, then click to send the invoice email:</p>';
+        $sent_at = (int) $order->get_meta('_ms_commission_invoice_sent');
+        echo '<button type="button" class="button button-primary ms-send-invoice-btn" data-order-id="' . esc_attr($order->get_id()) . '" data-sent="' . esc_attr($sent_at ? wp_date('M j, Y H:i', $sent_at) : '') . '">' . ($sent_at ? 'Resend Invoice Email' : 'Send Invoice Email Now') . '</button>';
+        echo '<span class="ms-invoice-status" style="margin-left:10px;"></span>';
+        echo '</div>';
 
-            break;
-        }
+        break;
     }
 
     if ($is_final_payment) {
@@ -1174,7 +1643,10 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
                 var $status = $('.ms-invoice-status');
                 var orderId = $btn.data('order-id');
 
-                if (!confirm('Send invoice email to customer now?')) {
+                var sentAt = $btn.data('sent');
+                if (!confirm(sentAt
+                    ? 'The invoice was already emailed to the customer on ' + sentAt + '.\n\nSend it AGAIN? (The customer gets a second email.)'
+                    : 'Send invoice email to customer now?')) {
                     return;
                 }
 
@@ -1213,6 +1685,7 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
                 $final_payment_items[] = [
                     'item_name' => $item->get_name(),
                     'order_id' => $final_payment_order_id,
+                    'edit_url' => $final_order->get_edit_order_url(),
                     'status' => $final_order->get_status()
                 ];
             }
@@ -1225,7 +1698,7 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
         foreach ($final_payment_items as $fp_item) {
             echo '<div style="margin-top: 8px;">';
             echo '<strong>' . esc_html($fp_item['item_name']) . ':</strong> ';
-            echo '<a href="' . admin_url('post.php?post=' . $fp_item['order_id'] . '&action=edit') . '">Order #' . $fp_item['order_id'] . '</a>';
+            echo '<a href="' . esc_url($fp_item['edit_url']) . '">Order #' . $fp_item['order_id'] . '</a>';
             echo ' - Status: ' . esc_html($fp_item['status']);
             echo '</div>';
         }
@@ -1261,13 +1734,23 @@ add_action('wp_ajax_ms_send_final_payment_invoice', function() {
         wp_send_json_error(['message' => 'Invalid order']);
     }
 
-    // Send invoice email
+    // Send invoice email - and only say so when WordPress really handed the message to the mail system
     $mailer = WC()->mailer();
     $email = $mailer->get_emails()['WC_Email_Customer_Invoice'];
 
     if ($email) {
+        $sent = false;
+        $mark = function() use (&$sent) { $sent = true; };
+        add_action('wp_mail_succeeded', $mark);
         $email->trigger($order_id, $order);
+        remove_action('wp_mail_succeeded', $mark);
+
+        if (!$sent) {
+            $order->add_order_note('Invoice email FAILED to send.');
+            wp_send_json_error(['message' => 'The email could not be sent. Check the customer\'s email address, or try Order actions - Email invoice.']);
+        }
         $order->add_order_note('Invoice email sent to customer manually');
+        do_action('ms_commission_invoice_sent', $order);
         wp_send_json_success(['message' => 'Invoice sent successfully']);
     } else {
         wp_send_json_error(['message' => 'Email system not available']);

@@ -141,7 +141,7 @@ function ms_clear_new_preview_flags($customer_id) {
 
     foreach ($orders as $order) {
         foreach ($order->get_items('line_item') as $item) {
-            if (ms_get_commission_meta($item, 'preview_new')) {
+            if (ms_get_commission_meta($item, 'preview_new') && !(function_exists('ms_view_as_reading_only') && ms_view_as_reading_only())) {   // not while an admin looks as the customer (View As)
                 ms_set_commission_meta($item, 'preview_new', false);
                 $item->save();
             }
@@ -244,8 +244,7 @@ add_action('woocommerce_account_my-commissions_endpoint', function() {
 
     if (!$has_commissions) {
         echo '<div class="woocommerce-info">';
-        echo esc_html__('No commissions available yet.', 'monospace-art-theme');
-        echo ' <a class="button" href="' . esc_url(home_url('/services/custom-work/')) . '">' . esc_html__('Browse custom orders', 'monospace-art-theme') . '</a>';
+        echo esc_html__('No commissions available yet.', 'monospace-art-theme');   // text only, no button (owner, 2026-11-18)
         echo '</div>';
         return;
     }
@@ -265,10 +264,15 @@ add_action('woocommerce_account_my-commissions_endpoint', function() {
                 $full_price = $prod ? (float) $prod->get_price() : 0;
             }
 
-            $deposit_percent = (int) get_post_meta($item->get_product_id(), '_commission_deposit_percent', true);
-            if ($deposit_percent <= 0) $deposit_percent = 30;
-
-            $deposit_amount = round(($deposit_percent / 100) * $full_price, wc_get_price_decimals());
+            // The amounts stored on the order at purchase (the product's current deposit % may have changed since)
+            $deposit_amount = (float) ms_get_commission_meta($item, 'deposit_paid');
+            if ($deposit_amount > 0) {
+                $deposit_percent = $full_price > 0 ? (int) round($deposit_amount / $full_price * 100) : 0;
+            } else {
+                $deposit_percent = (int) get_post_meta($item->get_product_id(), '_commission_deposit_percent', true);
+                if ($deposit_percent <= 0) $deposit_percent = 30;
+                $deposit_amount = round(($deposit_percent / 100) * $full_price, wc_get_price_decimals());
+            }
             $remaining_amount = round($full_price - $deposit_amount, wc_get_price_decimals());
 
             $previews = ms_get_commission_meta($item, 'preview_images');
@@ -288,6 +292,8 @@ add_action('woocommerce_account_my-commissions_endpoint', function() {
 
         echo '<div class="commission-block">';
         echo '<h2>Order #' . esc_html($order->get_id()) . ' (' . esc_html(wc_get_order_status_name($order->get_status())) . ')</h2>';
+        if (function_exists('ms_commission_render_status')) ms_commission_render_status($order);
+        if (function_exists('ms_commission_render_tracking')) ms_commission_render_tracking($order);
 
         foreach ($commission_items as $c) {
             $item = $c['item'];
@@ -296,26 +302,39 @@ add_action('woocommerce_account_my-commissions_endpoint', function() {
             echo '<div class="commission-grid">';
 
             $fields = [
-                'Item' => $item->get_name(),
+                'Item' => ucfirst(ms_commission_friendly_name($item->get_name())),
                 'Full Price' => '<span class="commission-price">' . wc_price($c['full_price']) . '</span>',
                 'Deposit (' . intval($c['deposit_percent']) . '%)' => '<span class="commission-price">' . wc_price($c['deposit']) . '</span>',
                 'Remaining' => '<span class="commission-price">' . wc_price($c['remaining']) . '</span>',
                 'Special Requests' => ms_get_commission_meta($item, 'special_request') ?: '—',
             ];
 
+            // The photos the customer sent with the order (kept privately; 6 months after completion they are deleted)
+            $refs = ms_normalize_image_array(ms_get_commission_meta($item, 'reference_images'));
+            $refs_deleted = ms_get_commission_meta($item, 'references_deleted');
+            if ($refs_deleted) {
+                $fields['Reference photos'] = 'Deleted on ' . esc_html($refs_deleted) . ', as the policies say.';
+            } elseif ($refs) {
+                $html = '<div class="commission-preview-gallery">';
+                foreach ($refs as $url) {
+                    $html .= '<a href="' . esc_url($url) . '" target="_blank" class="commission-preview-link"><img src="' . esc_url(ms_commission_thumb_url($url)) . '" alt="Reference photo" class="commission-preview-img" loading="lazy"></a>';
+                }
+                $fields['Reference photos'] = $html . '</div>';
+            }
+
             foreach ($fields as $label => $value) {
                 echo '<div class="commission-label">' . esc_html($label) . '</div>';
                 echo '<div class="commission-value">' . wp_kses_post($value) . '</div>';
             }
 
-            echo '<div class="commission-label">Previews</div>';
+            echo '<div class="commission-label">Work in progress</div>';
             echo '<div class="commission-value">';
             if (!empty($c['previews'])) {
                 echo '<div class="commission-preview-gallery">';
                 foreach ($c['previews'] as $url) {
                     $url = esc_url($url);
                     echo '<a href="' . $url . '" target="_blank" class="commission-preview-link">';
-                    echo '<img src="' . $url . '" alt="Commission Preview" class="commission-preview-img">';
+                    echo '<img src="' . esc_url(ms_commission_web_url($url)) . '" alt="Commission work in progress" class="commission-preview-img">';
                     echo '</a>';
                 }
                 echo '</div>';
@@ -328,6 +347,10 @@ add_action('woocommerce_account_my-commissions_endpoint', function() {
             echo '</div>'; // .commission-item
         }
 
+        // Reply buttons, the conversation (newest on top, a foldout), then Approve final artwork below it (owner, 2026-11-17)
+        if (function_exists('ms_commission_render_respond')) ms_commission_render_respond($order, 'reply');
+        if (function_exists('ms_commission_render_conversation')) ms_commission_render_conversation($order);
+        if (function_exists('ms_commission_render_respond')) ms_commission_render_respond($order, 'approve');
         echo '</div>'; // .commission-block
     }
 
@@ -336,17 +359,19 @@ add_action('woocommerce_account_my-commissions_endpoint', function() {
     // CSS
     echo '<style>
         .commission-block {
-            border: 1px solid #e1e1e1;
+            border: solid var(--ms-card-border-width, 1px) var(--ms-card-border, #e1e1e1);
+            border-radius: var(--ms-card-radius, var(--ms-radius, 8px));
             padding: 1em;
             margin-bottom: 1.5em;
-            background: #fff;
+            background: var(--ms-card-bg, #fff);
+            color: var(--ms-text, #333);
         }
         .commission-block h2 {
             margin-top: 0;
             font-size: 1.25em;
         }
         .commission-item {
-            border-top: 1px solid #ccc;
+            border-top: 1px solid var(--ms-card-border, #ccc);
             padding-top: 0.75em;
             margin-top: 0.75em;
         }
@@ -362,10 +387,10 @@ add_action('woocommerce_account_my-commissions_endpoint', function() {
         }
         .commission-label {
             font-weight: bold;
-            color: #555;
+            color: var(--ms-text-light, #555);
         }
         .commission-value {
-            color: #333;
+            color: var(--ms-text, #333);
         }
         .commission-preview-gallery {
             display: flex;
@@ -376,16 +401,102 @@ add_action('woocommerce_account_my-commissions_endpoint', function() {
             display: inline-block;
         }
         .commission-preview-img {
-            width: 70px;
-            height: 70px;
+            width: 140px;
+            height: 140px;
             object-fit: cover;
-            border: 1px solid #ddd;
+            border: 1px solid var(--ms-card-border, #ddd);
             padding: 2px;
-            background: #fff;
+            background: var(--ms-card-bg, #fff);
             transition: transform 0.2s;
         }
         .commission-preview-img:hover {
             transform: scale(1.05);
+        }
+        .ms-respond-approve {
+            --btn-color: rgba(34, 139, 58, 0.92);
+            --btn-text: #fff;
+        }
+        .ms-respond-approve:disabled {
+            --btn-color: rgba(120, 120, 120, 0.9);
+        }
+        .ms-respond-approve-hint {
+            margin: 0.5em 0 0;
+            font-size: 0.85em;
+            color: var(--ms-text-light, #555);
+        }
+        .commission-status-box {
+            padding: 0.8em 1em;
+            margin-bottom: 1em;
+            border-radius: 6px;
+            color: #1d2327;
+            background: #e8f1fb;
+        }
+        .commission-status-box.is-waiting {
+            background: #fff4d6;
+        }
+        .commission-status-box.is-paid {
+            background: #e4f4e8;
+        }
+        html.ms-dark-ui .commission-block {
+            background: var(--ms-card-bg, #2b2926);
+            border-color: var(--ms-card-border, #48443f);
+        }
+        html.ms-dark-ui .commission-item,
+        html.ms-dark-ui .commission-conversation {
+            border-top-color: var(--ms-card-border, #48443f);
+        }
+        html.ms-dark-ui .commission-preview-img {
+            background: var(--ms-card-bg, #2b2926);
+            border-color: var(--ms-card-border, #48443f);
+        }
+        html.ms-dark-ui .commission-status-box {
+            color: inherit;
+            background: rgba(31, 111, 178, 0.28);
+        }
+        html.ms-dark-ui .commission-status-box.is-waiting {
+            background: rgba(240, 184, 73, 0.22);
+        }
+        html.ms-dark-ui .commission-status-box.is-paid {
+            background: rgba(46, 125, 50, 0.32);
+        }
+        .commission-status-box .commission-status,
+        .commission-status-box .commission-status-hint {
+            margin: 0;
+        }
+        .commission-status-box .commission-status-hint {
+            margin-top: 0.3em;
+            opacity: 0.85;
+        }
+        .commission-status-box .commission-status-dates {
+            margin: 0.5em 0 0;
+            font-size: 0.85em;
+            opacity: 0.7;
+        }
+        .commission-conversation {
+            border-top: 1px solid var(--ms-card-border, #ccc);
+            padding-top: 1em;
+            margin-top: 1em;
+        }
+        .commission-conversation > summary {
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .commission-message-meta,
+        .commission-message-text {
+            margin: 0;
+        }
+        .commission-message {
+            padding: 0.5em 0;
+        }
+        .commission-message-meta {
+            font-size: 0.85em;
+            color: var(--ms-text-light, #555);
+        }
+        .commission-message-photos {
+            margin-top: 0.5em;
+        }
+        .commission-message-owner .commission-message-text {
+            font-style: italic;
         }
         @media (max-width: 600px) {
             .commission-grid {
@@ -417,7 +528,7 @@ add_action('woocommerce_after_order_itemmeta', function($item_id, $item, $produc
     $previews = ms_normalize_preview_images($previews);
 
     echo '<div class="commission-admin-preview-box" data-item-id="' . esc_attr($item_id) . '">';
-    echo '<strong>Commission Previews</strong><br>';
+    echo '<strong>Work in progress</strong><br>';
 
     if (!empty($previews)) {
         echo '<div class="commission-admin-preview-list">';
@@ -432,15 +543,15 @@ add_action('woocommerce_after_order_itemmeta', function($item_id, $item, $produc
         }
         echo '</div>';
     } else {
-        echo '<p style="color:#666;font-style:italic;">No previews uploaded yet.</p>';
+        echo '<p style="color:#666;font-style:italic;">Nothing shared yet.</p>';
     }
 
     echo '<div style="margin-top:10px;">';
-    echo '<label><strong>Upload New Previews:</strong></label><br>';
+    echo '<label><strong>Share an update:</strong></label><br>';
     echo '<input type="file" multiple accept="image/*" class="commission-preview-file-input" data-item-id="' . esc_attr($item_id) . '" />';
     echo '<button type="button" class="button commission-upload-btn" data-item-id="' . esc_attr($item_id) . '" style="margin-left:10px;">Upload & Send Email</button>';
     echo '<span class="commission-upload-status" style="margin-left:10px;"></span>';
-    echo '<p class="description">Max ' . MS_PREVIEW_MAX_FILES . ' images, ' . (MS_PREVIEW_MAX_FILE_SIZE / 1024 / 1024) . 'MB each. You can customize the email message.</p>';
+    echo '<p class="description">Max ' . MS_PREVIEW_MAX_FILES . ' images, ' . (MS_PREVIEW_MAX_FILE_SIZE / 1024 / 1024) . 'MB each. JPEG, PNG, GIF, WebP and HEIC (iPhone, Mac) work; HEIC is converted and large images are scaled down. You can customize the email message.</p>';
     echo '</div>';
 
     echo '</div>';
@@ -497,6 +608,10 @@ add_action('admin_footer', function() {
                                 <strong>Tip:</strong> Customer name, images, and account link are added automatically.
                             </p>
 
+                            <p style="margin:14px 0 0;">
+                                <label><input type="checkbox" id="commission-final"> <strong>This is the finished artwork</strong> - the customer can then press Approve final artwork (it stays grayed out until you share the finished piece this way).</label>
+                            </p>
+
                             <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
                                 <button type="button" class="button" id="commission-modal-cancel">Cancel</button>
                                 <button type="button" class="button button-primary" id="commission-modal-send">Send Email & Upload</button>
@@ -530,7 +645,6 @@ add_action('admin_footer', function() {
             $('#commission-email-modal').data('itemId', itemId);
             $('#commission-email-modal').data('fileInput', $fileInput);
 
-            $('#commission-custom-message').val('');
             $('#commission-email-modal').fadeIn(200);
         });
 
@@ -567,6 +681,8 @@ add_action('admin_footer', function() {
             formData.append('order_id', orderId);
             formData.append('item_id', itemId);
             formData.append('custom_message', customMessage);
+            formData.append('final', $('#commission-final').is(':checked') ? '1' : '');
+            $('#commission-final').prop('checked', false);
             formData.append('nonce', '<?php echo wp_create_nonce("ms_commission_preview_upload"); ?>');
 
             for (var i = 0; i < files.length; i++) {
@@ -584,9 +700,10 @@ add_action('admin_footer', function() {
                 contentType: false,
                 success: function(response) {
                     if (response.success) {
-                        $status.removeClass('uploading').addClass('success').text('✓ Uploaded ' + response.data.count + ' file(s) - Email sent!');
+                        var skipped = response.data.skipped || [];
+                        $status.removeClass('uploading').addClass('success').text('✓ Uploaded ' + response.data.count + ' file(s) - Email sent!' + (skipped.length ? ' Not uploaded: ' + skipped.join(' ') : ''));
                         $fileInput.val('');
-                        setTimeout(function() { location.reload(); }, 1500);
+                        setTimeout(function() { location.reload(); }, skipped.length ? 8000 : 1500);
                     } else {
                         $status.removeClass('uploading').addClass('error').text('Error: ' + (response.data || 'Upload failed'));
                     }
@@ -610,6 +727,50 @@ add_action('admin_footer', function() {
     </script>
     <?php
 });
+
+/**
+ * Put one uploaded work-in-progress image into the commission's folder. HEIC/HEIF (iPhone, Mac) is turned into a JPEG with the
+ * site's converter (Core, heic-uploads.php: ffmpeg); a file over the size limit is scaled down instead of refused (2026-11-16).
+ * Returns the stored file name, or a WP_Error whose message says what was wrong with this file.
+ *
+ * @param string $tmp   uploaded temp file
+ * @param string $name  name the browser gave it
+ * @param string $dir   the previews folder (no trailing slash)
+ */
+function ms_commission_place_image($tmp, $name, $dir) {
+    $stamp = current_time('Y-m-d_H-i-s') . '_';
+    $path = $dir . '/' . wp_unique_filename($dir, $stamp . sanitize_file_name($name));
+
+    $placed = is_uploaded_file($tmp) ? move_uploaded_file($tmp, $path) : copy($tmp, $path);   // copy: only for tests
+    if (!$placed) return new WP_Error('move_failed', $name . ': could not be saved on the server.');
+
+    if (preg_match('/\.hei[cf]s?$/i', $path)) {
+        $jpg = function_exists('monospace_heic_to_jpeg') ? monospace_heic_to_jpeg($path) : '';
+        @unlink($path);
+        if ($jpg === '') return new WP_Error('heic_failed', $name . ': this HEIC photo could not be turned into a JPEG. Export it as a JPEG and try again.');
+        $path = $jpg;
+    }
+
+    $file = ['name' => basename($path), 'tmp_name' => $path, 'size' => filesize($path)];
+    $ok = ms_validate_upload_file($file);
+
+    if (is_wp_error($ok) && $ok->get_error_code() === 'file_too_large') {
+        $editor = wp_get_image_editor($path);
+        if (!is_wp_error($editor)) {
+            $editor->resize(2400, 2400, false);
+            $editor->set_quality(85);
+            $editor->save($path);
+            clearstatcache(true, $path);
+            $file['size'] = filesize($path);
+            $ok = ms_validate_upload_file($file);
+        }
+    }
+    if (is_wp_error($ok)) {
+        @unlink($path);
+        return new WP_Error($ok->get_error_code(), $name . ': ' . $ok->get_error_message());
+    }
+    return basename($path);
+}
 
 /**
  * ===========================
@@ -644,7 +805,12 @@ add_action('wp_ajax_ms_upload_commission_preview', function() {
         wp_send_json_error('No files uploaded');
     }
 
-    $custom_message = isset($_POST['custom_message']) ? sanitize_textarea_field($_POST['custom_message']) : '';
+    $custom_message = isset($_POST['custom_message']) ? sanitize_textarea_field(wp_unslash($_POST['custom_message'])) : '';
+    $is_final = !empty($_POST['final']);
+    if ($is_final) {
+        // the customer is told in the email, and the same words are kept in the conversation
+        $custom_message = trim($custom_message . "\n\nThis is the finished artwork. When you are happy with it, you can approve it in your account.");
+    }
 
     // Setup upload directory - organize by order ID with previews subfolder
     $upload_dir = wp_upload_dir();
@@ -675,43 +841,22 @@ add_action('wp_ajax_ms_upload_commission_preview', function() {
         wp_send_json_error('Maximum ' . MS_PREVIEW_MAX_FILES . ' files allowed');
     }
 
+    $skipped = [];
     for ($i = 0; $i < $file_count; $i++) {
-        if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
-
-        $file_array = [
-            'name' => $files['name'][$i],
-            'type' => $files['type'][$i],
-            'tmp_name' => $files['tmp_name'][$i],
-            'error' => $files['error'][$i],
-            'size' => $files['size'][$i]
-        ];
-
-        // Validate
-        if ($file_array['size'] > MS_PREVIEW_MAX_FILE_SIZE) {
+        if ($files['error'][$i] !== UPLOAD_ERR_OK) {
+            $skipped[] = $files['name'][$i] . ': the upload did not arrive (error ' . (int) $files['error'][$i] . ').';
             continue;
         }
-
-        $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime = finfo_file($finfo, $file_array['tmp_name']);
-        finfo_close($finfo);
-
-        if (!in_array($mime, $allowed_types)) {
+        $stored = ms_commission_place_image($files['tmp_name'][$i], $files['name'][$i], $previews_dir);
+        if (is_wp_error($stored)) {
+            $skipped[] = $stored->get_error_message();
             continue;
         }
-
-        // Upload with timestamp prefix to prevent overwrites
-        $timestamp = current_time('Y-m-d_H-i-s');
-        $filename = $timestamp . '_' . sanitize_file_name($file_array['name']);
-        $filename = wp_unique_filename($previews_dir, $filename);
-
-        if (move_uploaded_file($file_array['tmp_name'], $previews_dir . '/' . $filename)) {
-            $uploaded_urls[] = $previews_url . '/' . $filename;
-        }
+        $uploaded_urls[] = $previews_url . '/' . $stored;
     }
 
     if (empty($uploaded_urls)) {
-        wp_send_json_error('No valid images were uploaded');
+        wp_send_json_error('Nothing was uploaded. ' . implode(' ', $skipped));
     }
 
     // Get existing previews
@@ -735,67 +880,28 @@ add_action('wp_ajax_ms_upload_commission_preview', function() {
     // Send email
     ms_send_commission_preview_email($order, $item, $uploaded_urls, $custom_message);
 
+    // The customer's Approve final artwork button is on only while the last thing shared is the finished artwork (owner, 2026-11-17)
+    if ($is_final) $order->update_meta_data('_ms_commission_final_shared', time());
+    else $order->delete_meta_data('_ms_commission_final_shared');
+    $order->save();
+
     // Add order note
     $order->add_order_note(
         sprintf(
-            'Added %d preview image(s) to commission: %s. Customer notified.',
+            'Shared %d %s image(s) on commission: %s. Customer notified.',
             count($uploaded_urls),
+            $is_final ? 'finished-artwork' : 'work-in-progress',
             $item->get_name()
-        )
+        ) . ($custom_message !== '' ? "\nMessage: " . $custom_message : '')   // read back by ms_commission_thread()
     );
 
     wp_send_json_success([
         'count' => count($uploaded_urls),
+        'skipped' => $skipped,
         'message' => 'Successfully uploaded and sent email'
     ]);
 });
 
 /**
- * ===========================
- * EMAIL NOTIFICATION
- * ===========================
+ * The preview email now lives in commissions-emails.php (a WooCommerce email class, via ms_send_commission_preview_email()).
  */
-function ms_send_commission_preview_email($order, $item, $preview_urls, $custom_message = '') {
-    if (!$order || !$item || empty($preview_urls)) {
-        return;
-    }
-
-    $mailer = WC()->mailer();
-    $email_heading = sprintf('New preview for your commission: %s', $item->get_name());
-    $subject = 'Your commission preview is ready';
-
-    ob_start();
-    echo '<p>' . sprintf('Hi %s,', $order->get_billing_first_name()) . '</p>';
-
-    if (!empty($custom_message)) {
-        echo '<p>' . nl2br(esc_html($custom_message)) . '</p>';
-    } else {
-        echo '<p>We have uploaded a new preview for your commission. You can view it below or on your account page:</p>';
-    }
-
-    echo '<div style="margin: 20px 0;">';
-    foreach ($preview_urls as $url) {
-        echo '<img src="' . esc_url($url) . '" style="max-width:100%;height:auto;border:1px solid #ddd;padding:2px;margin-bottom:10px;" alt="Commission Preview">';
-    }
-    echo '</div>';
-
-    echo '<p><a href="' . esc_url(wc_get_account_endpoint_url('my-commissions')) . '" style="background:#46b450;color:#fff;padding:10px 20px;text-decoration:none;display:inline-block;border-radius:3px;">View All Commissions</a></p>';
-
-    echo '<p style="color:#666;font-size:0.9em;">Order #' . $order->get_id() . '</p>';
-
-    $message = ob_get_clean();
-
-    $wrapped_message = $mailer->wrap_message($email_heading, $message);
-
-    $headers = [
-        'Content-Type: text/html; charset=UTF-8',
-        'Bcc: ' . MS_COMMISSION_ADMIN_EMAIL
-    ];
-
-    wp_mail(
-        $order->get_billing_email(),
-        $subject,
-        $wrapped_message,
-        $headers
-    );
-}
