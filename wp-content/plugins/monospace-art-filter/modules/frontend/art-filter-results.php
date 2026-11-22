@@ -104,18 +104,22 @@ function monospace_art_filter_item_html( $product_id, $view ) {
         $product = wc_get_product( $product_id );
         $price   = $product ? $product->get_price() : 0;
         $label   = $status === 'gallery-reserved' ? $names['gallery'] : ( $names[ $status ] ?? ucfirst( $status ) );
-        return '<div class="ms-product-row"><a href="' . $url . '" class="ms-product-row-thumb">' . monospace_art_filter_thumb( $product_id, $post_id ) . '</a>'
+        $dot_all = function_exists( 'monospace_dots_all' ) && monospace_dots_all();   // Look > Availability dots: every artwork, every view
+        return '<div class="ms-product-row"><a href="' . $url . '" class="ms-product-row-thumb">' . monospace_art_filter_thumb( $product_id, $post_id )
+             . ( $dot_all ? '<span class="ms-availability-dot is-' . esc_attr( monospace_dots_state( $status ) ) . '"></span>' : '' ) . '</a>'
              . '<div class="ms-product-row-text"><a href="' . $url . '" class="ms-product-row-title">' . $title . '</a>'
              . '<span class="status-label status-' . esc_attr( $status ) . '">' . esc_html( $label ) . '</span>'
              . ( $status === 'available' && $price ? '<span class="ms-product-row-price">' . wp_kses_post( wc_price( $price ) ) . '</span>' : '' )
              . '</div></div>';
     }
 
-    // Grid: the picture, with the green dot when it's available (or at a gallery) and an M when it's a miniature
-    $dot  = $status === 'gallery' || monospace_art_filter_matches_availability( $product_id, 'available' );
+    // Grid: the picture, with the green dot when it's available (a blue one when it's at a gallery, a yellow one when it's reserved) and an M when it's a miniature
+    $state = function_exists( 'monospace_dots_state' ) ? monospace_dots_state( $status ) : $status;
+    $dot  = $status === 'gallery' || $status === 'reserved' || monospace_art_filter_matches_availability( $product_id, 'available' )
+         || ( function_exists( 'monospace_dots_all' ) && monospace_dots_all() );
     $mini = function_exists( 'monospace_is_miniature' ) && monospace_is_miniature( $post_id ); // an "M" opposite the dot
     return '<div class="ms-product-item"><a href="' . $url . '"><div class="ms-product-item-pic">' . monospace_art_filter_thumb( $product_id, $post_id )
-         . ( $dot ? '<span class="ms-availability-dot"></span>' : '' )
+         . ( $dot ? '<span class="ms-availability-dot' . ' is-' . esc_attr( $state ) . '"></span>' : '' )
          . ( $mini ? '<span class="ms-miniature-mark" title="Miniature" aria-label="Miniature">M</span>' : '' ) . '</div><div class="ms-product-item-title">' . $title . '</div></a></div>';
 }
 

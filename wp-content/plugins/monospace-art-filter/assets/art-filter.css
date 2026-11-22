@@ -1,0 +1,334 @@
+/* Art Filter - [monospace_art_filter] (modules/frontend/art-filter-shortcode.php). Loaded only where the shortcode is.
+   The view icons use the theme's .archive-view-toggle style; status labels the theme's .status-label colours. */
+
+/* ---------------------------------------------
+   SPINNER (over the form while results load)
+----------------------------------------------*/
+.woocommerce-spinner,
+.ms-big-spinner {
+    border-radius: 50%;
+    border: 4px solid #ccc;
+    animation: spin 1s linear infinite;
+}
+.ms-big-spinner {
+    border-width: 6px;
+    border-top-color: #000 !important;
+    opacity: 0.85;
+    animation: spin 0.9s linear infinite !important;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------------------------------------------
+   FILTER FORM — GRID BASE
+----------------------------------------------*/
+.ms-product-filter-form {
+    font-family: 'Open Sans', sans-serif;
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.5em 0.75em;
+    align-items: center;
+    position: relative;
+}
+.ms-product-filter-form select{
+    font-family: 'Open Sans', sans-serif;
+}
+/* ---------------------------------------------
+   LABELS
+----------------------------------------------*/
+.ms-product-filter-form > label {
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+}
+
+/* ---------------------------------------------
+   SELECTS — NATIVE STYLING
+----------------------------------------------*/
+.ms-filter-select,
+.ms-product-filter-form select {
+    padding: 6px 10px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+/* ---------------------------------------------
+   CHECKBOX LABEL
+----------------------------------------------*/
+.ms-filter-not {
+    --ms-tick: #c00; /* the theme draws checkboxes itself (_components.scss, form controls): this is their checked color */
+    accent-color: #c00;
+}
+
+.ms-product-filter-form select + label {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 8px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------
+   ACTION BUTTONS
+----------------------------------------------*/
+.ms-filter-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5em;
+    margin-bottom: 2em;
+    margin-top: 2em;
+}
+
+.ms-filter-btn {
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+#ms-filter-count {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.ms-range-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1em; margin-bottom: 0.6em; }
+.ms-range-title { font-weight: 700; font-size: 15px; }
+.ms-range-values { font-size: 14px; font-weight: 600; font-family: var(--ms-font-mono, 'Courier Prime', monospace); }
+.ms-range { position: relative; height: 26px; --ms-range: #046BD2; touch-action: none; cursor: pointer; }
+html.ms-dark-ui .ms-range { --ms-range: #6fb3ff; } /* the button colour was used before - black in the dark look */
+/* The track runs between the handles' centres (10px in from each end), like the inputs' own */
+.ms-range-track, .ms-range-fill { position: absolute; top: 50%; height: 4px; margin-top: -2px; border-radius: 2px; }
+.ms-range-track { left: 10px; right: 10px; background: rgba(128, 128, 128, 0.35); }
+.ms-range-fill { left: 10px; right: 10px; background: var(--ms-range); }
+/* The theme gives every range input a text field's padding, border and white box - none here, or the handles sit off the track */
+#ms-price-range-container .ms-range input[type="range"] { position: absolute; left: 0; top: 0; width: 100%; height: 26px; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+#ms-price-range-container .ms-range input[type="range"]:focus { outline: none; }
+#ms-price-range-container .ms-range input[type="range"]::-webkit-slider-runnable-track { height: 26px; background: none; border: 0; }
+#ms-price-range-container .ms-range input[type="range"]::-moz-range-track { background: none; border: 0; }
+#ms-price-range-container .ms-range input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; box-sizing: border-box; width: 20px; height: 20px; margin-top: 3px; border-radius: 50%; background: #fff; border: 3px solid var(--ms-range); box-shadow: 0 1px 3px rgba(0,0,0,0.35); cursor: grab; pointer-events: auto; }
+#ms-price-range-container .ms-range input[type="range"]::-moz-range-thumb { box-sizing: border-box; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 3px solid var(--ms-range); box-shadow: 0 1px 3px rgba(0,0,0,0.35); cursor: grab; pointer-events: auto; }
+#ms-price-range-container .ms-range input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(4, 107, 210, 0.35); }
+#ms-price-range-container .ms-range input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px rgba(4, 107, 210, 0.35); }
+
+/* ---------------------------------------------
+   VIEWING TOOLBAR (2026-10-21) - sort, and grid / list / price card
+----------------------------------------------*/
+.ms-filter-toolbar { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; }
+.ms-filter-toolbar select { padding: 4px 8px; font-size: 14px; }
+.ms-filter-toolbar .ms-view-group { display: inline-flex; align-items: center; margin: 0 0 0 6px; flex-wrap: nowrap; } /* the icons: the theme's .archive-view-toggle button */
+
+/* List view: picture, title, status, price in rows */
+.ms-product-grid[data-view="list"] { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.ms-product-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; align-items: center; }
+.ms-product-row-thumb img { display: block; width: 120px; height: 120px; object-fit: cover; border-radius: var(--ms-img-radius, var(--ms-radius, 5px)); box-shadow: 0 0 8px rgba(0, 0, 0, 0.3); }
+.ms-product-row-text { display: flex; flex-direction: column; gap: 4px; }
+.ms-product-row-title { font-weight: 700; color: inherit; text-decoration: none; }
+.ms-product-row-price { font-family: var(--ms-font-mono, 'Courier Prime', monospace); }
+
+/* Detail list view: Core's artwork row (.ms-artwork-row, styled by the theme) one under the other */
+.ms-product-grid[data-view="detail"] { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+
+/* Price card view: each artwork as a standalone price card - no box around them */
+.ms-product-grid[data-view="cards"] { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0; background: none !important; border: 0 !important; }
+.ms-product-card .pc-standalone { margin: 0 0 2rem; }
+.ms-load-more-wrap { text-align: center; margin: 1rem 0 2rem; }
+.ms-load-more-wrap[hidden] { display: none; }
+
+/* ---------------------------------------------
+   RESULTS GRID – 3 COLUMNS (the grid view's setting: --grid-cols, Layout Manager > Links & toolbar)
+----------------------------------------------*/
+.ms-product-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--grid-cols, 3), 1fr);
+    gap: 20px;
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.ms-product-item {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border-radius: 5px;
+    box-shadow: 0px 0px 8px rgb(var(--ms-shadow-rgb, 0 0 0) / calc(0.3 * var(--ms-shadow-k, 1))) !important; /* the theme's Look > Shadows */
+}
+
+.ms-product-item a {
+    display: block;
+    height: 100%;
+}
+
+.ms-product-item > a > div:first-child {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.ms-product-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* The dot (2026-11-17): the colors are the theme's variables from Look > Availability dots (printed on :root);
+   the numbers here are the defaults, the same as the theme's mixin ms-dot-badge */
+.ms-availability-dot {
+    --ms-dot-1: var(--ms-dot-available-1, #1a8f1a);
+    --ms-dot-2: var(--ms-dot-available-2, #27c327);
+    --ms-dot-3: var(--ms-dot-available-3, #4ef34e);
+    --ms-dot-rgb: var(--ms-dot-available-rgb, 39, 195, 39);
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    width: 12px;
+    height: 12px;
+    background: linear-gradient(to bottom, var(--ms-dot-1) 0%, var(--ms-dot-2) 50%, var(--ms-dot-3) 100%);
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow:
+        0 2px 6px rgba(var(--ms-dot-rgb), 0.4),
+        inset -2px -2px 4px rgba(0, 0, 0, 0.15),
+        inset 2px 2px 4px rgba(255, 255, 255, 0.6);
+}
+
+/* At a gallery: blue */
+.ms-availability-dot.is-gallery {
+    --ms-dot-1: var(--ms-dot-gallery-1, #1a5fbf);
+    --ms-dot-2: var(--ms-dot-gallery-2, #2f86f0);
+    --ms-dot-3: var(--ms-dot-gallery-3, #62b0ff);
+    --ms-dot-rgb: var(--ms-dot-gallery-rgb, 47, 134, 240);
+}
+
+/* Reserved: yellow */
+.ms-availability-dot.is-reserved {
+    --ms-dot-1: var(--ms-dot-reserved-1, #b88a00);
+    --ms-dot-2: var(--ms-dot-reserved-2, #f0b800);
+    --ms-dot-3: var(--ms-dot-reserved-3, #ffd84a);
+    --ms-dot-rgb: var(--ms-dot-reserved-rgb, 240, 184, 0);
+}
+
+/* Sold: red */
+.ms-availability-dot.is-sold {
+    --ms-dot-1: var(--ms-dot-sold-1, #a61e1e);
+    --ms-dot-2: var(--ms-dot-sold-2, #e03131);
+    --ms-dot-3: var(--ms-dot-sold-3, #ff7b7b);
+    --ms-dot-rgb: var(--ms-dot-sold-rgb, 224, 49, 49);
+}
+
+/* Private: purple */
+.ms-availability-dot.is-private {
+    --ms-dot-1: var(--ms-dot-private-1, #5b2d8a);
+    --ms-dot-2: var(--ms-dot-private-2, #8a4fd1);
+    --ms-dot-3: var(--ms-dot-private-3, #b98ae8);
+    --ms-dot-rgb: var(--ms-dot-private-rgb, 138, 79, 209);
+}
+
+/* List view, dots on every artwork: the dot on the row's thumbnail */
+.ms-product-row-thumb { position: relative; display: inline-block; }
+
+.ms-availability-dot::before {
+    content: "";
+    position: absolute;
+    top: 1px;
+    left: 2px;
+    right: 2px;
+    height: 45%;
+    border-radius: inherit;
+
+    /* white → transparent (top → bottom) */
+    background: linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.9),
+        rgba(255,255,255,0)
+    );
+}
+
+/* ---------------------------------------------
+   RESULTS GRID – SMALL SCREENS (<640px)
+----------------------------------------------*/
+@media (max-width: 640px) {
+    .ms-product-grid {
+        grid-template-columns: repeat(var(--grid-cols-m, 3), 1fr); /* phones: the grid view's setting, 3 like Instagram */
+        gap: 8px;
+        padding: 8px;
+    }
+}
+
+/* ---------------------------------------------
+   MOBILE — RESTRUCTURE LABELS + CONTROLS
+----------------------------------------------*/
+@media (max-width: 640px) {
+    .ms-product-filter-form {
+        grid-template-columns: 1fr !important;
+        gap: 0.75em !important;
+    }
+
+    .ms-product-filter-form > label {
+        grid-column: 1 / -1 !important;
+        margin-bottom: 0.25em;
+        font-size: 14px;
+    }
+
+    .ms-product-filter-form select {
+        grid-column: 1 / -1 !important;
+    }
+
+    .ms-product-filter-form select + label {
+        grid-column: 1 / -1 !important;
+        margin-top: -0.5em;
+        margin-left: 0;
+    }
+
+    .ms-filter-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        grid-column: 1 / -1 !important;
+    }
+
+    .ms-filter-row select {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .ms-filter-row label {
+        flex-shrink: 0;
+        margin: 0 !important;
+    }
+
+    .ms-filter-actions {
+        flex-direction: column;
+    }
+    #ms-filter-count {
+        order: -1;
+        width: 100%;
+        text-align: center;
+        margin-bottom: 8px;
+    }
+    .ms-filter-btn {
+        width: 100%;
+    }
+}
+
+/* ---------------------------------------------
+   PARTS THAT HAD INLINE STYLES (2026-10-21 clean-up)
+----------------------------------------------*/
+.ms-filter-spinner { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 48px; height: 48px; z-index: 9999; }
+.ms-filter-spinner .ms-big-spinner { display: block; width: 48px; height: 48px; }
+.ms-price-range { margin-top: 0; padding: 18px 20px; }
+.ms-price-range[hidden] { display: none; }
+.ms-filter-legend { padding: 18px 20px; font-size: 0.8em; }
+.ms-filter-legend .ms-availability-dot { display: inline-block; position: relative; bottom: -2px; left: 0; }
+.ms-product-item a { text-decoration: none; color: inherit; }
+.ms-product-item-pic { position: relative; }
+.ms-product-item-pic .ms-miniature-mark { display: block; } /* the theme draws it (_main-feed-images.scss) */
+.ms-filter-legend .ms-miniature-mark { display: inline; position: static; color: #444; text-shadow: none; } /* on the legend's light ground */
+.ms-product-item-title { margin-top: .5em; font-weight: bold; font-size: 14px; }
+.ms-no-matches { margin: 0 auto; }
