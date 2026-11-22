@@ -14,6 +14,10 @@
  * The box (2026-10-20) is in the admin UI style (CLAUDE.md "Admin UI style"): a small map of this page and
  * panels - Header & title, Top content, Sidebar - each open when this page overrides the default. Same fields
  * and names as before, saved below.
+ * Pages also get a Utility page panel (2026-11-16, owner: the two sidebar panels were in each other's way - this box is the one
+ * place): a tick (nothing is automatic) and which parts the page leaves out (logo and tagline, footer, sharing icons, Ko-fi button;
+ * the menu bar stays). Core owns the logic and the meta (_monospace_utility, _monospace_utility_hide; Core's utility-pages.php);
+ * the map shows the logo and the footer as hidden when the page is a utility page that leaves them out.
  *
  * Override Modes:
  * - Replace: Use only custom content
@@ -73,9 +77,22 @@ function monospace_sidebar_override_metabox_callback($post) {
     $lm         = admin_url('admin.php?page=monospace-layout-manager&tab=' . $type);
     $preview    = function_exists('monospace_lm_preview') ? 'monospace_lm_preview' : fn($t) => wp_strip_all_tags($t);
 
+    // Utility page (pages only; Core's utility-pages.php): this page's own switch, what it is automatically, the parts it leaves out
+    $is_page  = $post->post_type === 'page' && function_exists('monospace_utility_page_is');
+    $u_on = $u_own_parts = false; $u_hide = [];
+    if ($is_page) {
+        $u_on        = monospace_utility_page_is($post->ID);
+        $u_own_parts = monospace_utility_page_has_own_hide($post->ID);
+        $u_hide      = monospace_utility_hide_for($post->ID);                 // part keys it leaves out when it is a utility page
+    }
+    $u_logo   = $is_page && $u_on && in_array('logo', $u_hide, true);
+    $u_footer = $is_page && $u_on && in_array('footer', $u_hide, true);
+    $u_state  = $u_on ? 'on' : 'empty';
+    $u_chip   = $u_on ? 'Yes' : 'No';
+
     // Each area's state on this page: what the map and the title lines say
-    $h_state  = ($hide_header || $hide_title) ? 'on' : 'empty';
-    $h_chip   = $hide_header && $hide_title ? 'Logo and title hidden' : ($hide_header ? 'Logo hidden' : ($hide_title ? 'Title hidden' : 'As usual'));
+    $h_state  = ($hide_header || $hide_title) ? 'on' : ($u_logo ? 'off' : 'empty');
+    $h_chip   = $hide_header && $hide_title ? 'Logo and title hidden' : ($hide_header ? 'Logo hidden' : ($hide_title ? 'Title hidden' : ($u_logo ? 'Logo hidden (utility page)' : 'As usual')));
     $t_state  = $top_mode === 'custom' ? 'on' : ($top_mode === 'none' ? 'off' : 'empty');
     $t_chip   = $top_mode === 'custom' ? 'Its own' : ($top_mode === 'none' ? 'None' : 'Default' . ($top_def ? '' : ' (empty)'));
     $s_shown  = $sidebar_choice ? $sidebar_choice === 'show' : $show_def;
@@ -92,7 +109,7 @@ function monospace_sidebar_override_metabox_callback($post) {
         <!-- This page, as a map: what it overrides -->
         <figure class="lm-map" aria-label="This page's layout">
             <div class="lm-r lm-fixed">Menu bar</div>
-            <button type="button" class="lm-r lm-area lm-logo is-<?php echo $hide_header ? 'off' : 'empty'; ?>" data-panel="header">Logo &amp; tagline</button>
+            <button type="button" class="lm-r lm-area lm-logo is-<?php echo ($hide_header || $u_logo) ? 'off' : 'empty'; ?>" data-panel="header">Logo &amp; tagline</button>
             <button type="button" class="lm-r lm-area is-<?php echo esc_attr($t_state); ?>" data-panel="top">Top content</button>
             <div class="lm-cols">
                 <div class="lm-main">
@@ -101,6 +118,9 @@ function monospace_sidebar_override_metabox_callback($post) {
                 </div>
                 <button type="button" class="lm-r lm-area lm-side is-<?php echo esc_attr($s_state); ?>" data-panel="sidebar">Sidebar</button>
             </div>
+            <?php if ($is_page) : ?>
+                <button type="button" class="lm-r lm-area is-<?php echo $u_footer ? 'off' : 'empty'; ?>" data-panel="utility">Footer</button>
+            <?php endif; ?>
             <figcaption><span class="lm-key is-on"></span> this page's own <span class="lm-key is-empty"></span> default <span class="lm-key is-off"></span> hidden</figcaption>
         </figure>
 
@@ -111,6 +131,7 @@ function monospace_sidebar_override_metabox_callback($post) {
                 <div class="lm-body">
                     <p><label><input type="checkbox" name="monospace_hide_header" value="1" <?php checked($hide_header, '1'); ?>> Hide the logo &amp; tagline</label></p>
                     <p><label><input type="checkbox" name="monospace_hide_title" value="1" <?php checked($hide_title, '1'); ?>> Hide the page / post title</label></p>
+                    <?php if ($u_logo && ! $hide_header) : ?><p class="description">The logo is already left out: this is a utility page (panel below).</p><?php endif; ?>
                 </div>
             </details>
 
@@ -179,8 +200,44 @@ function monospace_sidebar_override_metabox_callback($post) {
                     </div>
                 </div>
             </details>
+
+            <?php if ($is_page) :
+                $u_parts = monospace_utility_parts();
+                $u_names = implode(', ', array_map(fn($k) => strtolower($u_parts[$k][0]), $u_hide)) ?: 'nothing'; ?>
+            <!-- UTILITY PAGE (pages only) -->
+            <details class="lm-panel" data-panel="utility"<?php echo $u_on ? ' open' : ''; ?>>
+                <summary><span class="lm-t">Utility page</span> <?php echo $chip($u_state, $u_chip); ?>
+                    <span class="lm-sub"><?php echo $u_on ? 'Leaves out: ' . esc_html($u_names) . ' - the menu bar stays' : 'A normal page: logo, footer and sharing icons show'; ?></span></summary>
+                <div class="lm-body">
+                    <p><label><input type="checkbox" name="monospace_utility_mode" id="monospace_utility_mode" value="1" <?php checked($u_on); ?>> This is a utility page</label></p>
+                    <div class="lm-utility-parts"<?php echo $u_on ? '' : ' hidden'; ?>>
+                        <p><label><input type="checkbox" name="monospace_utility_own" value="1" class="lm-utility-own" <?php checked($u_own_parts); ?>> Choose this page's own parts</label></p>
+                        <div class="lm-utility-list"<?php echo $u_own_parts ? '' : ' hidden'; ?>>
+                            <?php foreach ($u_parts as $k => [$label]) : ?>
+                                <p style="margin:2px 0"><label><input type="checkbox" name="monospace_utility_hide[<?php echo esc_attr($k); ?>]" value="1" <?php checked(in_array($k, $u_hide, true)); ?>> Leave out the <?php echo esc_html(strtolower($label)); ?></label></p>
+                            <?php endforeach; ?>
+                        </div>
+                        <p class="description lm-utility-follow"<?php echo $u_own_parts ? ' hidden' : ''; ?>>Following Layout Manager: leaves out <?php echo esc_html($u_names); ?>.</p>
+                    </div>
+                    <p class="description">No logo, tagline, footer or sharing icons; the menu bar always stays. <a href="<?php echo esc_url(admin_url('admin.php?page=monospace-layout-manager&tab=utility')); ?>">Which pages, and the default parts</a></p>
+                </div>
+            </details>
+            <?php endif; ?>
         </div>
     </div>
+    <?php if ($is_page) : ?>
+    <script>
+    (function () {
+        var box = document.querySelector('.lm-areas.lm-compact'), mode = document.getElementById('monospace_utility_mode');
+        if (!box || !mode) return;
+        var parts = box.querySelector('.lm-utility-parts'), own = box.querySelector('.lm-utility-own'),
+            list = box.querySelector('.lm-utility-list'), follow = box.querySelector('.lm-utility-follow');
+        // The tick shows the parts
+        mode.addEventListener('change', function () { parts.hidden = !mode.checked; });
+        own.addEventListener('change', function () { list.hidden = !own.checked; follow.hidden = own.checked; });
+    })();
+    </script>
+    <?php endif; ?>
     <style>
         /* The admin UI style in the editor's side column: map on top, panels below, one column */
         .lm-compact { max-width: none; }
@@ -248,6 +305,19 @@ add_action('save_post', function($post_id) {
     } else {
         delete_post_meta($post_id, '_monospace_top_content');
         delete_post_meta($post_id, '_monospace_top_style');
+    }
+
+    // Utility page (pages; Core's utility-pages.php): '1' = yes, no meta = no; the page's own parts, else Layout Manager's
+    if (get_post_type($post_id) === 'page' && function_exists('monospace_utility_parts')) {
+        // A ticked box sends '1'; an unticked one sends nothing, so the field is only read on a page that showed the panel
+        isset($_POST['monospace_utility_mode']) ? update_post_meta($post_id, '_monospace_utility', '1') : delete_post_meta($post_id, '_monospace_utility');
+        if (isset($_POST['monospace_utility_mode']) && isset($_POST['monospace_utility_own'])) {
+            $ticked = array_keys((array) ($_POST['monospace_utility_hide'] ?? []));
+            $keys   = array_values(array_intersect(array_keys(monospace_utility_parts()), $ticked));
+            update_post_meta($post_id, '_monospace_utility_hide', $keys ? implode(',', $keys) : 'none');
+        } else {
+            delete_post_meta($post_id, '_monospace_utility_hide');
+        }
     }
 
     if (isset($_POST['monospace_hide_title'])) {
@@ -456,9 +526,11 @@ function monospace_sidebar_override_choice($post_id) {
  * the post's own choice (Custom / None) first, else the Layout Manager default for the page type - the home page its
  * own (Layout Manager > Home Page). Drawn as a banner (design/banner-style.php: the page type's style, dates, close).
  */
-function monospace_render_top_content() {
+function monospace_render_top_content($in_boxes = false, $box_style = '') {
     $context = is_front_page() ? 'home' : monospace_layout_context();
     if (! $context || $context === 'products') return;
+    // The home page's banner can sit between the rows of boxes (home-boxes.php): then not up here, but there
+    if ($context === 'home' && ! $in_boxes && function_exists('monospace_home_banner_pos') && monospace_home_banner_pos() > 0) return;
 
     $content = null;
     $style   = null;
@@ -487,7 +559,15 @@ function monospace_render_top_content() {
 
     $html = do_shortcode(wpautop(function_exists('monospace_markdown_lite') ? monospace_markdown_lite($content) : $content));
     $key  = monospace_layout_prefix($context, 'top') . 'top_style';
-    echo function_exists('monospace_banner_wrap') ? monospace_banner_wrap($html, monospace_banner_area($style !== null ? $style : $key), $context) : '<div class="top-content-area">' . $html . '</div>';
+    $out  = function_exists('monospace_banner_wrap') ? monospace_banner_wrap($html, monospace_banner_area($style !== null ? $style : $key), $context) : '<div class="top-content-area">' . $html . '</div>';
+    // The home page: an optional #anchor, and the wrapper that makes it a full-width item among the boxes
+    if ($context === 'home') {
+        $anchor = function_exists('monospace_home_banner_anchor') ? monospace_home_banner_anchor() : '';
+        if ($in_boxes || $anchor !== '') {
+            $out = '<div class="home-banner"' . ($anchor !== '' ? ' id="' . esc_attr($anchor) . '"' : '') . ($box_style !== '' ? ' style="' . esc_attr($box_style) . '"' : '') . '>' . $out . '</div>';
+        }
+    }
+    echo $out;
 }
 
 function monospace_sidebar_visible() {

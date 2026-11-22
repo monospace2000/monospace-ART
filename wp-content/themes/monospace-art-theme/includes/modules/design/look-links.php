@@ -39,7 +39,7 @@ function monospace_look_link_map() {
         'scolors' => [ [ 'o', 'monospace_spotlight', [ 'colors' ] ] ],
     ];
     foreach ( [ 'home-box-style' => 'monospace_home_box_style', 'caption-style' => 'monospace_caption_style', 'rounding' => 'monospace_rounding',
-                'banner-style' => 'monospace_banner_style', 'shadows' => 'monospace_shadows', 'secondary-buttons' => 'monospace_secondary_buttons' ] as $key => $option ) {
+                'banner-style' => 'monospace_banner_style', 'shadows' => 'monospace_shadows', 'secondary-buttons' => 'monospace_secondary_buttons', 'tab-color' => 'monospace_tab_color' ] as $key => $option ) {
         $map[ 'm-' . $key ] = [ [ 'o', $option ] ];
     }
     $map['m-logo-layout'] = [ [ 'o', 'monospace_logo_colors' ] ]; // the logo's colors (its layout stays the same in both looks)

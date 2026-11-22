@@ -179,6 +179,12 @@ function monospace_wrap_images_for_glightbox( $content ) {
             }
         }
 
+        // The image's own alt text (not the generated one the SEO plugin adds later), shown in full at the bottom of the
+        // lightbox: the block's alt, else the Media library's (2026-11-12)
+        $own_alt = trim( $img->getAttribute( 'alt' ) );
+        if ( $own_alt === '' && ! empty( $attachment_id ) ) $own_alt = trim( (string) get_post_meta( $attachment_id, '_wp_attachment_image_alt', true ) );
+        if ( $own_alt !== '' && ( ! function_exists( 'monospace_lightbox_alt_on' ) || monospace_lightbox_alt_on() ) ) $link->setAttribute( 'data-alt', $own_alt ); // Look > Tooltips & alt text
+
         // Clone and wrap image (an existing link already wraps it)
         if ( ! $existing_link ) {
             $link->appendChild( $img->cloneNode( true ) );

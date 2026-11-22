@@ -36,11 +36,12 @@ function monospace_look_snapshot_names() {
             'monospace_price_card_page', 'monospace_price_card_phone', 'monospace_price_card_feed', 'monospace_price_card_tab', 'monospace_price_card_badge_align',
             'monospace_price_card_standalone',
             'monospace_home_box_style', 'monospace_rounding', 'monospace_caption_style', 'monospace_logo_mobile', 'monospace_tagline_align',
-            'monospace_logo_desktop', 'monospace_logo_art', 'monospace_logo_colors', 'monospace_share', 'monospace_banner_style', 'monospace_shadows', 'monospace_secondary_buttons', 'monospace_sidebar_position', 'monospace_tagline_align_mobile', 'monospace_tagline_breaks', 'monospace_tagline_breaks_mobile',
+            'monospace_logo_desktop', 'monospace_logo_art', 'monospace_logo_colors', 'monospace_share', 'monospace_banner_style', 'monospace_shadows', 'monospace_secondary_buttons', 'monospace_tab_color', 'monospace_sidebar_position', 'monospace_tagline_align_mobile', 'monospace_tagline_breaks', 'monospace_tagline_breaks_mobile',
             'monospace_scroll_effect', 'monospace_scroll_focus', 'monospace_rubber_smooth', 'monospace_rubber_stagger', 'monospace_rubber_touch',
             'monospace_slide_bounce', 'monospace_slide_bounce_phone', 'monospace_slide_distance', 'monospace_slide_distance_phone',
             'monospace_slide_duration', 'monospace_slide_settle', 'monospace_slide_settle_phone',
             'monospace_image_fade', 'monospace_hover_effect', 'monospace_hover_strength', 'monospace_hover_targets', 'monospace_press_targets', 'monospace_press_touch',
+            'monospace_tooltips', 'monospace_lightbox_alt', 'monospace_avail_dots',
         ],
         'mods' => array_values( array_unique( $mods ) ),
     ] );

@@ -5,8 +5,9 @@
  * Pages, posts, etc, with individual overrides. Keep current locations. On Pages, icons are right aligned on the same line as the
  * page title").
  *
- *   Posts       right-aligned on the caption's row under the post's first picture (the artwork's title pill); a post
- *               without a caption has none
+ *   Posts       an artwork post: right-aligned on the caption's row under the post's first picture (the artwork's title pill); one
+ *               without a caption has none. A post with no linked product (blog post, newsletter): on its visible title's row,
+ *               right-aligned, as on a page
  *   Pages       right-aligned on the page title's row (index.php, .entry-title-row) - not when the page's title is hidden
  *   Archives    right-aligned on the title's row of a category / tag / place header and of the Art Feed's header (feed-headers.php,
  *               hook monospace_feed_title_after) - not when the header is in the sidebar, has no title or is switched off
@@ -141,10 +142,11 @@ function monospace_share_page_html() {
     return monospace_share_html( get_permalink( $id ), $title, $title . ' - ' . get_bloginfo( 'name' ), monospace_share_image( $id ) );
 }
 
-// Posts: after the first caption, in its figure (the CSS puts it on the caption's row, on the right) - after the SEO
-// plugin has made that caption the <h1> (priority 30)
+// Posts: an artwork post gets the icons after its first caption, in its figure (the CSS puts it on the caption's row, on the
+// right) - after the SEO plugin has made that caption the <h1> (priority 30)
 add_filter( 'the_content', function ( $content ) {
     if ( ! is_singular( 'post' ) || ! in_the_loop() || ! is_main_query() || get_the_ID() !== get_queried_object_id() ) return $content;
+    if ( function_exists( 'monospace_get_post_product_id' ) && ! monospace_get_post_product_id( get_the_ID() ) ) return $content; // blog posts: below
     if ( ! monospace_share_visible( 'post', monospace_share_override( get_post_meta( get_the_ID(), '_monospace_share', true ) ) ) ) return $content;
     $end = stripos( $content, '</figcaption>' );
     if ( $end === false ) return $content;
@@ -154,6 +156,22 @@ add_filter( 'the_content', function ( $content ) {
     $at    = $end + strlen( '</figcaption>' );
     return substr( $content, 0, $at ) . $html . substr( $content, $at );
 }, 35 );
+
+// A post that is not an artwork (no linked product - a blog post, a newsletter) shows its title, as a page does, with the icons
+// right-aligned on the same row (2026-11-10, owner: "Title should show, as well as the date" - the date is the Blog Post
+// pattern's own block). It takes the place of the SEO plugin's visually hidden <h1>.
+add_filter( 'the_content', function ( $content ) {
+    if ( ! is_singular( 'post' ) || ! in_the_loop() || ! is_main_query() || get_the_ID() !== get_queried_object_id() ) return $content;
+    if ( ! function_exists( 'monospace_get_post_product_id' ) || monospace_get_post_product_id( get_the_ID() ) ) return $content;
+    $id    = get_the_ID();
+    $title = wp_strip_all_tags( get_the_title( $id ) );
+    $icons = monospace_share_visible( 'post', monospace_share_override( get_post_meta( $id, '_monospace_share', true ) ) )
+           ? monospace_share_html( get_permalink( $id ), $title, $title . ' - ' . get_bloginfo( 'name' ), monospace_share_image( $id ) ) : '';
+    $h1    = '<h1 class="entry-title">' . esc_html( $title ) . '</h1>';
+    $row   = $icons ? '<div class="entry-title-row">' . $h1 . $icons . '</div>' : $h1;
+    $hidden = '#^\s*<h1 class="screen-reader-text">.*?</h1>#s';
+    return preg_match( $hidden, $content ) ? preg_replace( $hidden, $row, $content, 1 ) : $row . $content;
+}, 36 );
 
 // Category / tag / place pages and the Art Feed: on the header's title row
 add_action( 'monospace_feed_title_after', function ( $heading = '' ) {

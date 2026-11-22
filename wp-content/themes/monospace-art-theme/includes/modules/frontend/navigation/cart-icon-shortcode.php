@@ -60,7 +60,7 @@ function monospace_custom_cart() {
     $cart_count = WC()->cart->get_cart_contents_count();
 
     echo '<div class="monospace-cart-wrapper">';
-    echo '<a href="' . esc_url( $cart_url ) . '" class="monospace-cart-link" aria-label="View shopping cart">';
+    echo '<a href="' . esc_url( $cart_url ) . '" class="monospace-cart-link" aria-label="View shopping cart" title="Shopping cart">';
     echo '<div class="monospace-cart-icon">';
 
     // Shopping cart SVG icon

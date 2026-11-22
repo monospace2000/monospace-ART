@@ -4,8 +4,8 @@
  *
  * Where the big logo above the content (header.php) takes a visitor, and its hover text. Default:
  * Available Originals, "View available originals" (the owner's choice of 2026-10-15; before that it
- * went to the Art Feed). A site path ("/category/available/") or a full URL.
- * Shown in Layout Manager > Appearance & Effects through the design-module registry.
+ * went to the Art Feed). A site path ("/category/artworks/available/") or a full URL.
+ * Shown in Layout Manager > Links & toolbar through the design-module registry.
  *
  * Options: monospace_logo_link, monospace_logo_title.
  *
@@ -20,7 +20,7 @@ add_filter( 'monospace_design_modules', function ( $modules ) {
         'description' => 'Where clicking the big logo above the content goes.',
         'group'       => 'links',
         'order'       => 10,
-        'summary'     => function () { return (string) get_option( 'monospace_logo_link', '/category/available/' ); },
+        'summary'     => function () { return (string) get_option( 'monospace_logo_link', '/category/artworks/available/' ); },
         'render'      => 'monospace_render_logo_link_settings',
         'save'        => 'monospace_save_logo_link_settings',
     ];
@@ -29,7 +29,7 @@ add_filter( 'monospace_design_modules', function ( $modules ) {
 
 /** The logo's link (absolute URL) and hover text */
 function monospace_logo_link() {
-    $link = (string) get_option( 'monospace_logo_link', '/category/available/' );
+    $link = (string) get_option( 'monospace_logo_link', '/category/artworks/available/' );
     if ( $link === '' ) $link = '/';
     return [
         'url'   => $link[0] === '/' ? home_url( $link ) : $link,
@@ -38,7 +38,7 @@ function monospace_logo_link() {
 }
 
 function monospace_render_logo_link_settings() {
-    $link  = (string) get_option( 'monospace_logo_link', '/category/available/' );
+    $link  = (string) get_option( 'monospace_logo_link', '/category/artworks/available/' );
     $title = (string) get_option( 'monospace_logo_title', 'View available originals' );
     $choices = function_exists( 'monospace_home_link_choices' ) ? monospace_home_link_choices() : []; ?>
     <table class="form-table" role="presentation">

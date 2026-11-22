@@ -94,9 +94,10 @@ add_action( 'init', 'monospace_art_load_modules');
 
 
 
-// Include About page only in admin
+// Appearance > About monospace ART (the page: includes/admin/about.php)
 if ( is_admin() ) {
-   // require_once get_stylesheet_directory() . '/includes/admin/about.php';
+    require_once MONOSPACE_ART_THEME_DIR . '/includes/admin/about.php';
+    require_once MONOSPACE_ART_THEME_DIR . '/includes/admin/changelog.php'; // Appearance > Changelog (data: changelog-data.php)
 }
 
 add_action( 'admin_menu', function() {

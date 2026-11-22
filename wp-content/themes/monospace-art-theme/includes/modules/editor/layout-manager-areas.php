@@ -302,7 +302,7 @@ function monospace_lm_render_term_views() {
                     <tr>
                         <td><a href="<?php echo esc_url( get_edit_term_link( $id, $t->taxonomy ) ); ?>"><?php echo $name; // escaped above ?></a>
                             <span class="description">(<?php echo (int) $t->count; ?>)</span>
-                            <a class="lm-views-open" href="<?php echo esc_url( get_term_link( $t ) ); ?>" target="_blank" title="Open the page">↗</a>
+                            <a class="lm-views-open" href="<?php echo esc_url( get_term_link( $t ) ); ?>" target="_blank" title="Open the page">↗︎</a>
                             <input type="hidden" name="lm_terms[<?php echo $id; ?>][seen]" value="1"></td>
                         <td><select name="lm_terms[<?php echo $id; ?>][view]">
                             <?php foreach ( $view_choices as $k => $label ) : ?><option value="<?php echo esc_attr( $k ); ?>" <?php selected( $view, $k ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?>

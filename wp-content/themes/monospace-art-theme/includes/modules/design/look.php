@@ -177,7 +177,7 @@ function monospace_look_page() {
     if ( $cat ) $pages[ get_term_link( $cat ) ] = 'Category: ' . $cat->name;
     $recent = get_posts( [ 'numberposts' => 1, 'post_status' => 'publish', 'meta_key' => '_qp_product_id' ] );
     if ( $recent ) $pages[ get_permalink( $recent[0] ) ] = 'Artwork: ' . $recent[0]->post_title;
-    $about = get_page_by_path( 'about' );
+    $about = get_page_by_path( 'about/about-me' );
     if ( $about ) $pages[ get_permalink( $about ) ] = 'Page: ' . $about->post_title;
     $shop = function_exists( 'wc_get_page_permalink' ) ? wc_get_page_permalink( 'cart' ) : '';
     if ( $shop ) $pages[ $shop ] = 'Cart (buttons)';
@@ -444,7 +444,7 @@ function monospace_look_page() {
                     $out = apply_filters( 'monospace_look_panels', $out ); // each panel's light / dark link (look-links.php)
                     $groups = [
                         'Start from'      => [ 'looks' ],
-                        'The page'        => [ 'bg', 'colors', 'fonts', 'buttons', 'm-secondary-buttons', 'cards', 'm-rounding', 'm-shadows', 'm-sidebar-position' ],
+                        'The page'        => [ 'bg', 'colors', 'fonts', 'buttons', 'm-secondary-buttons', 'm-tab-color', 'cards', 'm-rounding', 'm-shadows', 'm-sidebar-position' ],
                         'Top of the page' => [ 'm-logo-layout', 'menu', 'm-banner-style' ],
                         'Spotlight'       => [ 'on', 'pos', 'scolors' ],
                         'Artworks'        => [ 'm-home-box-style', 'm-caption-style', 'm-share', 'm-print-preview', 'm-price-card', 'm-related-posts' ],

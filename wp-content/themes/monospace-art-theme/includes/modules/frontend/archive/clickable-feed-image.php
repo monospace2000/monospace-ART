@@ -210,8 +210,8 @@ function monospace_get_product_info($post_id) {
 
     // Set badge based on status (sold first, then others)
     if ($acf_status === 'sold' || $acf_status === 'private') {
-        // No badge for sold/private items
-        $info['status'] = '';
+        // No badge for sold/private items - unless Look > Availability dots is on "every artwork": then a red / purple dot
+        $info['status'] = function_exists('monospace_dots_all') && monospace_dots_all() ? ($acf_status === 'sold' ? 'Sold' : 'Private') : '';
     } elseif ($acf_status === 'gallery' || $acf_status === 'gallery-reserved') {
         $info['status'] = 'Gallery';
     } elseif ($acf_status === 'reserved') {
@@ -331,8 +331,8 @@ function monospace_process_first_image($content, $is_miniature, $is_blog, $produ
                 $wrapper = monospace_build_standard_image($img_tag, $product_info, $is_blog ? '' : $permalink);
             }
 
-            // Rebuild figure, keeping block style classes (e.g. is-style-no-shadow)
-            preg_match_all('/\bis-style-[\w-]+/', substr($figure_html, 0, strpos($figure_html, '>')), $style_classes);
+            // Rebuild figure, keeping block style classes (e.g. is-style-no-shadow) and the caption overrides (plain-captions.php)
+            preg_match_all('/\b(?:is-style-[\w-]+|ms-plain-caption|ms-artwork-caption)/', substr($figure_html, 0, strpos($figure_html, '>')), $style_classes);
             $new_figure = $style_classes[0] ? '<figure class="' . esc_attr(implode(' ', $style_classes[0])) . '">' : '<figure>';
             $new_figure .= $wrapper;
 
@@ -461,7 +461,7 @@ function monospace_build_labels($product_info) {
     // Size / medium now live in the info line under the caption (monospace_build_feed_info()).
     // The availability badge stays only for the grid view's green dot - list view hides it.
     if ($product_info['status']) {
-        $badge_class = 'ms-' . strtolower($product_info['status']);
+        $badge_class = 'ms-' . strtolower($product_info['status']);   // ms-sold / ms-private too (dots on every artwork)
         if ($product_info['status'] === 'Available') {
             $badge_class = 'ms-available';
         } elseif ($product_info['status'] === 'Gallery') {

@@ -5,12 +5,15 @@
  * Provides admin UI for configuring default headers and sidebars across the site.
  * Settings are saved as WordPress options and retrieved by feed-headers.php and sidebar-override.php.
  *
- * Four sections (three from 2026-10-19, owner's wish; Shortcodes added 2026-10-24), the same tab row on each - monospace_layout_manager_nav():
+ * Six sections (three from 2026-10-19, owner's wish; Shortcodes added 2026-10-24, Utility pages and Footer 2026-11-16), the same tab row on each - monospace_layout_manager_nav():
  * - Home Page            - the home page boxes (home-boxes-admin.php, its own page: monospace-home-boxes)
  * - Headers & Sidebars   - this page, a second row for the page type (tab = blog-feed | categories |
  *                          search | 404 | posts | pages | products)
  * - Links & toolbar      - this page, tab = links: the logo link, the shop link, open at the content, the viewing
  *                          toolbar (2026-10-22 - was Appearance & Effects; the look and motion are in Appearance > Look)
+ * - Utility pages       - this page, tab = utility (2026-11-16): what a utility page leaves out and which pages are utility pages
+ *                          (design/utility-pages.php; Core's utility-pages.php does it; a page's own editor sidebar can override both)
+ * - Footer              - this page, tab = footer (2026-11-16): the Footer menu's columns on or off, the copyright line's text (design/footer-settings.php)
  * - Shortcodes          - this page, tab = shortcodes: the reference of every shortcode (2026-10-24: was a page type's tab)
  * Clicking "Layout Manager" (no tab) opens Home Page; the admin menu lists the same four.
  *
@@ -52,12 +55,14 @@ add_action( 'admin_menu', function () {
     );
 });
 
-/** The four sections: key => [ label, admin URL ] */
+/** The five sections: key => [ label, admin URL ] */
 function monospace_layout_manager_sections() {
     return [
         'home'    => [ 'Home Page',            'admin.php?page=monospace-home-boxes' ],
         'headers' => [ 'Headers & Sidebars',   'admin.php?page=monospace-layout-manager&tab=site' ],
         'links'   => [ 'Links & toolbar',      'admin.php?page=monospace-layout-manager&tab=links' ], // was Appearance & Effects (2026-10-22: the look is in Appearance > Look)
+        'utility' => [ 'Utility pages',        'admin.php?page=monospace-layout-manager&tab=utility' ], // tool and legal pages without the site's frame (2026-11-16)
+        'footer'  => [ 'Footer',               'admin.php?page=monospace-layout-manager&tab=footer' ], // the footer menu and the copyright line (2026-11-16)
         'shortcodes' => [ 'Shortcodes',        'admin.php?page=monospace-layout-manager&tab=shortcodes' ], // the reference - a section of its own since 2026-10-24
     ];
 }
@@ -86,7 +91,7 @@ add_action( 'admin_menu', function () {
     $sections = monospace_layout_manager_sections();
     $menu = [];
     if ( isset( $items['monospace-home-boxes'] ) ) $menu[] = $items['monospace-home-boxes'];
-    foreach ( [ 'headers', 'links', 'shortcodes' ] as $key ) {
+    foreach ( [ 'headers', 'links', 'utility', 'footer', 'shortcodes' ] as $key ) {
         $menu[] = [ $sections[ $key ][0], 'manage_options', $sections[ $key ][1], $sections[ $key ][0] ];
     }
     $submenu['monospace-layout-manager'] = $menu;
@@ -97,7 +102,7 @@ add_filter( 'submenu_file', function ( $file ) {
     if ( ( $_GET['page'] ?? '' ) !== 'monospace-layout-manager' ) return $file;
     $sections = monospace_layout_manager_sections();
     $tab = $_GET['tab'] ?? '';
-    return isset( $sections[ $tab ] ) && in_array( $tab, [ 'links', 'shortcodes' ], true ) ? $sections[ $tab ][1] : $sections['headers'][1];
+    return isset( $sections[ $tab ] ) && in_array( $tab, [ 'links', 'utility', 'footer', 'shortcodes' ], true ) ? $sections[ $tab ][1] : $sections['headers'][1];
 } );
 
 // The old Appearance & Effects tab: its look and motion settings are in Appearance > Look (2026-10-22) - an old link
@@ -119,13 +124,15 @@ add_action( 'admin_init', function () {
 
 /**
  * The page title and the section tabs - on Layout Manager and on the Home Page editor.
- * $section: home | headers | links | shortcodes; $tab: the page type, on Headers & Sidebars.
+ * $section: home | headers | links | utility | shortcodes; $tab: the page type, on Headers & Sidebars.
  */
 function monospace_layout_manager_nav( $section, $tab = '' ) {
     $intros = [
         'home'    => '',
         'headers' => 'One Site default for the top content, the header and the sidebar - and what overrides it: the Art Feed, posts, pages, search results and the 404 page, each area set to “Use the site default” or “Custom”. A single category, post or page can override its page type in its own screen.',
         'shortcodes' => '',
+        'utility' => '',
+        'footer'  => '',
         'links'   => 'Where the logo and the empty cart’s shop button lead, whether posts open at their content, and the viewing toolbar on category pages. How the site looks and moves: Appearance > Look.',
     ];
     echo '<h1>Layout Manager</h1>';
@@ -156,7 +163,7 @@ function monospace_layout_manager_page() {
 
     // Get active tab
     $active_tab = sanitize_key( $_GET['tab'] ?? '' );
-    if ( ! in_array( $active_tab, [ 'links', 'shortcodes' ], true ) && ! isset( monospace_layout_manager_page_types()[ $active_tab ] ) ) $active_tab = 'site';
+    if ( ! in_array( $active_tab, [ 'links', 'utility', 'footer', 'shortcodes' ], true ) && ! isset( monospace_layout_manager_page_types()[ $active_tab ] ) ) $active_tab = 'site';
 
     // Handle form submission
     if ( isset( $_POST['monospace_layout_manager_submit'] ) ) {
@@ -167,7 +174,7 @@ function monospace_layout_manager_page() {
 
     ?>
     <div class="wrap">
-        <?php monospace_layout_manager_nav( in_array( $active_tab, [ 'links', 'shortcodes' ], true ) ? $active_tab : 'headers', $active_tab ); ?>
+        <?php monospace_layout_manager_nav( in_array( $active_tab, [ 'links', 'utility', 'footer', 'shortcodes' ], true ) ? $active_tab : 'headers', $active_tab ); ?>
 
         <form method="post" action="">
             <?php wp_nonce_field( 'monospace_layout_manager_settings' ); ?>
@@ -175,6 +182,10 @@ function monospace_layout_manager_page() {
             <?php
             if ( $active_tab === 'links' ) {
                 monospace_render_design_modules( 'links' );   // includes/modules/design/ - the links group only
+            } elseif ( $active_tab === 'utility' ) {
+                monospace_render_utility_pages_settings();   // design/utility-pages.php
+            } elseif ( $active_tab === 'footer' ) {
+                monospace_render_footer_settings();   // design/footer-settings.php
             } elseif ( $active_tab === 'shortcodes' ) {
                 monospace_render_shortcodes_reference();
             } else {
@@ -225,14 +236,15 @@ function monospace_shortcodes_reference() {
             'search_form'   => [ 'A search box.', [
                 [ 'placeholder', 'text', 'Search...' ], [ 'button_text', 'text', 'Search' ] ],
                 [ '[search_form]' => '', '[search_form placeholder="Search artworks..." button_text="Go"]' => '' ] ],
-            'tag_cloud'     => [ 'The tags (or categories, places…) as a cloud - the most used tags, bigger the more they’re used. It always takes the top tags by use, then sorts them as asked.', [
+            'artwork_tags'  => [ 'The tags (or categories, places…) as a cloud - the most used tags, bigger the more they’re used. It counts artworks only, so blog posts and newsletters can carry tags without showing up here. It always takes the top tags by use, then sorts them as asked. (The old name [tag_cloud] still works.)', [
                 [ 'taxonomy', 'post_tag | category | place (any taxonomy)', 'post_tag' ],
                 [ 'number', 'how many (0 = all)', '45' ],
                 [ 'orderby', 'count | name', 'count' ],
                 [ 'order', 'DESC | ASC | RAND (random order)', 'DESC' ],
                 [ 'smallest / largest', 'the size of the least / most used', '8 / 22' ],
-                [ 'unit', 'pt | px | em | %', 'pt' ] ],
-                [ '[tag_cloud]' => 'the 45 most used tags, most used first', '[tag_cloud orderby="name" order="ASC"]' => 'alphabetical', '[tag_cloud order="RAND"]' => 'random order, different on every page load', '[tag_cloud number="20" smallest="10" largest="18"]' => 'the top 20, a narrower size range', '[tag_cloud taxonomy="category"]' => 'categories instead of tags' ] ],
+                [ 'unit', 'pt | px | em | %', 'pt' ],
+                [ 'who', 'artwork | all (all = count every post, blog posts too)', 'artwork' ] ],
+                [ '[artwork_tags]' => 'the 45 most used tags, most used first', '[artwork_tags orderby="name" order="ASC"]' => 'alphabetical', '[artwork_tags order="RAND"]' => 'random order, different on every page load', '[artwork_tags number="20" smallest="10" largest="18"]' => 'the top 20, a narrower size range', '[artwork_tags taxonomy="category"]' => 'categories instead of tags' ] ],
             'recent_posts'  => [ 'The latest posts as a list of links.', [
                 [ 'number', 'how many', '5' ], [ 'show_date', 'yes | no', 'no' ], [ 'show_excerpt', 'yes | no', 'no' ], [ 'excerpt_length', 'words', '20' ] ],
                 [ '[recent_posts number="10" show_date="yes"]' => '', '[recent_posts show_excerpt="yes" excerpt_length="15"]' => '' ] ],
@@ -258,9 +270,13 @@ function monospace_shortcodes_reference() {
                 [ 'id / slug', 'the Custom Order product (its ID, or its slug)', '-' ], [ 'button', 'the button’s words', 'Add to Cart' ], [ 'title / image', 'yes | no', 'yes' ], [ 'layout', 'side | stacked (picture on top)', 'side' ], [ 'note', 'a message in the bottom row (sales, announcements, notes); no note, no row', '-' ] ],
                 [ '[custom_order_card id="3745"]' => '', '[custom_order_card slug="custom-artwork-smith-portrait" button="Order this portrait"]' => 'a card made for one person', '[custom_order_card id="3745" layout="stacked" note="Booking now for December"]' => 'picture on top, with a note' ] ],
             'commission_policies' => [ 'The commission terms as a list - turnaround, revisions, deposit and refund, the customer’s photos, shipping. One source: the order page and the emails show the same text, so a change in one place changes all of them (Commissions plugin).', [], [ '[commission_policies]' => 'put it under a “Good to know” heading' ] ],
+            'commission_price_guide' => [ 'A table of typical prices for other sizes (rows) and media (columns), worked out from the Price Estimator’s formula, so it follows what you set in WooCommerce > Price Estimator. A dash means the size is over that medium’s largest size. Only the table - add any text around it (estimates not quotes, frames and shipping, portraits are quoted individually) in the Block Editor. Never for portraits (Commissions plugin). Used on the Places page.', [
+                [ 'sizes', 'the rows, in inches, comma separated; a row where no shown medium has a price is left out', 'the sizes set in WooCommerce > Price Estimator' ], [ 'media', 'the columns, by their keys (pen-ink, line-wash, gouache, acrylic, or one you added)', 'the media set to Show in the Price Estimator' ] ],
+                [ '[commission_price_guide]' => '', '[commission_price_guide sizes="8x10,12x16" media="pen-ink,acrylic"]' => 'fewer rows and columns' ] ],
+            'price_estimator' => [ 'The Price Estimator for markets: pick a medium and a size, get a price - a quick, non-configurable version of WooCommerce > Price Estimator (it uses the formula, media and largest sizes set there), for a phone at a market. Only for logged-in administrators (a login form for visitors). Never for portraits. Lives on the Price Estimator page (/estimator/) (Commissions plugin).', [], [ '[price_estimator]' => 'the whole page' ] ],
             'artwork' => [ 'An artwork’s picture, anywhere: its longest edge fills the box it is in (or a square thumbnail), with the site’s picture look (outline, shadow, rounding, rollover); clicking it opens the artwork. Add the title and the info lines under it - the same lines, in the same type, as the list and detail views.', [
-                [ 'sku / post', 'the artwork (number or post ID)', 'this post’s' ], [ 'title', 'yes | no (the title under it)', 'no' ], [ 'info', 'yes | no (medium on surface, dimensions, Miniature tag)', 'no' ], [ 'availability', 'yes | no (availability, #number, price while for sale)', 'no' ], [ 'prints', 'yes | no (Prints available)', 'no' ], [ 'badges', 'yes | no (the grid view’s green dot - available - and “M” - miniature - on the picture)', 'no' ], [ 'square', 'yes | no (a square thumbnail, the first picture of a set)', 'no' ], [ 'link', 'yes | no', 'yes' ], [ 'align', 'left | center | right - the picture and the text under it', 'center' ] ],
-                [ '[artwork sku="234"]' => '', '[artwork sku="234" title="yes" availability="yes"]' => 'picture, title, status', '[artwork sku="234" title="yes" info="yes" align="left"]' => 'picture, title, medium and size, all left', '[artwork sku="234" square="yes" title="yes" info="yes" availability="yes" prints="yes"]' => 'a square thumbnail with the list / detail view’s info lines' ] ],
+                [ 'sku / post', 'the artwork (number or post ID)', 'this post’s' ], [ 'title', 'yes | no (the title under it)', 'no' ], [ 'info', 'yes | no (medium on surface, dimensions, Miniature tag)', 'no' ], [ 'availability', 'yes | no (availability, #number, price while for sale)', 'no' ], [ 'prints', 'yes | no (Prints available)', 'no' ], [ 'badges', 'yes | no (the grid view’s green dot - available - and “M” - miniature - on the picture)', 'no' ], [ 'square', 'yes | no (a square thumbnail, the first picture of a set)', 'no' ], [ 'link', 'yes | no', 'yes' ], [ 'align', 'left | center | right - the picture and the text under it', 'center' ], [ 'width', '50% | 300px | 20rem - the box the picture fills (never wider than the column; align places it)', 'the whole column' ] ],
+                [ '[artwork sku="234"]' => '', '[artwork sku="234" title="yes" availability="yes"]' => 'picture, title, status', '[artwork sku="234" title="yes" info="yes" align="left"]' => 'picture, title, medium and size, all left', '[artwork sku="234" width="50%" align="right"]' => 'half the column wide, on the right', '[artwork sku="234" square="yes" title="yes" info="yes" availability="yes" prints="yes"]' => 'a square thumbnail with the list / detail view’s info lines' ] ],
             'copy_text' => [ 'A small Copy link (an icon and a word) that copies the text of part of the page - its paragraphs and headings, without the link itself - and says “Copied” for a moment. Used under the Bio on the About Me page.', [
                 [ 'target', 'a CSS selector for the part to copy, e.g. .ms-bio-text (give a block that class: Advanced > Additional CSS class)', '(required)' ], [ 'label', 'the words next to the icon', 'Copy' ] ],
                 [ '[copy_text target=".ms-bio-text" label="Copy bio"]' => '' ] ],
@@ -283,6 +299,9 @@ function monospace_shortcodes_reference() {
                 [ '[related_posts]' => '', '[related_posts limit="6" layout="stack" title="More like this"]' => 'in a sidebar: six, one under the other', '[related_posts limit="6" columns="2" badges="yes"]' => '3 rows of two, with the green dot and M' ] ],
         ],
         'Forms & content' => [
+            'next_market' => [ 'The next market, from the Upcoming Markets page: its name, date and time, and location (the first one whose last day is today or later). Put it at the top of the News page - the News box on the home page shows that page’s text.', [
+                [ 'label', 'the words before the name (empty = none)', 'Next Market' ], [ 'tag', 'h2 | h3 | h4 | p', 'h2' ], [ 'link', 'yes = the name links to the Upcoming Markets page', 'no' ], [ 'empty', 'what to print when no market is ahead', '(nothing)' ], [ 'color', 'the headline’s color: a hex (#c00, #cc0000), rgb() / rgba() / hsl(), or an HTML color name (tomato, navy ...)', 'the text color' ], [ 'count', 'how many upcoming markets to list (1-12; with more than one the headline is “Upcoming Markets” and each market is a bold name, its date and time, its location)', '1' ] ],
+                [ '[next_market]' => 'Next Market: Owl Holiday Market, Saturday November 28, 4pm - 8pm, Market Pavilion, ...', '[next_market label="" tag="h3" link="yes"]' => '', '[next_market color="#c0392b"]' => 'a red headline', '[next_market color="rgba(0,0,0,.6)"]' => '', '[next_market color="navy"]' => '', '[next_market count="3"]' => 'the next three markets', '[next_market count="3" label="Where to find me"]' => '' ] ],
             'monospace_mailpoet_form' => [ 'The newsletter sign-up form (MailPoet).', [ [ 'list_id', 'the MailPoet list', '3' ] ], [ '[monospace_mailpoet_form]' => '' ] ],
             'external_html' => [ 'HTML from another address, put into the page as it is - only from sources you trust.', [
                 [ 'url', 'the full address (required)', '-' ], [ 'class', 'a CSS class for the box', 'external-html-container' ] ],
@@ -300,7 +319,7 @@ function monospace_render_shortcodes_reference() {
     if ( function_exists( 'monospace_lm_area_assets' ) ) monospace_lm_area_assets(); ?>
     <div class="lm-areas ms-sc-ref">
         <p class="lm-where">Every shortcode on the site - type one into a post, a page or a content area of the Layout Manager (sidebars,
-            above the artworks…). Options go inside the brackets: <code>[tag_cloud number="20"]</code>; options left out use the default.
+            above the artworks…). Options go inside the brackets: <code>[artwork_tags number="20"]</code>; options left out use the default.
             Click an example to copy it.</p>
         <p><input type="search" id="ms-sc-find" class="regular-text" placeholder="Find a shortcode…" aria-label="Find a shortcode"></p>
         <?php foreach ( $groups as $group => $codes ) :
@@ -384,6 +403,16 @@ function monospace_render_shortcodes_reference() {
  * SAVE SETTINGS
  * ============================================================ */
 function monospace_save_layout_settings( $tab ) {
+    // Utility pages tab: the site-wide parts and the pages' own switches (design/utility-pages.php)
+    if ( $tab === 'utility' ) {
+        monospace_save_utility_pages_settings();
+        return;
+    }
+    // Footer tab: the footer menu and the copyright line (design/footer-settings.php)
+    if ( $tab === 'footer' ) {
+        monospace_save_footer_settings();
+        return;
+    }
     // Links & toolbar tab: its design modules save their own site-wide options (design-modules.php) - that group only
     if ( $tab === 'links' ) {
         monospace_save_design_modules( 'links' );

@@ -12,7 +12,7 @@
  * on the home page. With Elastic scroll on, it goes through ScrollSmoother (rubber-scroll.js).
  *
  * Options: monospace_content_jump_posts, monospace_content_jump_pages ('1' default).
- * Shown in Layout Manager > Appearance & Effects through the design-module registry.
+ * Shown in Layout Manager > Links & toolbar through the design-module registry.
  *
  * @package monospace-art-theme
  */

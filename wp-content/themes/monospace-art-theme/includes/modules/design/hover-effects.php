@@ -7,10 +7,10 @@
  *                shrinks a touch while pressed
  *   Press only - no hover-grow; it only shrinks a touch while pressed (a click you can feel)
  *   Off
- * Places: home page link boxes, artwork images in feeds / category pages, "See also" (related posts)
+ * Places: home page link boxes (and the My Account tiles, 2026-11-18), artwork images in feeds / category pages, "See also" (related posts)
  * thumbnails, the artwork image on a post page (the one that opens the lightbox; press only), and the
  * site logo + tagline (site-wide). Strength: subtle (2% / 1.5%) or medium (4% / 3%).
- * Shown in Layout Manager > Appearance & Effects through the design-module registry.
+ * Shown in Appearance > Look through the design-module registry.
  *
  * Touchscreens (phones, tablets) can't hover: one switch, Press on tap (2026-10-19) - every place that
  * isn't Off presses while tapped. Body class press-touch; the footer script marks the tapped item
@@ -31,15 +31,14 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-const MONOSPACE_HOVER_TARGETS = [ 'home', 'feed', 'related', 'logo' ];
-const MONOSPACE_PRESS_TARGETS = [ 'home', 'feed', 'related', 'logo', 'post' ];
+const MONOSPACE_HOVER_TARGETS = [ 'home', 'feed', 'logo' ];
+const MONOSPACE_PRESS_TARGETS = [ 'home', 'feed', 'logo', 'post' ];
 
 /** The places: label, the modes they offer */
 function monospace_hover_places() {
     return [
-        'home'    => [ 'Home page link boxes', [ 'lift', 'press', 'off' ] ],
+        'home'    => [ 'Home page link boxes and the My Account tiles', [ 'lift', 'press', 'off' ] ],
         'feed'    => [ 'Artwork images in the Art Feed and on category / tag pages (list and grid view)', [ 'lift', 'press', 'off' ] ],
-        'related' => [ '“See also” thumbnails under an artwork (related posts)', [ 'lift', 'press', 'off' ] ],
         'post'    => [ 'The artwork image on a post page (opens the lightbox)', [ 'press', 'off' ] ],
         'logo'    => [ 'The site logo and tagline, on every page', [ 'lift', 'press', 'off' ] ],
     ];
@@ -177,7 +176,7 @@ add_action( 'wp_footer', function () {
     if ( $s['effect'] !== 'lift' || ! $s['touch'] ) return; ?>
     <script>
     (function () {
-        var sel = 'a.ms-lightbox-link, a.ms-archive-image-link, .monospace-related-link, .container > .box.link, .site-logo a';
+        var sel = 'a.ms-lightbox-link, a.ms-archive-image-link, .monospace-related-link, .container > .box.link, .ms-acct-tile, .site-logo a';
         var el = null, x = 0, y = 0, since = 0, timer = 0;
         function off() { clearTimeout(timer); if (el) el.classList.remove('is-pressed'); el = null; }
         document.addEventListener('touchstart', function (e) {

@@ -110,6 +110,14 @@ function monospace_art_enqueue_assets() {
         $anchors_js = '/assets/scripts/home-anchors.js';
         wp_enqueue_script( 'monospace-home-anchors', get_template_directory_uri() . $anchors_js, array(), filemtime( get_template_directory() . $anchors_js ), true );
     }
+    // An artwork's page: the price card badge opens and closes its card with a fold (pc-badge-card.js)
+    if ( is_singular() ) {
+        $badge_js = '/assets/scripts/pc-badge-card.js';
+        wp_enqueue_script( 'monospace-pc-badge-card', get_template_directory_uri() . $badge_js, array(), (string) filemtime( get_template_directory() . $badge_js ), true );
+    }
+    // WP Details blocks fold like the price card badge (details-fold.php); the script does nothing on a page without one
+    $fold_js = '/assets/scripts/details-fold.js';
+    wp_enqueue_script( 'monospace-details-fold', get_template_directory_uri() . $fold_js, array(), (string) filemtime( get_template_directory() . $fold_js ), true );
     // Checkout: the Place order button follows the chosen payment method (PayPal colors and label)
     if ( function_exists( 'is_checkout' ) && is_checkout() ) {
         $pay_js = '/assets/scripts/checkout-pay-button.js';

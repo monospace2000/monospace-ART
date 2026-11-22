@@ -26,6 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 </head>
 
 <body <?php body_class(); ?>>
+<?php do_action( 'monospace_body_open' ); // dark mode: the look's classes for the mode (design/dark-mode.php) ?>
 
 
 <!-- noise link -->
@@ -49,27 +50,8 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 
 
-        <div class="menu-bar-home">
-            <?php echo do_shortcode('[monospace_home]'); ?>
-        </div>
-
-
-        <div class="mobile-menu-toggle" aria-label="Open Menu">Menu ☰</div>
-
-        <?php
-        wp_nav_menu(array(
-            'theme_location' => 'primary',
-            'container' => false,
-            'menu_class' => 'primary-menu',
-            'fallback_cb' => false,
-        ));
-        ?>
-
-
-        <div class="menu-bar-cart">
-            <?php echo do_shortcode('[monospace_cart]'); ?>
-        </div>
-
+        <?php // Home, Menu, Search, Dark mode, Cart - in the order set in Appearance > Look > Menu bar (design/menu-bar-items.php)
+        monospace_menu_bar_render(); ?>
 
     </div>
 
@@ -85,14 +67,41 @@ $logo_tag = is_front_page() ? 'h1' : 'div'; ?>
 <<?php echo $logo_tag; ?> class="site-logo-wrapper">
     <div class="site-logo">
         <?php
-        // Link and hover text: Layout Manager > Appearance & Effects > Logo link (design/logo-link.php)
-        $logo      = function_exists('monospace_logo_link') ? monospace_logo_link() : ['url' => home_url('/category/available/'), 'title' => 'View available originals'];
+        // Link and hover text: Layout Manager > Links & toolbar > Logo link (design/logo-link.php)
+        $logo      = function_exists('monospace_logo_link') ? monospace_logo_link() : ['url' => home_url('/category/artworks/available/'), 'title' => 'View available originals'];
         $logo_link = esc_url($logo['url']);
         $logo_title = $logo['title'] !== '' ? ' title="' . esc_attr($logo['title']) . '"' : '';
-        // The logo: assets/images/logo.svg (viewBox trimmed to the letters - 1437.76 x 202.31), sized by
+        // The logo in two parts (2026-10-21): assets/images/logo/monospace and art - an .svg if there is one, else the
+        // .webp (made from the owner's .png: ART at WebP quality 80 / alpha 60 - 63 KB instead of 264; monospace lossless),
+        // else the .png. Placed by _header.scss where the two halves of logo.svg were (side by side; stacked on phones). Takes
+        // priority over logo.svg and over the logo chosen in Customize > Site Identity.
+        $logo_part = function ( $name ) {
+            foreach ( [ 'svg', 'webp', 'png' ] as $ext ) {
+                $file = '/assets/images/logo/' . $name . '.' . $ext;
+                if ( file_exists( get_template_directory() . $file ) ) return get_template_directory_uri() . $file . '?v=' . filemtime( get_template_directory() . $file );
+            }
+            return '';
+        };
+        $logo_word = $logo_part( 'monospace' );
+        $logo_art  = $logo_part( 'art' );
+        // The earlier logo: assets/images/logo.svg (viewBox trimmed to the letters - 1437.76 x 202.31), sized by
         // _header.scss to the column width, so it scales with the page
         $logo_svg = '/assets/images/logo.svg';
-        if (file_exists(get_template_directory() . $logo_svg)) {
+        if ( $logo_word && $logo_art ) {
+            // One line or stacked, apart for computers & tablets and phones; stacked, ART's size and place (Appearance >
+            // Look > Logo - design/logo-layout.php)
+            $logo_class = 'ms-logo';
+            $logo_style = '';
+            if ( function_exists( 'monospace_logo_settings' ) ) {
+                if ( monospace_logo_settings( 'wide' )['stack'] ) $logo_class .= ' is-stacked-wide';
+                if ( monospace_logo_settings( 'phone' )['stack'] ) $logo_class .= ' is-stacked';
+                $logo_style = monospace_logo_art_style();
+            }
+            echo '<a' . $logo_title . ' href="' . $logo_link . '"><span class="' . $logo_class . '"' . ( $logo_style ? ' style="' . esc_attr( $logo_style ) . '"' : '' ) . ' role="img" aria-label="monospace ART">'
+               . '<img class="custom-logo ms-logo-word" src="' . esc_url( $logo_word ) . '" alt="" width="1366" height="179" fetchpriority="high">'
+               . '<img class="custom-logo ms-logo-art" src="' . esc_url( $logo_art ) . '" alt="" width="948" height="540" fetchpriority="high">'
+               . '</span></a>';
+        } elseif (file_exists(get_template_directory() . $logo_svg)) {
             echo '<a' . $logo_title . ' href="' . $logo_link . '"><img class="custom-logo" src="' . esc_url(get_template_directory_uri() . $logo_svg . '?v=' . filemtime(get_template_directory() . $logo_svg)) . '" width="1437.76" height="202.31" alt="monospace ART"></a>';
         } elseif (has_custom_logo()) {
             $logo_id  = get_theme_mod('custom_logo');
@@ -103,24 +112,10 @@ $logo_tag = is_front_page() ? 'h1' : 'div'; ?>
         <?php } ?>
     </div>
 
-    <?php if ( get_bloginfo('description') ) :
-        // The tagline as SVG text, stretched to the logo's width: the viewBox uses the logo's own units
-        // (logo.svg, trimmed to its letters: 0 to 1437.75) and the SVG takes the logo's box
-        // (_header.scss), so the text starts and ends where the logo's letters do at any screen size.
-        // textLength locks the width. Font size from the text length (Roboto 200 averages 0.455em per
-        // character); the first / last letter's side bearings are allowed for.
-        $tagline = get_bloginfo('description');
-        $ink_l   = 0;
-        $ink_w   = 1437.75;
-        $font    = $ink_w / ( max( 1, mb_strlen( $tagline ) ) * 0.455 );
-        $pad     = 0.07 * $font;
-        $height  = ( 0.75 + 0.213 ) * $font + 2 * $pad;
-        $fmt     = function ( $n ) { return rtrim( rtrim( number_format( $n, 1, '.', '' ), '0' ), '.' ); };
-        ?>
-        <svg class="site-tagline" viewBox="0 0 1437.75 <?php echo $fmt( $height ); ?>" role="img" aria-label="<?php echo esc_attr( $tagline ); ?>">
-            <text x="<?php echo $fmt( $ink_l - 0.095 * $font ); ?>" y="<?php echo $fmt( $pad + 0.75 * $font ); ?>" font-size="<?php echo $fmt( $font ); ?>"
-                  textLength="<?php echo $fmt( $ink_w + 0.132 * $font ); ?>" lengthAdjust="spacingAndGlyphs"><?php echo esc_html( $tagline ); ?></text>
-        </svg>
-    <?php endif; ?>
+    <?php
+    // The tagline - typed \n starts a new line; one for each screen size when they differ (design/logo-layout.php)
+    if ( function_exists( 'monospace_tagline_html' ) ) echo monospace_tagline_html();
+    elseif ( get_bloginfo( 'description' ) ) echo '<p class="site-description">' . esc_html( get_bloginfo( 'description' ) ) . '</p>';
+    ?>
 </<?php echo $logo_tag; ?>>
 

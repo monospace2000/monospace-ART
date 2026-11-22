@@ -1,6 +1,7 @@
 
+<?php $ms_footer = function_exists( 'monospace_footer_settings' ) ? monospace_footer_settings() : [ 'menu' => 1, 'copyright_on' => 1 ]; // Layout Manager > Footer ?>
 <footer id="site-footer">
-    <?php if ( ! has_nav_menu( 'footer' ) ) : // The footer menu has the social links (Elsewhere column) ?>
+    <?php if ( $ms_footer['menu'] && ! has_nav_menu( 'footer' ) ) : // The footer menu has the social links (Elsewhere column) ?>
     <div class="social-icons">
     <a href="https://bsky.app/profile/monospace.com">
         <img src="https://art.monospace.com/wp-content/uploads/bluesky-outline-150x150.png?wsr" alt="Bluesky">
@@ -19,7 +20,9 @@
     <?php
     // The Footer Menu (Appearance > Menus): columns, each a "#" heading item with its links
     // (menu-items.php) - else the legal links
-    if ( has_nav_menu( 'footer' ) ) {
+    if ( ! $ms_footer['menu'] ) {
+        // Layout Manager > Footer: the menu part is switched off
+    } elseif ( has_nav_menu( 'footer' ) ) {
         wp_nav_menu( array(
             'theme_location'  => 'footer',
             'container'       => 'nav',
@@ -34,9 +37,11 @@
     }
     ?>
 
+    <?php if ( $ms_footer['copyright_on'] ) : ?>
     <div class="copyright-notice">
-        Copyright &copy;<?php echo date('Y'); ?> Hens Breet | monospace ART LLC. All rights reserved.
+        <?php echo function_exists( 'monospace_footer_copyright_html' ) ? monospace_footer_copyright_html() : 'Copyright &copy;' . date( 'Y' ) . ' Hens Breet | monospace ART LLC. All rights reserved.'; ?>
     </div>
+    <?php endif; ?>
 </footer>
 
 

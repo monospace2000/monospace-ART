@@ -63,6 +63,13 @@ add_action( 'admin_post_monospace_home_layout_save', function () {
         trim( $top ) !== '' ? update_option( 'monospace_home_top_content', $top ) : delete_option( 'monospace_home_top_content' );
     }
     if ( function_exists( 'monospace_banner_save_area' ) ) monospace_banner_save_area( 'home_top_style', 'monospace_home_top_style' );
+    // Where the banner sits: the number of rows before it (0 = the top of the page, under the logo) and its #anchor
+    if ( isset( $_POST['home_top_pos'] ) ) {
+        $pos = absint( $_POST['home_top_pos'] );
+        $pos > 0 ? update_option( 'monospace_home_top_pos', $pos ) : delete_option( 'monospace_home_top_pos' );
+        $anchor = sanitize_title( wp_unslash( $_POST['home_top_anchor'] ?? '' ) );
+        $anchor !== '' ? update_option( 'monospace_home_top_anchor', $anchor ) : delete_option( 'monospace_home_top_anchor' );
+    }
 
     // The search box above the boxes (the field is always sent with the form; the checkbox only when ticked)
     if ( isset( $_POST['home_search_seen'] ) ) {
@@ -83,6 +90,7 @@ add_action( 'admin_post_monospace_home_layout_save', function () {
 
     if ( ! empty( $_POST['reset'] ) ) {
         delete_option( MONOSPACE_HOME_LAYOUT );
+        delete_option( 'monospace_home_top_pos' );
         $msg = 'reset';
     } else {
         $rows = json_decode( wp_unslash( $_POST['layout_json'] ?? '' ), true );
@@ -135,6 +143,7 @@ function monospace_home_boxes_page() {
         <?php if ( $msg === 'reset' ) : ?><div class="notice notice-success is-dismissible"><p>Reset to the default layout.</p></div><?php endif; ?>
         <p class="description" style="max-width:760px">The boxes of the <a href="<?php echo esc_url( home_url( '/' ) ); ?>" target="_blank">home page</a>, row by row.
             Drag rows by <span class="dashicons dashicons-menu"></span> and boxes anywhere, also from one row to another. Click a box to edit it.
+            The <strong>Banner</strong> card is the Top content (edited below): drag it between rows, or leave it first for the top of the page.
             <strong>Text boxes</strong> (like Welcome and News) show text written in the box itself, or a page's text (edited on that page, “Edit text”).
             <strong>Automatic</strong> backgrounds show the newest artwork behind the box's link; <strong>Random</strong> ones show a different picture each time the home page is opened.
             Changes go live when you press Save.</p>
@@ -148,10 +157,13 @@ function monospace_home_boxes_page() {
             <?php wp_nonce_field( 'monospace_home_layout_save' ); ?>
             <input type="hidden" name="action" value="monospace_home_layout_save">
             <input type="hidden" name="layout_json" id="mhb-json" value="">
+            <input type="hidden" name="home_top_pos" id="mhb-banner-pos" value="<?php echo (int) get_option( 'monospace_home_top_pos', 0 ); ?>">
+            <input type="hidden" name="home_top_anchor" id="mhb-banner-anchor" value="<?php echo esc_attr( (string) get_option( 'monospace_home_top_anchor', '' ) ); ?>">
 
             <h2 style="margin-top:28px">Top content</h2>
-            <p class="description" style="max-width:760px">A banner or announcement under the logo and tagline, above the boxes - as the Top content of the other pages
-                (Layout Manager &gt; Headers &amp; Sidebars). Leave empty for none. HTML and shortcodes allowed. Saved with Save home page.</p>
+            <p class="description" style="max-width:760px">A banner or announcement - as the Top content of the other pages (Layout Manager &gt; Headers &amp; Sidebars). Leave empty for none.
+                It starts under the logo and tagline; drag its <strong>Banner</strong> card in the list of rows above to put it between any two rows, and give it a #anchor there if you want a link to it.
+                Markdown, HTML and shortcodes allowed. Saved with Save home page.</p>
             <div style="max-width:900px">
                 <?php wp_editor( (string) get_option( 'monospace_home_top_content', '' ), 'mhb_top_content', [ 'textarea_name' => 'home_top_content', 'media_buttons' => true, 'textarea_rows' => 5, 'teeny' => false, 'quicktags' => true ] ); ?>
                 <?php if ( function_exists( 'monospace_banner_fields' ) ) monospace_banner_fields( 'home_top_style', monospace_banner_area( 'monospace_home_top_style' ), true, 'mhb_top_content' ); ?>
@@ -216,6 +228,9 @@ function monospace_home_boxes_page() {
         .mhb-row.is-row-hidden .mhb-row-hidden { display: inline; }
         .mhb-row.is-row-hidden .mhb-boxes, .mhb-row.is-row-hidden .mhb-row-label { opacity: .45; filter: grayscale(1); }
         .mhb-row-anchor-wrap { color: #646970; }
+        .mhb-banner-row { background: #f0f6fc; border: 1px solid #72aee6; border-left: 4px solid #2271b1; border-radius: 6px; margin: 0 0 14px; padding: 10px 12px; }
+        .mhb-banner-row .mhb-row-head { margin-bottom: 0; }
+        .mhb-banner-row .mhb-banner-anchor { width: 170px; }
         .mhb-row-anchor { width: 150px; }
         .mhb-anchor-url { font-size: 11px; }
         .mhb-boxes { display: flex; flex-wrap: wrap; gap: 10px; min-height: 120px; margin: 0; padding: 6px; background: #f6f7f7; border-radius: 4px; }
@@ -295,6 +310,7 @@ function monospace_home_boxes_page() {
     <script>
     jQuery(function ($) {
         var rows    = <?php echo wp_json_encode( $rows ); ?>;
+        var bannerPos = <?php echo (int) get_option( 'monospace_home_top_pos', 0 ); ?>;   // rows before the banner; 0 = the top of the page
         var CHOICES = <?php echo wp_json_encode( monospace_home_link_choices() ); ?>;
         var THEME   = <?php echo wp_json_encode( trailingslashit( get_stylesheet_directory_uri() ) ); ?>;
         var AJAX    = { url: ajaxurl, nonce: <?php echo wp_json_encode( wp_create_nonce( 'monospace_home_preview' ) ); ?> };
@@ -592,7 +608,16 @@ function monospace_home_boxes_page() {
             });
             if (!rows.length) $wrap.append('<p class="mhb-empty">No rows - add one below.</p>');
 
-            $wrap.sortable({ handle: '.mhb-row-head .dashicons-menu', items: '> .mhb-row', update: changed });
+            // The banner (Top content) as a card among the rows: after bannerPos rows; first = the top of the page
+            var $banner = $('<div class="mhb-banner-row"><div class="mhb-row-head"><span class="dashicons dashicons-menu" title="Drag to move the banner between rows"></span>' +
+                '<strong>Banner</strong> <span class="description">the Top content - edited below the rows</span> ' +
+                '<span class="mhb-row-anchor-wrap">#<input type="text" class="mhb-banner-anchor" placeholder="anchor (optional)"></span> ' +
+                '<button type="button" class="button-link mhb-banner-copy">Copy link</button></div></div>');
+            $banner.find('.mhb-banner-anchor').val($('#mhb-banner-anchor').val());
+            var $real = $wrap.children('.mhb-row');
+            if (bannerPos > 0 && $real.length) $real.eq(Math.min(bannerPos, $real.length) - 1).after($banner); else $wrap.prepend($banner);
+
+            $wrap.sortable({ handle: '.mhb-row-head .dashicons-menu', items: '> .mhb-row, > .mhb-banner-row', update: changed });
             $('.mhb-boxes').sortable({
                 items: '> .mhb-box', connectWith: '.mhb-boxes', placeholder: 'mhb-placeholder', tolerance: 'pointer',
                 cancel: '.mhb-add-box-li', update: function () { changed(); },
@@ -609,6 +634,13 @@ function monospace_home_boxes_page() {
                          boxes: $(this).find('.mhb-box').map(function () { return $(this).data('box'); }).get() };
             }).get();
             $('#mhb-json').val(JSON.stringify(rows));
+            // The banner: how many rows come before it, and its anchor
+            var $b = $('#mhb-rows > .mhb-banner-row');
+            if ($b.length) {
+                bannerPos = $b.prevAll('.mhb-row').length;
+                $('#mhb-banner-pos').val(bannerPos);
+                $('#mhb-banner-anchor').val(slug($b.find('.mhb-banner-anchor').val()));
+            }
         }
         function changed() { dirty = true; sync(); }
 
@@ -641,7 +673,7 @@ function monospace_home_boxes_page() {
                     '<label style="margin-right:14px"><input type="radio" name="mhb-src" value="own"> Written here</label>' +
                     '<label><input type="radio" name="mhb-src" value="page"> A page</label></div></div>' +
                   '<div class="f mhb-src-page"><label>Page</label><div><select class="mhb-f-page"><option value="">Choose a page…</option>' + options + '</select> ' +
-                    '<a class="button mhb-f-edit" target="_blank">Edit text ↗</a><p class="description">The box shows this page’s text - edit it in the page (opens in a new tab), then reload the home page.</p></div></div>' +
+                    '<a class="button mhb-f-edit" target="_blank">Edit text ↗︎</a><p class="description">The box shows this page’s text - edit it in the page (opens in a new tab), then reload the home page.</p></div></div>' +
                   '<div class="mhb-src-own"><textarea id="mhb-html" rows="10"></textarea>' +
                     '<p class="description">Headings, bold, links, lists, images… Saved with the layout (press Save below).</p></div>' +
                   '<div class="f mhb-f-linkrow"><label>Link <small>(optional)</small></label><div><input type="text" class="mhb-f-link" placeholder="/category/print/ or https://…" style="margin-bottom:6px">' + linkSelect(box.link) + '<p class="description">Makes the title and the box around the text a link, like the other boxes. Links inside the text keep working.</p></div></div>' +
@@ -772,6 +804,7 @@ function monospace_home_boxes_page() {
                   '<div class="f"><label>Title</label><div><input type="text" class="mhb-f-title"></div></div>' +
                   '<div class="f"><label>Badge</label><div><input type="text" class="mhb-f-badge" placeholder="e.g. NEW!"><p class="description">Small highlighted text before the title. Leave empty for none.</p></div></div>' +
                   '<div class="f"><label>Description</label><div><textarea class="mhb-f-text" rows="3"></textarea></div></div>' +
+                  '<div class="f"><label>Hover text</label><div><input type="text" class="mhb-f-hover" maxlength="200"><p class="description">Shown as a hint when a visitor points at the box. Leave empty to use the description.</p></div></div>' +
                   '<div class="f"><label>Link</label><div><input type="text" class="mhb-f-link" placeholder="/category/print/ or https://…" style="margin-bottom:6px">' + linkSelect(box.link) + '</div></div>' +
                   '<div class="f"><label>Width</label><div>' + Object.keys(WIDTHS).map(function (w) {
                         return '<label style="margin-right:14px"><input type="radio" name="mhb-w" value="' + w + '"' + (+w === +box.width ? ' checked' : '') + '> ' + WIDTHS[w] + '</label>'; }).join('') +
@@ -802,6 +835,8 @@ function monospace_home_boxes_page() {
             $ed.find('.mhb-f-title').val(box.title);
             $ed.find('.mhb-f-badge').val(box.badge);
             $ed.find('.mhb-f-text').val(box.text);
+            $ed.find('.mhb-f-hover').val(box.hover || '').attr('placeholder', box.text || '');
+            $ed.on('input', '.mhb-f-text', function () { $ed.find('.mhb-f-hover').attr('placeholder', $(this).val()); });
             $ed.find('.mhb-f-link').val(box.link);
             $ed.find('[name=mhb-img][value=' + box.image.mode + ']').prop('checked', true);
             $ed.find('.mhb-f-anchor').val(box.anchor || '');
@@ -851,7 +886,7 @@ function monospace_home_boxes_page() {
                 if (mode === 'random') { rr = rnd.read(); if (!rr) { alert('Add at least two pictures, or pick Artworks behind the link.'); return; } }
                 var updated = {
                     title: $.trim($ed.find('.mhb-f-title').val()), badge: $.trim($ed.find('.mhb-f-badge').val()),
-                    text: $.trim($ed.find('.mhb-f-text').val()), link: $.trim($ed.find('.mhb-f-link').val()),
+                    text: $.trim($ed.find('.mhb-f-text').val()), hover: $.trim($ed.find('.mhb-f-hover').val()), link: $.trim($ed.find('.mhb-f-link').val()),
                     width: +$ed.find('[name=mhb-w]:checked').val() || 2,
                     image: rr ? rr.image : (mode === 'media' ? { mode: 'media', id: box.image.id } : (mode === 'file' ? { mode: 'file', file: $li.data('box').image.file } : { mode: 'auto' })),
                     anchor: slug($ed.find('.mhb-f-anchor').val())
@@ -899,7 +934,12 @@ function monospace_home_boxes_page() {
                 $(this).closest('.mhb-row-head').find('.mhb-row-anchor').attr('placeholder', slug(this.value) || 'anchor');
                 changed();
             })
-            .on('input', '.mhb-row-anchor', changed)
+            .on('input', '.mhb-row-anchor, .mhb-banner-anchor', changed)
+            .on('click', '.mhb-banner-copy', function () {
+                var $b = $(this), a = slug($b.closest('.mhb-row-head').find('.mhb-banner-anchor').val());
+                if (!a) { alert('The banner has no anchor yet - type one first.'); return; }
+                (navigator.clipboard ? navigator.clipboard.writeText(HOME + '#' + a) : Promise.reject()).then(function () { $b.text('Copied'); setTimeout(function () { $b.text('Copy link'); }, 1500); }, function () { prompt('Copy this link:', HOME + '#' + a); });
+            })
             .on('click', '.mhb-row-copy', function () {
                 var $h = $(this).closest('.mhb-row-head'), $b = $(this);
                 var a = slug($h.find('.mhb-row-anchor').val()) || slug($h.find('.mhb-row-label').val());

@@ -21,7 +21,7 @@
  */
 function monospace_custom_home() {
     echo '<div class="monospace-home-wrapper">';
-    echo '<a href="/" class="monospace-home-link" aria-label="Go to home page">';
+    echo '<a href="/" class="monospace-home-link" aria-label="Go to home page" title="Home">';
     echo '<div class="monospace-home-icon">';
 
     // Home icon SVG

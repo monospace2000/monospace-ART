@@ -8,7 +8,8 @@
  * (cookie-consent.php), the MailPoet signup popup and the contact form.
  *
  * Pages: Privacy = Settings > Privacy (get_privacy_policy_url), Terms = WooCommerce's terms page,
- * GPSR = the page with slug MONOSPACE_GPSR_SLUG ("EU GPSR Compliance Notice"). A link whose page
+ * GPSR = the page with the role gpsr (Core's page-roles.php: found wherever it sits in the page folders; the slug below is the
+ * fallback while no page has the role). A link whose page
  * isn't published is left out.
  *
  * @package monospace-art-theme
@@ -26,7 +27,8 @@ function monospace_legal_links() {
     $page_url = function ( $id ) {
         return $id && get_post_status( $id ) === 'publish' ? get_permalink( $id ) : '';
     };
-    $gpsr = get_page_by_path( MONOSPACE_GPSR_SLUG );
+    $gpsr = function_exists( 'monospace_role_page' ) ? monospace_role_page( 'gpsr' ) : null;
+    if ( ! $gpsr ) $gpsr = get_page_by_path( MONOSPACE_GPSR_SLUG );
 
     $links = array_filter( [
         'privacy' => [ 'Privacy Policy', get_privacy_policy_url() ],

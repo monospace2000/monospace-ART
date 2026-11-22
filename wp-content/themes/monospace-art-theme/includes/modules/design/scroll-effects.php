@@ -5,7 +5,7 @@
  * A site-wide scroll effect, one of: Off / Slide-in (assets/scripts/scroll-slide.js) / Elastic scroll
  * (assets/scripts/rubber-scroll.js on GSAP ScrollSmoother, assets/vendor/gsap). Settings, their form
  * and saving, and the front-end output (body classes, scripts, settings printed in the head).
- * Shown in Layout Manager > Appearance & Effects through the design-module registry
+ * Shown in Appearance > Look through the design-module registry
  * (design-modules.php).
  *
  * Options: monospace_scroll_focus (on/off), monospace_scroll_effect (slide | elastic),
@@ -29,7 +29,7 @@ add_filter( 'monospace_design_modules', function ( $modules ) {
     return $modules;
 } );
 
-/** Save the form (Layout Manager > Appearance & Effects) */
+/** Save the form (Appearance > Look) */
 function monospace_save_effects_settings() {
     $effect = in_array( $_POST['scroll_effect'] ?? '', [ 'slide', 'elastic' ], true ) ? $_POST['scroll_effect'] : 'off';
     update_option( 'monospace_scroll_focus', $effect === 'off' ? '0' : '1' );
@@ -219,7 +219,8 @@ add_action( 'wp_enqueue_scripts', function () {
     wp_enqueue_script( 'gsap-scrolltrigger', $uri . 'ScrollTrigger.min.js', [ 'gsap' ], '3.15.0', true );
     wp_enqueue_script( 'gsap-scrollsmoother', $uri . 'ScrollSmoother.min.js', [ 'gsap', 'gsap-scrolltrigger' ], '3.15.0', true );
     $file = '/assets/scripts/rubber-scroll.js';
-    wp_enqueue_script( 'monospace-rubber-scroll', get_template_directory_uri() . $file, [ 'gsap-scrollsmoother' ], filemtime( get_template_directory() . $file ), true );
+    // On the home page after home-anchors.js: it gives the scrolling a box's row to land on
+    wp_enqueue_script( 'monospace-rubber-scroll', get_template_directory_uri() . $file, array_merge( [ 'gsap-scrollsmoother' ], is_front_page() ? [ 'monospace-home-anchors' ] : [] ), filemtime( get_template_directory() . $file ), true );
     $e = monospace_elastic_settings();
     wp_add_inline_script( 'monospace-rubber-scroll', sprintf( 'window.monospaceRubber={smooth:%s,touch:%s,stagger:%s};', $e['smooth'], $e['touch'], $e['stagger'] ), 'before' );
 } );

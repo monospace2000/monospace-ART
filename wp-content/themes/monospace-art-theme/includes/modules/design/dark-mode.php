@@ -39,7 +39,7 @@ function monospace_dark_settings() {
 
 /** The look's parts that dark mode changes (the effects stay as they are) */
 function monospace_dark_modules() {
-    return [ 'home-box-style', 'caption-style', 'rounding', 'banner-style', 'shadows', 'secondary-buttons', 'logo-layout' ];
+    return [ 'home-box-style', 'caption-style', 'rounding', 'banner-style', 'shadows', 'secondary-buttons', 'tab-color', 'logo-layout' ];
 }
 
 /** The starting dark look - the dark factory default: the one kept in monospace_look_factory_dark if there is one, else the
@@ -159,6 +159,8 @@ function monospace_look_all_css() {
     if ( function_exists( 'monospace_shadows_vars' ) ) $css .= $root( monospace_shadows_vars() );
     if ( function_exists( 'monospace_logo_color_vars' ) ) $css .= $root( monospace_logo_color_vars() );
     if ( function_exists( 'monospace_secondary_buttons_vars' ) ) $css .= $root( monospace_secondary_buttons_vars() );
+    if ( function_exists( 'monospace_tab_color_vars' ) ) $css .= $root( monospace_tab_color_vars() );
+    if ( function_exists( 'monospace_dots_css' ) ) $css .= monospace_dots_css();
     if ( function_exists( 'monospace_caption_vars' ) ) {
         $cap = monospace_caption_vars();
         $css .= $root( $cap ) . ( isset( $cap['--cap-color'] ) ? 'figcaption a{color:var(--cap-color)}' : '' );

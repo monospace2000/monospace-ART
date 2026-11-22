@@ -6,7 +6,7 @@
  *
  * Stored in option monospace_home_layout:
  *   [ [ 'label' => 'Shop', 'boxes' => [ box, ... ] ], ... ]   (rows in order; label optional)
- *   box = [ 'title', 'badge' (small text before the title, e.g. "NEW!"), 'text', 'link',
+ *   box = [ 'title', 'badge' (small text before the title, e.g. "NEW!"), 'text', 'hover' (hover hint; empty = 'text'), 'link',
  *           'width' (1 narrow / 2 normal / 3 wide - flex share within the row),
  *           'image' => [ 'mode' => 'auto' | 'media' | 'file', 'id' (attachment), 'file' (theme path) ] ]
  * Image modes: media = a media library image; file = a theme image (assets/images/backgrounds/...,
@@ -71,24 +71,24 @@ function monospace_home_layout_default() {
     };
     return array_merge( monospace_home_top_row_default(), [
         [ 'label' => 'Shop', 'boxes' => [
-            $box( 'Available Originals', '/category/available/', 'Original paintings and drawings you can buy right now, newest first.', 'auto', 3 ),
-            $box( 'Prints', '/category/print/', 'Browse a curated selection of works available as print on demand.', 'ducks.webp', 2 ),
-            $box( 'Miniatures', '/category/format/miniature/', 'View a collection of small-scale landscape paintings created on 4×4 inch panels.', 'miniature.webp', 2 ),
+            $box( 'Available Originals', '/category/artworks/available/', 'Original paintings and drawings you can buy right now, newest first.', 'auto', 3 ),
+            $box( 'Prints', '/category/artworks/prints/', 'Browse a curated selection of works available as print on demand.', 'ducks.webp', 2 ),
+            $box( 'Miniatures', '/category/artworks/format/miniature/', 'View a collection of small-scale landscape paintings created on 4×4 inch panels.', 'miniature.webp', 2 ),
         ] ],
         [ 'label' => 'Work', 'boxes' => [
-            $box( 'Favorites', '/category/favorite/', 'A selection of my favorite pieces.' ),
-            $box( 'Paintings', '/category/format/painting/', 'Discover recent paintings in gouache, casein, and acrylic, presented in chronological order.', 'sunset.webp' ),
-            $box( 'Drawings', '/category/format/drawing/', 'Explore recent sketches and drawings, documented over time.', 'steps.webp' ),
+            $box( 'Favorites', '/category/artworks/collections/favorite/', 'A selection of my favorite pieces.' ),
+            $box( 'Paintings', '/category/artworks/format/painting/', 'Discover recent paintings in gouache, casein, and acrylic, presented in chronological order.', 'sunset.webp' ),
+            $box( 'Drawings', '/category/artworks/format/drawing/', 'Explore recent sketches and drawings, documented over time.', 'steps.webp' ),
             $box( 'The Art Feed', '/art-feed/', 'A live chronological feed of new artworks, studio updates, and blog posts.' ),
         ] ],
         [ 'label' => 'Commissions', 'boxes' => [
-            $box( 'Places', '/services/custom-work/', 'Commission a painting or drawing of a place that matters to you.', 'custom_paint.webp' ),
-            $box( 'Portraits', '/portraits/', 'Commission a painted portrait of someone who matters to you.' ),
+            $box( 'Places', '/services/commissions/places/', 'Commission a painting or drawing of a place that matters to you.', 'custom_paint.webp' ),
+            $box( 'Portraits', '/services/commissions/portraits/', 'Commission a painted portrait of someone who matters to you.' ),
             $box( 'Illustration', '/services/illustration/', 'Selected illustration projects spanning games, publications, and interactive media.', 'illustration.webp' ),
         ] ],
         [ 'label' => 'Events', 'boxes' => [
-            $box( 'Upcoming Markets', '/markets-and-events/schedule/', 'Find upcoming markets where you can see and buy my work in person.', 'jcfridays.webp' ),
-            $box( 'Exhibitions', '/markets-and-events/exhibitions/', 'Current and past exhibitions of my work, from local galleries to a solo museum show.' ),
+            $box( 'Upcoming Markets', '/events/markets/', 'Find upcoming markets where you can see and buy my work in person.', 'jcfridays.webp' ),
+            $box( 'Exhibitions', '/events/exhibitions/', 'Current and past exhibitions of my work, from local galleries to a solo museum show.' ),
         ] ],
         [ 'label' => 'About', 'boxes' => [
             $box( 'About Me', '/about/about-me/', 'Learn more about my background, practice, and artistic approach.', 'genexpanded.webp' ),
@@ -175,6 +175,7 @@ function monospace_home_layout_sanitize( $rows ) {
                 'title' => $title,
                 'badge' => sanitize_text_field( $b['badge'] ?? '' ),
                 'text'  => sanitize_textarea_field( $b['text'] ?? '' ),
+                'hover' => mb_substr( sanitize_text_field( $b['hover'] ?? '' ), 0, 200 ), // hover hint (title attribute); empty = the description
                 'link'  => esc_url_raw( $link ), // a site path ("/category/print/") stays relative
                 'width' => min( 3, max( 1, (int) ( $b['width'] ?? 2 ) ) ),
                 'image' => $image,
@@ -271,7 +272,9 @@ function monospace_home_newest_image( $query_args, $size = 'large' ) {
 function monospace_home_link_source( $link ) {
     $path = trim( (string) wp_parse_url( monospace_home_box_url( $link ), PHP_URL_PATH ), '/' );
 
-    if ( $path === 'category/available' && function_exists( 'monospace_available_post_ids' ) ) {
+    // Available Originals, wherever the category sits in the tree (/category/artworks/available/ since 2026-11-16: a category's address is its whole path)
+    $available = preg_quote( defined( 'MONOSPACE_AVAILABLE_SLUG' ) ? MONOSPACE_AVAILABLE_SLUG : 'available', '#' );
+    if ( preg_match( '#^category/(?:.*/)?' . $available . '$#', $path ) && function_exists( 'monospace_available_post_ids' ) ) {
         $ids = monospace_available_post_ids();
         return $ids ? [ 'args' => [ 'post__in' => $ids ] ] : [];
     }
@@ -280,7 +283,7 @@ function monospace_home_link_source( $link ) {
         return $term ? [ 'args' => [ 'tax_query' => [ [ 'taxonomy' => $term->taxonomy, 'terms' => $term->term_id ] ] ] ] : [];
     }
     if ( get_option( 'page_for_posts' ) && $path === trim( (string) wp_parse_url( get_permalink( get_option( 'page_for_posts' ) ), PHP_URL_PATH ), '/' ) ) {
-        return [ 'args' => [ 'tax_query' => [ [ 'taxonomy' => 'category', 'field' => 'slug', 'terms' => [ 'uncategorized', 'blog', 'miniature' ], 'operator' => 'NOT IN' ] ] ] ];
+        return [ 'args' => [ 'tax_query' => [ [ 'taxonomy' => 'category', 'field' => 'slug', 'terms' => [ 'uncategorized', 'blog' ], 'operator' => 'NOT IN' ] ] ] ];
     }
     if ( $path !== '' ) {
         $id = url_to_postid( home_url( '/' . $path . '/' ) );
@@ -291,8 +294,8 @@ function monospace_home_link_source( $link ) {
 
 /**
  * Automatic background: the newest artwork behind the box's link - Available Originals: the newest
- * piece for sale; a category or tag: its newest post; the Art Feed: the newest artwork (no blog posts
- * or miniatures, as before); any other page or post: its own image.
+ * piece for sale; a category or tag: its newest post; the Art Feed: the newest artwork (miniatures included
+ * since 2026-11-07; no blog posts); any other page or post: its own image.
  */
 function monospace_home_auto_image( $link, $size = 'large' ) {
     static $cache = [];
@@ -422,10 +425,29 @@ function monospace_home_box_look( $box ) {
     return function_exists( 'monospace_home_box_style_attrs' ) ? monospace_home_box_style_attrs( $box ) : [ 'class' => '', 'style' => '', 'data' => '' ];
 }
 
+/**
+ * The banner among the rows (2026-10-30, owner: "move the banner between any row of Boxes"): the number of rows printed before
+ * it (option monospace_home_top_pos); 0 = the top of the page under the logo, as before. Its #anchor: monospace_home_top_anchor.
+ */
+function monospace_home_banner_pos() {
+    return max( 0, (int) get_option( 'monospace_home_top_pos', 0 ) );
+}
+function monospace_home_banner_anchor() {
+    return sanitize_title( (string) get_option( 'monospace_home_top_anchor', '' ) );
+}
+
 /** The rows of boxes, as the home page prints them inside .container */
 function monospace_home_render_boxes() {
     $out = '';
     $rows = monospace_home_layout();
+    // The banner between rows: it follows the phone order like a row label does (--m-order), and is printed before row N
+    $banner_pos  = function_exists( 'monospace_render_top_content' ) ? monospace_home_banner_pos() : 0;
+    $banner_done = false;
+    $banner = function () use ( &$phone ) {
+        ob_start();
+        monospace_render_top_content( true, $phone( [] )['style'] );
+        return ob_get_clean();
+    };
     $anchors = monospace_home_anchors( $rows );
     // Phones: own order when any item has one (unordered items after them), hidden-on-phone class
     $custom = false;
@@ -442,6 +464,7 @@ function monospace_home_render_boxes() {
         ];
     };
     foreach ( $rows as $i => $row ) {
+        if ( $banner_pos > 0 && ! $banner_done && $i >= $banner_pos ) { $out .= "\n" . $banner() . "\n"; $banner_done = true; }
         // Each box's hide switches, with the row's desktop switch applied; hidden on both = not printed
         foreach ( $row['boxes'] as $j => $b ) {
             $row['boxes'][ $j ]['d_hide'] = ! empty( $b['d_hide'] ) || ! empty( $row['d_hide'] );
@@ -471,12 +494,15 @@ function monospace_home_render_boxes() {
             $look  = monospace_home_box_look( $box );
             $style = 'flex:' . (int) $box['width'] . ';' . monospace_home_box_bg_style( $box ) . $look['style'] . $box['_m']['style'];
             $title = ( $box['badge'] !== '' ? '<span class="box-badge">' . esc_html( $box['badge'] ) . '</span> ' : '' ) . esc_html( $box['title'] );
+            // Hover hint (2026-11-13): the box's own hover text, else its description (a browser tooltip)
+            $hint = trim( (string) ( $box['hover'] ?? '' ) ) !== '' ? trim( $box['hover'] ) : trim( (string) $box['text'] );
             $out .= sprintf(
-                '<a class="box link%s" id="%s" href="%s" style="%s"%s><div class="box-title">%s</div><div class="box-content bottom-align">%s</div></a>' . "\n",
-                $look['class'] . $box['_m']['class'], esc_attr( $box['_id'] ), esc_url( monospace_home_box_url( $box['link'] ) ), esc_attr( $style ), ( $look['data'] ?? '' ) . monospace_home_pool_attr( $box ), $title, nl2br( esc_html( $box['text'] ) )
+                '<a class="box link%s" id="%s" href="%s" style="%s"%s%s><div class="box-title">%s</div><div class="box-content bottom-align">%s</div></a>' . "\n",
+                $look['class'] . $box['_m']['class'], esc_attr( $box['_id'] ), esc_url( monospace_home_box_url( $box['link'] ) ), esc_attr( $style ), ( $look['data'] ?? '' ) . monospace_home_pool_attr( $box ), $hint !== '' ? ' title="' . esc_attr( $hint ) . '"' : '', $title, nl2br( esc_html( $box['text'] ) )
             );
         }
     }
+    if ( $banner_pos > 0 && ! $banner_done ) $out .= "\n" . $banner() . "\n"; // after the last row
     // Random pictures: each box with a pool takes one of them in the visitor's browser (right after the boxes, so before they paint);
     // the server's own pick stays for browsers without scripts
     if ( strpos( $out, 'data-bg-pool' ) !== false ) {

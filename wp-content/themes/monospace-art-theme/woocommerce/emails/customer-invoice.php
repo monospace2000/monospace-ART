@@ -19,6 +19,13 @@ $email_improvements_enabled = FeaturesUtil::feature_is_enabled( 'email_improveme
  */
 do_action( 'woocommerce_email_header', $email_heading, $email );
 
+// A commission's final payment: its own text, amounts and Pay button (Commissions plugin, commissions-emails.php)
+if ( function_exists( 'ms_commission_final_invoice_body' ) && ( $ms_final_body = ms_commission_final_invoice_body( $order ) ) ) {
+	echo $ms_final_body;
+	do_action( 'woocommerce_email_footer', $email );
+	return;
+}
+
 // -------------------------
 
 echo $email_improvements_enabled ? '<div class="email-introduction">' : '';

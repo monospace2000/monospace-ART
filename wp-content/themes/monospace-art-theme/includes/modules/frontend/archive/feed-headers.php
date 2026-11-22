@@ -148,7 +148,7 @@ function monospace_render_term_fields( $term ) {
 function monospace_save_term_fields( $term_id ) {
     // Save header fields
     if ( isset( $_POST['monospace_header_title'] ) ) {
-        update_term_meta( $term_id, '_monospace_header_title', sanitize_text_field( $_POST['monospace_header_title'] ) );
+        update_term_meta( $term_id, '_monospace_header_title', wp_slash( monospace_title_clean( $_POST['monospace_header_title'] ) ) );
     }
     if ( isset( $_POST['monospace_header_desc_desktop'] ) ) {
         update_term_meta( $term_id, '_monospace_header_desc_desktop', stripslashes( wp_kses_post( $_POST['monospace_header_desc_desktop'] ) ) );
@@ -187,14 +187,19 @@ function monospace_get_feed_header_description( $context = 'blog-feed', $term_id
         $mobile = get_term_meta( $term_id, '_monospace_header_desc_mobile', true );
         $mirror = get_term_meta( $term_id, '_monospace_mirror_desc', true );
         if ( $mirror === '' ) $mirror = '1'; // Default to mirroring
+        // Nothing of its own: the Site default's (layout-inherit.php)
+        if ( ! $desktop && ! $mobile ) return monospace_get_feed_header_description( 'site' );
     } else {
-        // Layout Manager settings
-        $prefix = 'monospace_' . str_replace( '-', '_', $context ) . '_';
+        // Layout Manager settings: the page type's own, or the Site default's
+        $prefix = monospace_layout_prefix( $context, 'header' );
         $desktop = get_option( $prefix . 'header_desc_desktop', '' );
         $mobile = get_option( $prefix . 'header_desc_mobile', '' );
         $mirror = get_option( $prefix . 'mirror_header', '' );
         if ( $mirror === '' ) $mirror = '1'; // Default to mirroring
     }
+
+    $desktop = monospace_line_breaks( $desktop );
+    $mobile  = monospace_line_breaks( $mobile );
 
     // If mirror is ON: only output desktop content
     if ( $mirror === '1' ) {
@@ -218,6 +223,8 @@ function monospace_get_category_sidebar_content( $term_id = null ) {
         // Check for category-specific sidebar
         $desktop = get_term_meta( $term_id, '_monospace_sidebar_desktop', true );
         $mobile = get_term_meta( $term_id, '_monospace_sidebar_mobile', true );
+        $desktop = monospace_line_breaks( $desktop );
+        $mobile  = monospace_line_breaks( $mobile );
         $mirror = get_term_meta( $term_id, '_monospace_mirror_sidebar', true );
         if ( $mirror === '' ) $mirror = '1'; // Default to mirroring
 
@@ -239,26 +246,8 @@ function monospace_get_category_sidebar_content( $term_id = null ) {
         }
     }
 
-    // Fall back to blog feed sidebar
-    $prefix = 'monospace_blog_feed_';
-    $desktop = get_option( $prefix . 'sidebar_desktop', '' );
-    $mobile = get_option( $prefix . 'sidebar_mobile', '' );
-    $mirror = get_option( $prefix . 'mirror_sidebar', '' );
-    if ( $mirror === '' ) $mirror = '1'; // Default to mirroring
-
-    if ( $mirror === '1' ) {
-        return do_shortcode( $desktop );
-    }
-
-    // Output both with CSS classes
-    $output = '';
-    if ( $desktop ) {
-        $output .= '<div class="content-desktop">' . do_shortcode( $desktop ) . '</div>';
-    }
-    if ( $mobile ) {
-        $output .= '<div class="content-mobile">' . do_shortcode( $mobile ) . '</div>';
-    }
-    return $output;
+    // No sidebar of its own: the Site default (categories have no page type of their own - layout-inherit.php)
+    return monospace_sidebar_from_options( 'monospace_site_' );
 }
 
 /* ============================================================
@@ -278,11 +267,15 @@ add_action( 'loop_start', function ( $query ) {
         $term = get_queried_object();
         if ( ! $term || ! in_array( $term->taxonomy, MONOSPACE_ARCHIVE_TAXONOMIES, true ) ) return;
 
-        $location = get_term_meta( $term->term_id, '_monospace_header_location', true ) ?: 'top';
+        $location = get_term_meta( $term->term_id, '_monospace_header_location', true ) ?: monospace_layout_option( 'categories', 'header', 'header_location', 'top' );
         if ( $location !== 'top' ) return;
 
         $title = get_term_meta( $term->term_id, '_monospace_header_title', true );
-        // Default titles based on taxonomy type
+        // The Site default's title ({name} = this category), else a title made from the kind of page
+        if ( ! $title ) {
+            $site_title = (string) monospace_layout_option( 'categories', 'header', 'header_title', '' );
+            if ( $site_title !== '' ) $title = str_replace( '{name}', $term->name, $site_title );
+        }
         if ( ! $title ) {
             if ( is_tag() || $term->taxonomy === 'post_tag' ) {
                 $title = 'Items tagged with: ' . $term->name;
@@ -294,32 +287,26 @@ add_action( 'loop_start', function ( $query ) {
 
         if ( ! $title && ! $desc ) return;
 
-        echo '<header class="feed-header">';
-        if ( $title ) { echo '<h1 class="feed-title">' . esc_html( $title ) . '</h1>'; $GLOBALS['monospace_feed_h1'] = true; }
-        if ( $desc ) echo '<div class="feed-description">' . wp_kses_post( $desc ) . '</div>';
-        echo '</header>';
+        monospace_feed_header_print( '', $title, $desc );
         return;
     }
 
     // Blog feed
     if ( is_home() ) {
-        $location = get_option( 'monospace_blog_feed_header_location', 'top' );
+        $location = monospace_layout_option( 'blog-feed', 'header', 'header_location', 'top' );
         if ( $location !== 'top' ) return;
 
-        $title = get_option( 'monospace_blog_feed_header_title', '' );
+        $title = monospace_layout_option( 'blog-feed', 'header', 'header_title', '' );
         $desc = monospace_get_feed_header_description( 'blog-feed' );
 
         if ( ! $title && ! $desc ) return;
 
-        echo '<header class="feed-header blog-feed-header">';
-        if ( $title ) { echo '<h1 class="feed-title">' . esc_html( $title ) . '</h1>'; $GLOBALS['monospace_feed_h1'] = true; }
-        if ( $desc ) echo '<div class="feed-description">' . wp_kses_post( $desc ) . '</div>';
-        echo '</header>';
+        monospace_feed_header_print( 'blog-feed-header', $title, $desc );
     }
 
     // Search results
     if ( is_search() ) {
-        $title = get_option( 'monospace_search_header_title', '' );
+        $title = monospace_layout_option( 'search', 'header', 'header_title', '' );
         $desc = monospace_get_feed_header_description( 'search' );
 
         // Replace {search_term} placeholder if present
@@ -333,11 +320,47 @@ add_action( 'loop_start', function ( $query ) {
         if ( ! $title && ! $desc ) return;
 
         echo '<header class="feed-header search-header">';
-        if ( $title ) { echo '<h1 class="feed-title">' . esc_html( $title ) . '</h1>'; $GLOBALS['monospace_feed_h1'] = true; }
+        if ( $title ) { echo '<h1 class="feed-title">' . monospace_title_html( $title ) . '</h1>'; $GLOBALS['monospace_feed_h1'] = true; do_action( 'monospace_feed_title_after', wp_strip_all_tags( str_replace( '\n', ' ', $title ) ) ); } // e.g. the share button (design/share-button.php)
         if ( $desc ) echo '<div class="feed-description">' . wp_kses_post( $desc ) . '</div>';
         echo '</header>';
     }
 }, 5 );
+
+// A visitor's folded / open choice carries over to every category page and the Art Feed, like the View settings (the same kind of browser memory):
+// a class on <html> set before the page paints, so a folded header never flashes open (assets/scripts/header-collapse.js keeps it)
+add_action( 'wp_head', function () {
+    if ( ! ( is_category() || is_tag() || is_tax() || is_home() ) ) return;
+    echo '<script>try{if(localStorage.getItem("monospace_header_folded")==="1")document.documentElement.classList.add("ms-header-folded")}catch(e){}</script>' . "\n";
+}, 1 );
+
+/**
+ * A page's header card: title (with the share button beside it), description. A header with a title and a description folds - the
+ * category / tag / place pages' and the Art Feed's (2026-10-23, owner): the title is the toggle (a chevron says so), the
+ * description folds away, the share / social icons beside the title stay, and the visitor's choice carries over (header-collapse.js).
+ * Without a title or without a description it stays as it is.
+ */
+function monospace_feed_header_print( $extra_class, $title, $desc ) {
+    $collapsible = $title && $desc;
+    if ( $collapsible ) wp_enqueue_script( 'ms-header-collapse', get_template_directory_uri() . '/assets/scripts/header-collapse.js', [], (string) filemtime( get_template_directory() . '/assets/scripts/header-collapse.js' ), true );
+
+    echo '<header class="' . esc_attr( trim( 'feed-header ' . $extra_class . ( $collapsible ? ' is-collapsible' : '' ) ) ) . '">';
+    if ( $title ) {
+        echo '<h1 class="feed-title">' . ( $collapsible ? monospace_feed_toggle_html( $title ) : monospace_title_html( $title ) ) . '</h1>';
+        $GLOBALS['monospace_feed_h1'] = true;
+        do_action( 'monospace_feed_title_after', wp_strip_all_tags( str_replace( '\n', ' ', $title ) ) ); // e.g. the share button (design/share-button.php)
+    }
+    if ( $desc ) {
+        $html = '<div class="feed-description">' . wp_kses_post( $desc ) . '</div>';
+        echo $collapsible ? '<div class="feed-description-wrap" id="feed-header-body">' . $html . '</div>' : $html;
+    }
+    echo '</header>';
+}
+
+/** A collapsible header's title: a link with role="button" (like the share icon - the site's button style leaves it alone) and a chevron */
+function monospace_feed_toggle_html( $title ) {
+    $chevron = '<svg class="feed-toggle-icon" viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4.25 6 7.75l3.5-3.5"/></svg>';
+    return '<a href="#" class="feed-toggle" role="button" aria-expanded="true" aria-controls="feed-header-body" title="Hide the description"><span class="feed-toggle-text">' . monospace_title_html( $title ) . '</span>' . $chevron . '</a>';
+}
 
 /* ============================================================
  * SHORTCODE [archive_header]
@@ -351,11 +374,15 @@ add_shortcode( 'archive_header', function() {
         $term = get_queried_object();
         if ( ! $term || ! in_array( $term->taxonomy, MONOSPACE_ARCHIVE_TAXONOMIES, true ) ) return '';
 
-        $location = get_term_meta( $term->term_id, '_monospace_header_location', true ) ?: 'top';
+        $location = get_term_meta( $term->term_id, '_monospace_header_location', true ) ?: monospace_layout_option( 'categories', 'header', 'header_location', 'top' );
         if ( $location !== 'sidebar' ) return '';
 
         $title = get_term_meta( $term->term_id, '_monospace_header_title', true );
-        // Default titles based on taxonomy type
+        // The Site default's title ({name} = this category), else a title made from the kind of page
+        if ( ! $title ) {
+            $site_title = (string) monospace_layout_option( 'categories', 'header', 'header_title', '' );
+            if ( $site_title !== '' ) $title = str_replace( '{name}', $term->name, $site_title );
+        }
         if ( ! $title ) {
             if ( is_tag() || $term->taxonomy === 'post_tag' ) {
                 $title = 'Items tagged with: ' . $term->name;
@@ -368,7 +395,7 @@ add_shortcode( 'archive_header', function() {
         if ( ! $title && ! $desc ) return '';
 
         $out = '<div class="feed-header">';
-        if ( $title ) $out .= '<h3 class="feed-title">' . esc_html( $title ) . '</h3>';
+        if ( $title ) $out .= '<h3 class="feed-title">' . monospace_title_html( $title ) . '</h3>';
         if ( $desc ) $out .= '<div class="feed-description">' . wp_kses_post( $desc ) . '</div>';
         $out .= '</div>';
         return $out;
@@ -376,16 +403,16 @@ add_shortcode( 'archive_header', function() {
 
     // Blog feed
     if ( is_home() ) {
-        $location = get_option( 'monospace_blog_feed_header_location', 'top' );
+        $location = monospace_layout_option( 'blog-feed', 'header', 'header_location', 'top' );
         if ( $location !== 'sidebar' ) return '';
 
-        $title = get_option( 'monospace_blog_feed_header_title', '' );
+        $title = monospace_layout_option( 'blog-feed', 'header', 'header_title', '' );
         $desc = monospace_get_feed_header_description( 'blog-feed' );
 
         if ( ! $title && ! $desc ) return '';
 
         $out = '<div class="feed-header blog-feed-header">';
-        if ( $title ) $out .= '<h3 class="feed-title">' . esc_html( $title ) . '</h3>';
+        if ( $title ) $out .= '<h3 class="feed-title">' . monospace_title_html( $title ) . '</h3>';
         if ( $desc ) $out .= '<div class="feed-description">' . wp_kses_post( $desc ) . '</div>';
         $out .= '</div>';
         return $out;

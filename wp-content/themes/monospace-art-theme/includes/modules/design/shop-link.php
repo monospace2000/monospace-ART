@@ -4,8 +4,8 @@
  *
  * The empty cart's "Return to shop" button (WooCommerce's cart-empty template): where it goes and
  * its text. Default: the Art Feed (/art-feed/ - what _misc-woocommerce-tweaks.php hard-coded before)
- * and WooCommerce's own wording. A site path ("/category/available/") or a full URL.
- * Shown in Layout Manager > Appearance & Effects through the design-module registry.
+ * and WooCommerce's own wording. A site path ("/category/artworks/available/") or a full URL.
+ * Shown in Layout Manager > Links & toolbar through the design-module registry.
  *
  * Options: monospace_shop_link, monospace_shop_link_text ('' = WooCommerce's "Return to shop").
  *

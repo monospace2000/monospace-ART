@@ -15,8 +15,12 @@
         // Render title ONLY on pages (unless hidden via meta)
         if (is_page() || is_product()) :
             if (!monospace_should_hide_title()) :
+                // A page's sharing icons sit on the title's row, on the right (design/share-button.php, Look > Sharing icons)
+                $share_icons = is_page() && function_exists('monospace_share_page_html') ? monospace_share_page_html() : '';
         ?>
+            <?php if ($share_icons) : ?><div class="entry-title-row"><?php endif; ?>
             <h1 class="entry-title"><?php the_title(); ?></h1>
+            <?php if ($share_icons) : echo $share_icons; ?></div><?php endif; ?>
         <?php
             // Title hidden: the page's own heading block is its <h1> - if it has none, a hidden one
             elseif (stripos(get_post_field('post_content', get_queried_object_id()), '<h1') === false) :

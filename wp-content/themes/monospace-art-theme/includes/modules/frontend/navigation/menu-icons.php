@@ -48,6 +48,7 @@ add_filter( 'nav_menu_link_attributes', function ( $atts, $item ) {
     $icon = monospace_menu_item_icon( $item );
     if ( ! $icon ) return $atts;
     $atts['class'] = trim( ( $atts['class'] ?? '' ) . ' ms-menu-icon' . ( $icon[1] ? ' ms-menu-icon-own' : '' ) );
+    if ( empty( $atts['title'] ) && trim( (string) $item->title ) !== '' ) $atts['title'] = wp_strip_all_tags( $item->title ); // tooltip for icon items (2026-11-13)
     $atts['style'] = trim( ( $atts['style'] ?? '' ) . " --ms-icon: url('" . esc_url( $icon[0] ) . "');" );
     return $atts;
 }, 10, 2 );
