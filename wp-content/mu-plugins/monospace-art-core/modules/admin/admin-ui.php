@@ -61,7 +61,7 @@ function monospace_lm_area_assets() {
         .lm-panel[open] > summary::before { content: "▾"; }
         .lm-panel[open] > summary { border-bottom: 1px solid #f0f0f1; }
         .lm-t { font-size: 14px; font-weight: 600; }
-        .lm-sub { flex-basis: 100%; padding-left: 20px; color: #646970; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lm-sub { flex-basis: 100%; padding-left: 20px; color: #646970; white-space: normal; }  /* wraps - the one-line summary was cut off with "..." (owner, 2026-11-15) */
         .lm-chip { font-size: 11px; padding: 1px 8px; border-radius: 10px; background: #f0f0f1; color: #50575e; }
         .lm-chip.is-on { background: #e7f0fa; color: #135e96; }
         .lm-chip.is-terms { background: #f0f6ee; color: #2e6b26; }

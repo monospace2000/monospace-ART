@@ -186,6 +186,10 @@ add_filter('woocommerce_cart_item_quantity', function($product_quantity, $cart_i
 }, 20, 3);
 
 
+// Sales tax is one New Jersey rate in WooCommerce > Settings > Tax (since 2026-11-18, replacing Stripe Tax).
+// Prices include it; a buyer outside NJ pays the same listed price with no tax taken off (as before).
+add_filter( 'woocommerce_adjust_non_base_location_prices', '__return_false' );
+
 // Remove related products from single product pages
 remove_action( 'woocommerce_after_single_product_summary', 'woocommerce_output_related_products', 20 );
 
@@ -216,7 +220,7 @@ add_shortcode( 'product_price', 'ms_product_price_shortcode' );
 
 
 
-// The empty cart's "Return to shop" link and text: Layout Manager > Appearance & Effects > Shop link
+// The empty cart's "Return to shop" link and text: Layout Manager > Links & toolbar > Shop link
 // (design/shop-link.php)
 
 

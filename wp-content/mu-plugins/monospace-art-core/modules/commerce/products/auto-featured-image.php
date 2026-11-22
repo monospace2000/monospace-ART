@@ -33,30 +33,47 @@ function auto_set_featured_image_from_content( $post_id, $post, $update ) {
 	if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 		return;
 	}
-	
+
 	// Bail if this is a revision
 	if ( wp_is_post_revision( $post_id ) ) {
 		return;
 	}
-	
-	// Bail if post already has a featured image
-	if ( has_post_thumbnail( $post_id ) ) {
+
+	monospace_ensure_featured_image( $post_id );
+}
+
+// The block editor saves in two steps: the post (save_post, above), then its featured image - and with none chosen it sends
+// 0, which removes the image just set (2026-10-28: artwork 722 had neither a post nor a product image). This runs after
+// that step (REST) and keeps the artwork's product in step with the post.
+add_action( 'rest_after_insert_post', function ( $post ) {
+	if ( $post->post_type === 'post' && ! wp_is_post_revision( $post->ID ) ) monospace_ensure_featured_image( $post->ID );
+}, 20 );
+
+/**
+ * The post gets its first content image as featured image when it has none; its product (Quick Artwork Editor's link,
+ * _qp_product_id) then gets the post's image. Nothing changes when both already have one.
+ */
+function monospace_ensure_featured_image( $post_id ) {
+	$post = get_post( $post_id );
+	if ( ! $post || $post->post_type !== 'post' || in_array( $post->post_status, [ 'auto-draft', 'trash' ], true ) ) {
 		return;
 	}
-	
-	// Get the post content
-	$content = $post->post_content;
-	
-	if ( empty( $content ) ) {
-		return;
+
+	if ( ! has_post_thumbnail( $post_id ) && $post->post_content !== '' ) {
+		$image_id = extract_first_image_id_from_content( $post->post_content );
+		if ( $image_id ) {
+			set_post_thumbnail( $post_id, $image_id );
+		}
 	}
-	
-	// Try to find an image ID in various formats
-	$image_id = extract_first_image_id_from_content( $content );
-	
-	if ( $image_id ) {
-		// Set as featured image
-		set_post_thumbnail( $post_id, $image_id );
+
+	$thumb_id   = (int) get_post_thumbnail_id( $post_id );
+	$product_id = (int) get_post_meta( $post_id, '_qp_product_id', true );
+	if ( $thumb_id && $product_id && function_exists( 'wc_get_product' ) ) {
+		$product = wc_get_product( $product_id );
+		if ( $product && ! $product->get_image_id() ) {
+			$product->set_image_id( $thumb_id );
+			$product->save();
+		}
 	}
 }
 

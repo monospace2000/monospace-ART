@@ -26,6 +26,10 @@ function monospace_post_is_portrait( $post_id ) {
     if ( ! $post_id ) return false;
     if ( isset( $cache[ $post_id ] ) ) return $cache[ $post_id ];
 
+    // A feature whose posts have no original (e.g. the Sightings prints' stand-in posts) can answer: true / false, null = not its post
+    $answer = apply_filters( 'monospace_post_is_portrait', null, $post_id );
+    if ( is_bool( $answer ) ) return $cache[ $post_id ] = $answer;
+
     $portrait   = false;
     $product_id = function_exists( 'monospace_get_post_product_id' ) ? monospace_get_post_product_id( $post_id ) : (int) get_post_meta( $post_id, '_qp_product_id', true );
     $names      = $product_id ? wp_get_object_terms( $product_id, 'pa_size', [ 'fields' => 'names' ] ) : [];

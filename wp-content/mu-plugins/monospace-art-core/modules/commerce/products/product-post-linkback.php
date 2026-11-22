@@ -64,9 +64,8 @@ add_action( 'woocommerce_after_single_product_summary', function() {
         if ( $url && $title ) {
             echo '<div class="related-blog-link" '.$styles.'>';
             echo '<a href="' . esc_url( $url ) . '" class="button related-blog-button">';
-            echo 'Read more about "' . esc_html( $title ) . '"';
-            //echo 'Back to ' . esc_html( $title );
-            //echo 'More about this item';
+            // 2026-11-16 (owner): the button is only seen on commission order pages (product pages are otherwise redirected), where it is the way back
+            echo 'Back';
             echo '</a>';
             echo '</div>';
         }

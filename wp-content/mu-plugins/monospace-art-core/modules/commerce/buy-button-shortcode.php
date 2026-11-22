@@ -45,10 +45,9 @@
  */
 
 function monospace_is_editor_context() {
-    if ( is_admin() ) return true;
-    if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) return true;
-    if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) return true;
-    return false;
+    $editor = is_admin() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() );
+    // A feature that draws real cards in an ajax answer (the Art Filter's price card view, 2026-10-21) turns it off
+    return (bool) apply_filters( 'monospace_is_editor_context', $editor );
 }
 
 /**
@@ -98,16 +97,17 @@ function monospace_get_post_product_id( $post_id = null ) {
  * [price_card] - attributes (2026-10-19, all optional):
  *   style="full | compact | line | badge"   a preset (price-card-presets.php); default: the artwork's own
  *                                           (Quick Artwork Editor / Artwork Editor), else Layout Manager >
- *                                           Appearance & Effects > Price card (artwork pages / phones)
+ *                                           Appearance > Price card (artwork pages / phones)
  *   sku="444"                               another artwork's card, by its SKU's number (or the whole SKU)
  *   post="123"                              another artwork's card, by its post ID
  *   tab="original | prints | framed | unframed"  the tab it opens on (prints = the first print it has); default:
  *                                           Layout Manager > Price card > Opens on
+ *   align="left | center | right"           the Badge's place on its row; default: Look > Price card > Badge position
  *   id="123"                                legacy: a product ID
  */
 function monospace_custom_add_to_cart_shortcode( $atts ) {
 
-    $atts = shortcode_atts( array( 'id' => null, 'style' => '', 'sku' => '', 'post' => '', 'tab' => '' ), $atts );
+    $atts = shortcode_atts( array( 'id' => null, 'style' => '', 'sku' => '', 'post' => '', 'tab' => '', 'align' => '' ), $atts );
 
     // Which artwork: sku="" / post="", else the post the shortcode is in
     $post_id = function_exists( 'monospace_price_card_target' ) ? monospace_price_card_target( (string) $atts['sku'], (string) $atts['post'] ) : (int) get_the_ID();
@@ -131,6 +131,7 @@ function monospace_custom_add_to_cart_shortcode( $atts ) {
         $card = monospace_price_card_build( $product_id );
         if ( ! $card ) return '';
         $card['tab'] = function_exists( 'monospace_price_card_tab_setting' ) ? monospace_price_card_tab_setting( (string) $atts['tab'] ) : '';
+        $card['badge_align'] = sanitize_key( (string) $atts['align'] ); // the Badge's place on its row (left | center | right)
         return function_exists( 'monospace_render_price_card_styles' )
             ? monospace_render_price_card_styles( $card, monospace_price_card_styles( (string) $atts['style'], (int) get_the_ID() ) )
             : monospace_render_painting_card( monospace_render_card_slots( ...$card['parts'] ), $card['status_class'], $card['status_slug'] );
@@ -466,6 +467,18 @@ function monospace_card_offer_message( $tab, $product, $post_id, $context = [] )
         }
         if ( $row['type'] === 'qr_note' && empty( $context['qr_only'] ) ) continue;
 
+        // Items 16 x 20 in. or bigger, while they can be bought; the costs come from the shipping zones, never typed
+        if ( $row['type'] === 'oversized' ) {
+            $buyable = array_key_exists( 'purchasable', $context ) ? (bool) $context['purchasable'] : ( $product && $product->is_purchasable() && $product->is_in_stock() );
+            if ( ! $buyable || ! $product || ! function_exists( 'monospace_is_large_size' ) || ! monospace_is_large_size( $product->get_id() ) ) continue;
+            $text = $row['text'];
+            if ( strpos( $text, '{shipping}' ) !== false ) $text = str_replace( '{shipping}', monospace_card_shipping_sentence( $product ), $text );
+            foreach ( [ 'na' => '{shipping_na}', 'world' => '{shipping_world}' ] as $where => $placeholder ) {
+                if ( strpos( $text, $placeholder ) !== false ) $text = str_replace( $placeholder, monospace_card_shipping_cost( $product, $where ), $text );
+            }
+            return monospace_render_card_message( $text, $row['style'] );
+        }
+
         return monospace_render_card_message( str_replace( '{gallery}', $gallery(), $row['text'] ), $row['style'] );
     }
     return '';
@@ -476,8 +489,10 @@ function monospace_card_offer_message( $tab, $product, $post_id, $context = [] )
  */
 function monospace_render_card_message( $text, $style = 'green', $sub = '' ) {
     $style = in_array( $style, [ 'green', 'red', 'blue', 'gray' ], true ) ? $style : 'green';
-    return '<div class="card-message card-message--' . $style . '">' . esc_html( $text )
-         . ( $sub !== '' ? '<span class="card-message-sub">' . esc_html( $sub ) . '</span>' : '' )
+    // A typed \n (backslash + n) or a real line break is a new line (owner, 2026-11-01)
+    $line_breaks = fn( $s ) => preg_replace( '/\\\\n|\R/', '<br>', esc_html( $s ) );
+    return '<div class="card-message card-message--' . $style . '">' . $line_breaks( $text )
+         . ( $sub !== '' ? '<span class="card-message-sub">' . $line_breaks( $sub ) . '</span>' : '' )
          . '</div>';
 }
 
@@ -538,6 +553,11 @@ function monospace_get_volume_discount_hint( $product, $product_id, $status ) {
  * Check if product matches a volume discount rule key
  */
 function monospace_product_matches_volume_rule( $product_id, $rule_key ) {
+
+    // The one group test (artwork-categories.php, 2026-11-14): "miniature" = a single miniature by its SKU
+    if ( function_exists( 'monospace_product_in_group' ) ) {
+        return monospace_product_in_group( $product_id, $rule_key );
+    }
 
     // Check if it's a product category
     if (has_term($rule_key, 'product_cat', $product_id)) {
@@ -668,15 +688,22 @@ function monospace_render_product_attributes( $product, $product_id ) {
     $render_attr = function( $attribute, $product_id ) {
         $label = wc_attribute_label( $attribute->get_name() );
 
+        $mini = '';
         if ( $attribute->is_taxonomy() ) {
             $terms = wp_get_post_terms( $product_id, $attribute->get_name(), array( 'fields' => 'names' ) );
             $value = implode( ', ', $terms );
+            // A 4x4 size gets the same small "Miniature" pill as the info lines
+            if ( $attribute->get_name() === 'pa_size' && defined( 'MONOSPACE_MINIATURE_SIZES' ) ) {
+                $slugs = wp_get_post_terms( $product_id, 'pa_size', array( 'fields' => 'slugs' ) );
+                if ( ! is_wp_error( $slugs ) && array_intersect( $slugs, MONOSPACE_MINIATURE_SIZES ) ) $mini = '&nbsp;<span class="ms-info-mini">Miniature</span>';
+                if ( function_exists( 'monospace_is_large_size' ) && monospace_is_large_size( $product_id ) ) $mini .= '&nbsp;<span class="ms-info-mini ms-info-large">Oversized Item</span>';
+            }
         } else {
             $value = $attribute->get_options() ? implode( ', ', $attribute->get_options() ) : '';
         }
 
         return $value
-            ? '<div class="painting-attr"><b>' . esc_html( $label ) . '</b><span class="pa-sep">: </span>' . esc_html( $value ) . '</div>'
+            ? '<div class="painting-attr"><b>' . esc_html( $label ) . '</b><span class="pa-sep">: </span>' . esc_html( $value ) . $mini . '</div>'
             : '';
     };
 
@@ -715,7 +742,7 @@ function monospace_render_buy_button( $product, $status, $gallery_url, $gallery_
 
     $label = function ( $slug, $text, $url = '' ) {
         return $url
-            ? '<a class="status-label status-' . $slug . '" href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . $text . ' ↗</a>'
+            ? '<a class="status-label status-' . $slug . '" href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . $text . ' <span class="ms-ext-arrow" aria-hidden="true"></span></a>'
             : '<span class="status-label status-' . $slug . '">' . $text . '</span>';
     };
 

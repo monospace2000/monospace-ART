@@ -17,16 +17,21 @@
  * Code elsewhere that reads a feature's data (print links, Sales Dashboard options) checks monospace_feature().
  *
  * Paths are site paths (no domain); a path covers everything below it. Filter: monospace_feature_switch_map.
+ * The pages' paths are read from their page roles (frontend/page-roles.php) and the Prints category from the category tree, so
+ * moving a page into another folder (2026-11-16) does not leave the switch watching an old address. List exact pages: a folder
+ * path (/services/commissions/) would also cover My Account.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 function monospace_feature_switch_map() {
+    // The paths of the pages with these roles (none while a page is missing) and of the Prints category
+    $roles = fn( ...$roles ) => array_values( array_filter( array_map( 'monospace_role_path', $roles ) ) );
     return apply_filters( 'monospace_feature_switch_map', [
-        'prints'      => [ 'paths' => [ '/category/print/' ], 'product_cats' => [ 'print' ], 'shortcodes' => [ 'print_order_button' ] ],
-        'commissions' => [ 'paths' => [ '/services/custom-work/' ], 'product_cats' => [ 'custom-order' ] ],
+        'prints'      => [ 'paths' => array_filter( [ monospace_term_path( 'prints' ) ] ), 'product_cats' => [ 'print' ] ],
+        'commissions' => [ 'paths' => $roles( 'custom-artwork', 'estimator', 'commission-policies', 'commission-how-it-works', 'commission-faq' ), 'product_cats' => [ 'custom-order' ], 'shortcodes' => [ 'custom_order_card', 'commission_price_guide', 'price_estimator', 'commission_policies' ] ],
         'art-filter'  => [ 'paths' => [ '/art-filter/' ], 'shortcodes' => [ 'monospace_art_filter' ] ],
-        'terminal'    => [ 'paths' => [ '/inventory/' ], 'shortcodes' => [ 'market_inventory_terminal' ] ],
+        'terminal'    => [ 'paths' => $roles( 'inventory', 'terminal' ), 'shortcodes' => [ 'market_inventory_terminal', 'market_terminal' ] ],
     ] );
 }
 

@@ -1,7 +1,7 @@
 <?php
 /**
  * WooCommerce → Blog Post Redirects
- * Redirects product pages to their related blog post, with exceptions for custom-order products.
+ * Redirects product pages to their related Art Post - always, for everyone but an administrator - with an exception for custom-order products.
  */
 
 /* ============================================================
@@ -48,85 +48,57 @@ function monospace_wc_is_exempt_product( $product_id ) {
 }
 
 /* ============================================================
- * 1. Redirect product page visits from cart/checkout only
+ * 1. A product page is never shown to a visitor: it goes to its Art Post (2026-10-23, owner's rule)
  * ============================================================ */
 
+/**
+ * The rule: no product page is directly accessible - except a custom art order's (custom-artwork-*) and an administrator's
+ * (to view, preview or edit a product). Everyone else - visitors, search engines, the Meta catalog's links - is sent (301) to
+ * the product's Art Post (_related_post_id; a print's too); with no published post, to the home page (302).
+ * The query string goes along - Meta's fbclid and the utm_* tags keep their click attribution - except WooCommerce's own
+ * add-to-cart (it has already run; the post page would add it again).
+ * (Until 2026-10-23 this only redirected a visitor coming from the cart or checkout, and exempted "search results" through a
+ * constant nothing defined - a direct visit got the product page.)
+ */
 add_action( 'template_redirect', function () {
 
     if ( ! is_singular( 'product' ) ) {
         return;
     }
 
-    // Skip redirect if coming from search results
-    if ( defined('MONOSPACE_FROM_SEARCH') && MONOSPACE_FROM_SEARCH ) {
-        return;
-    }
-
     $product_id = get_queried_object_id();
 
-    // Skip if product is exempt
-    if ( monospace_wc_is_exempt_product( $product_id ) ) {
-        return;
-    }
-
-    // Check if visitor is coming from cart or checkout
-    $referer = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
-    $is_from_cart = false;
-
-    if ( $referer && function_exists('wc_get_cart_url') && function_exists('wc_get_checkout_url') ) {
-        $cart_url = wc_get_cart_url();
-        $checkout_url = wc_get_checkout_url();
-
-        // Check if referer contains cart or checkout URL
-        if ( strpos( $referer, $cart_url ) !== false || strpos( $referer, $checkout_url ) !== false ) {
-            $is_from_cart = true;
-        }
-    }
-
-    // Only redirect if coming from cart/checkout; allow direct access otherwise
-    if ( ! $is_from_cart ) {
+    // Custom art orders (custom-artwork-*) stay as product pages; so do they for an administrator
+    if ( monospace_wc_is_exempt_product( $product_id ) || current_user_can( 'manage_options' ) ) {
         return;
     }
 
     $related_post_id = (int) get_post_meta( $product_id, '_related_post_id', true );
+    $published       = $related_post_id && get_post_status( $related_post_id ) === 'publish';
+    $to              = $published ? get_permalink( $related_post_id ) : home_url( '/' );
 
-    // Skip if no related post or unpublished
-    if ( ! $related_post_id || get_post_status( $related_post_id ) !== 'publish' ) {
-        return;
+    $query = (string) wp_parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_QUERY );
+    if ( $query !== '' ) {
+        parse_str( $query, $args );
+        unset( $args['add-to-cart'] );
+        if ( $args ) $to = add_query_arg( urlencode_deep( $args ), $to );
     }
 
-    // Prevent redirect loop if visiting the related post itself
-    if ( $related_post_id === get_queried_object_id() ) {
-        return;
-    }
-
-    wp_safe_redirect( get_permalink( $related_post_id ), 301 );
+    wp_safe_redirect( $to, $published ? 301 : 302, 'monospace ART product page' );
     exit;
 
 }, 1 );
 
-/* ============================================================
- * 2. Rewrite product permalinks
- * ============================================================ */
-
-add_filter( 'woocommerce_product_get_permalink', function ( $permalink, $product ) {
-
-    // Skip exempt products
-    if ( monospace_wc_is_exempt_product( $product->get_id() ) ) {
-        return $permalink;
-    }
-
-    $related_post_id = (int) get_post_meta( $product->get_id(), '_related_post_id', true );
-
-    if ( $related_post_id && get_post_status( $related_post_id ) === 'publish' ) {
-        return get_permalink( $related_post_id );
-    }
-
-    return $permalink;
-
+// Product pages don't belong in the sitemap (Jetpack's) - custom art orders' do, they stay open
+add_filter( 'jetpack_sitemap_skip_post', function ( $skip, $post ) {
+    if ( $skip || ! is_object( $post ) || ( $post->post_type ?? '' ) !== 'product' ) return $skip;
+    return ! monospace_wc_is_exempt_product( $post->ID );
 }, 10, 2 );
 
 /* ============================================================
+ * 2. (A 'woocommerce_product_get_permalink' filter stood here until 2026-11-18. WooCommerce never applies that filter -
+ *    products get their link from WordPress' get_permalink() - so it never did anything. The places a customer sees a
+ *    product link are handled one by one below; site search shows only Art Posts.)
  * 3. Cart & checkout links
  * ============================================================ */
 
@@ -136,6 +108,27 @@ add_filter( 'woocommerce_cart_item_permalink', function ( $permalink, $cart_item
     if ( ! $product_id ) return $permalink;
 
     if ( monospace_wc_is_exempt_product( $product_id ) ) {
+        return $permalink;
+    }
+
+    $related_post_id = (int) get_post_meta( $product_id, '_related_post_id', true );
+
+    if ( $related_post_id && get_post_status( $related_post_id ) === 'publish' ) {
+        return get_permalink( $related_post_id );
+    }
+
+    return $permalink;
+
+}, 10, 3 );
+
+/* ============================================================
+ * 4. Order links (order received, My Account > View order, order emails)
+ * ============================================================ */
+
+add_filter( 'woocommerce_order_item_permalink', function ( $permalink, $item, $order ) {
+
+    $product_id = is_callable( [ $item, 'get_product_id' ] ) ? (int) $item->get_product_id() : 0;
+    if ( ! $product_id || $permalink === '' || monospace_wc_is_exempt_product( $product_id ) ) {
         return $permalink;
     }
 

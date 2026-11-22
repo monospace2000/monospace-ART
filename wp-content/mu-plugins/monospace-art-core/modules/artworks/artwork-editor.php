@@ -28,7 +28,7 @@
  * and the shop price - what a customer pays, with the dashboard's rules applied. That price only exists
  * outside the admin screen (MSD_Price_Adjustments skips is_admin() unless DOING_AJAX), so the rows load by
  * AJAX (monospace_artwork_editor_rows). A line above the table shows the dashboard's global settings,
- * linked to its sections (WooCommerce > Settings > Sales Dashboard, tab msd).
+ * linked to its sections (the Sales menu, Sales Dashboard).
  *
  * Prints (2026-10-19): Show prints / Hide prints right in the row (the main print control - owner's
  * wish: more important than print-job progress, which the Prints screens show in full); the F/U chips open
@@ -58,6 +58,10 @@
  * "artworks": [ { "product_id", "post_id", "sku" } ] } - which artworks, nothing about them. Loading also accepts
  * Artwork Sheets' "Export JSON" files (an array of rows: their wc_product_id / wp_post_id both hold the product
  * ID) and reads only the IDs from them.
+ *
+ * Hide artwork / Show artwork (2026-11-12, artwork-hide.php): a link in the row's last cell and the bulk "Artwork…" menu take
+ * the Art Post, the product and the prints off the site (Drafts) or put them back, at once. Filter "Not on the site"; a Draft
+ * whose product is still on sale is listed under Needs attention.
  *
  * AJAX: monospace_artwork_editor_rows (all rows), monospace_artwork_editor_save (rows: post_id => changes),
  * which returns the fresh rows.
@@ -144,6 +148,8 @@ function monospace_artwork_editor_rows( $post_ids = null ) {
             'post_id'      => $post->ID,
             'product_id'   => $pid,
             'status'       => $post->post_status,
+            'product_status' => (string) get_post_status( $pid ),
+            'hidden'       => monospace_artwork_is_hidden( $post->ID ) ? '1' : '',
             'date'         => get_the_date( 'Y-m-d', $post ),
             'title'        => html_entity_decode( get_the_title( $pid ), ENT_QUOTES, 'UTF-8' ),
             'post_title'   => html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' ),
@@ -177,8 +183,10 @@ function monospace_artwork_editor_prints_state( $post_id ) {
     return [
         'unframed' => (int) get_post_meta( $post_id, '_print_product_id', true ),
         'framed'   => (int) get_post_meta( $post_id, '_framed_print_product_id', true ),
+        'postcard' => (int) get_post_meta( $post_id, '_postcard_product_id', true ),
         'hidden'   => [ 'framed' => function_exists( 'monospace_prints_is_hidden' ) && monospace_prints_is_hidden( $post_id, 'framed' ),
-                        'unframed' => function_exists( 'monospace_prints_is_hidden' ) && monospace_prints_is_hidden( $post_id, 'unframed' ) ],
+                        'unframed' => function_exists( 'monospace_prints_is_hidden' ) && monospace_prints_is_hidden( $post_id, 'unframed' ),
+                        'postcard' => function_exists( 'monospace_prints_is_hidden' ) && monospace_prints_is_hidden( $post_id, 'postcard' ) ],
         'job'      => $job ? [ 'state' => $job['state'], 'text' => $job['text'] ] : null,
     ];
 }
@@ -207,7 +215,7 @@ function monospace_artwork_editor_shop_price( $pid ) {
 /** The Sales Dashboard's global settings, in a few words, and where to change them */
 function monospace_artwork_editor_sales_summary() {
     if ( ! class_exists( 'MSD_Price_Adjustments' ) ) return null;
-    $url = fn( $section ) => admin_url( 'admin.php?page=wc-settings&tab=msd&section=' . $section );
+    $url = fn( $section ) => MSD_Settings::url( $section );
     $on  = get_option( 'msd_global_enable' ) === 'yes';
     $pct = (float) get_option( 'msd_price_adj_percentage', 25 );
     $adj = $on && get_option( 'msd_price_adj_enable' ) === 'yes' && $pct != 0;
@@ -269,6 +277,7 @@ function monospace_artwork_editor_save_row( $post_id, array $changes ) {
         'gallery_url'             => (string) get_post_meta( $pid, 'painting_gallery_url', true ),
         'print_product_id'        => (int) get_post_meta( $post_id, '_print_product_id', true ),
         'framed_print_product_id' => (int) get_post_meta( $post_id, '_framed_print_product_id', true ),
+        'postcard_product_id'     => (int) get_post_meta( $post_id, '_postcard_product_id', true ),
     ];
     if ( is_wp_error( $data['categories'] ) || ! $data['categories'] ) {
         $original = get_term_by( 'name', 'Original', 'product_cat' );
@@ -405,10 +414,10 @@ add_action( 'wp_ajax_monospace_artwork_editor_prints', function () {
     if ( ! monospace_feature( 'prints' ) ) wp_send_json_error( 'The Prints plugin is off.' );
     if ( ! current_user_can( 'edit_products' ) ) wp_send_json_error( 'Not allowed.' );
     $op    = sanitize_key( $_POST['op'] ?? '' );
-    $types = array_values( array_intersect( (array) ( $_POST['types'] ?? [] ), [ 'framed', 'unframed' ] ) );
+    $types = array_values( array_intersect( (array) ( $_POST['types'] ?? [] ), [ 'framed', 'unframed', 'postcard' ] ) );
     $ids   = array_slice( array_map( 'absint', (array) ( $_POST['post_ids'] ?? [] ) ), 0, 10 );
     if ( ! in_array( $op, [ 'hide', 'show', 'add', 'remove' ], true ) || ! $ids ) wp_send_json_error( 'Nothing to do.' );
-    if ( in_array( $op, [ 'add', 'remove' ], true ) && ! $types ) wp_send_json_error( 'Choose framed and / or unframed.' );
+    if ( in_array( $op, [ 'add', 'remove' ], true ) && ! $types ) wp_send_json_error( 'Choose which print: framed, unframed and / or postcard.' );
     $done = $errors = [];
     foreach ( $ids as $post_id ) {
         try {
@@ -424,7 +433,9 @@ add_action( 'wp_ajax_monospace_artwork_editor_prints', function () {
                         if ( ! in_array( $type, $types, true ) || get_post_meta( $post_id, $tpl['meta_key'], true ) ) continue;
                         $request[ $type ] = [ 'variants' => array_map( fn( $v ) => $v['price'], $tpl['variants'] ) ];
                     }
-                    if ( count( $request ) === 1 ) throw new Exception( 'It already has ' . ( count( $types ) > 1 ? 'both prints' : 'that print' ) . '.' );
+                    if ( count( $request ) === 1 ) throw new Exception( 'It already has ' . ( count( $types ) > 1 ? 'those prints' : 'that print' ) . '.' );
+                    // Every print it has is hidden: the new one starts hidden too (Show prints puts it on sale)
+                    if ( function_exists( 'monospace_prints_is_hidden' ) && monospace_prints_linked( $post_id ) && monospace_prints_is_hidden( $post_id ) ) $request['hidden'] = true;
                     monospace_prints_queue( $post_id, $request );
                     break;
                 case 'remove':
@@ -487,6 +498,7 @@ function monospace_artwork_editor_page() {
     <div class="wrap<?php foreach ( [ 'prints', 'sales', 'sheets' ] as $f ) if ( ! monospace_feature( $f ) ) echo ' ae-no-' . $f; ?>" id="ae">
         <h1 class="wp-heading-inline">Artwork Editor</h1>
         <a href="<?php echo esc_url( admin_url( 'admin.php?page=monospace-artworks' ) ); ?>" class="page-title-action">New artwork</a>
+        <?php if ( current_user_can( 'delete_products' ) ) : ?><a href="<?php echo esc_url( admin_url( 'admin.php?page=monospace-artwork-remove' ) ); ?>" class="page-title-action">Remove artwork</a><?php endif; ?>
         <p class="description">Every artwork, edited in place. Changed rows turn yellow; <b>Save changes</b> sends them, the same way the Quick Artwork Editor's button does. Select rows to change several at once: <b>Apply to selected</b> marks them (then Save), <b>Run now</b> (prints) acts right away.</p>
 
         <div class="ae-views" role="tablist">
@@ -502,7 +514,7 @@ function monospace_artwork_editor_page() {
             <select id="ae-f-pa_medium"><option value="">Any medium</option></select>
             <select id="ae-f-pa_year-created"><option value="">Any year</option></select>
             <select id="ae-f-category"><option value="">Any category</option></select>
-            <select id="ae-f-status"><option value="">Published and drafts</option><option value="publish">Published</option><option value="draft">Drafts</option><option value="sale">With a sale price</option><option value="prints" class="ae-f-prints">With prints</option><option value="noprints" class="ae-f-prints">Without prints</option><option value="hidden" class="ae-f-prints">Prints hidden</option><option value="changed">Changed, not saved</option><option value="attention">Needs attention</option><option value="selected">Selected only</option></select>
+            <select id="ae-f-status"><option value="">Published and drafts</option><option value="publish">Published</option><option value="draft">Drafts</option><option value="offsite">Not on the site (hidden or draft)</option><option value="sale">With a sale price</option><option value="prints" class="ae-f-prints">With prints</option><option value="noprints" class="ae-f-prints">Without prints</option><option value="hidden" class="ae-f-prints">Prints hidden</option><option value="changed">Changed, not saved</option><option value="attention">Needs attention</option><option value="selected">Selected only</option></select>
             <input type="file" id="ae-list-file" accept=".json,application/json" hidden>
             <button type="button" class="button" id="ae-list-load" title="Select the artworks of a saved list (Artwork Editor or Artwork Sheets)">Load list</button>
             <span class="ae-count" id="ae-count"></span>
@@ -539,13 +551,18 @@ function monospace_artwork_editor_page() {
                     <option value="adj-off">Skip the global adjustment</option><option value="adj-on">Use the global adjustment</option></select>
                 <input type="number" id="ae-b-sale-v" step="1" hidden>
             </span>
+            <span class="ae-bulk-group">
+                <select id="ae-b-visibility"><option value="">Artwork… (at once)</option><option value="hide">Hide artwork (off the site)</option><option value="show">Show artwork (back on the site)</option></select>
+                <button type="button" class="button" id="ae-b-visibility-go">Run now</button>
+            </span>
             <span class="ae-bulk-group ae-f-prints">
                 <select id="ae-b-prints"><option value="">Prints… (at once)</option>
                     <option value="show">Show prints</option><option value="hide">Hide prints</option>
                     <option value="show:framed">Show framed print</option><option value="hide:framed">Hide framed print</option>
                     <option value="show:unframed">Show unframed print</option><option value="hide:unframed">Hide unframed print</option>
-                    <option value="add:framed,unframed">Add framed + unframed print (where missing)</option><option value="add:framed">Add framed print</option><option value="add:unframed">Add unframed print</option>
-                    <option value="remove:framed">Remove framed print</option><option value="remove:unframed">Remove unframed print</option><option value="remove:framed,unframed">Remove framed + unframed print</option></select>
+                    <option value="show:postcard">Show postcard</option><option value="hide:postcard">Hide postcard</option>
+                    <option value="add:framed,unframed">Add framed + unframed print (where missing)</option><option value="add:framed">Add framed print</option><option value="add:unframed">Add unframed print</option><option value="add:postcard">Add postcard</option>
+                    <option value="remove:framed">Remove framed print</option><option value="remove:unframed">Remove unframed print</option><option value="remove:framed,unframed">Remove framed + unframed print</option><option value="remove:postcard">Remove postcard</option></select>
                 <button type="button" class="button" id="ae-b-prints-go">Run now</button>
             </span>
             <button type="button" class="button" id="ae-b-apply">Apply to selected</button>
@@ -566,7 +583,7 @@ function monospace_artwork_editor_page() {
                 <th data-sort="pa_year-created" class="ae-sort v-d">Year</th>
                 <th class="v-d">Categories &amp; tags</th>
                 <th class="v-d ae-f-prints">Prints</th>
-                <th class="v-d" title="This artwork's price card: Full / Compact / One line / Badge, or the site's setting (Layout Manager > Appearance &amp; Effects > Price card)">Price card</th>
+                <th class="v-d" title="This artwork's price card: Full / Compact / One line / Badge, or the site's setting (Appearance > Price card)">Price card</th>
                 <th data-sort="sale" class="ae-sort v-s">Sale price</th>
                 <th class="v-s" title="The Sales Dashboard's sale override for this artwork">Sale</th>
                 <th class="v-s" title="Extra % on top of the global price adjustment">Extra %</th>
@@ -760,9 +777,10 @@ function monospace_artwork_editor_page() {
                 if (st === 'attention') return issues(r).length > 0;
                 if (st === 'selected') return !!ticked[r.post_id];
                 if (st === 'sale') return !!get(r, 'sale');
-                if (st === 'prints') return !!(r.prints.framed || r.prints.unframed);
-                if (st === 'noprints') return !(r.prints.framed || r.prints.unframed);
-                if (st === 'hidden') return !!(r.prints.hidden.framed || r.prints.hidden.unframed);
+                if (st === 'prints') return hasPrint(r);
+                if (st === 'noprints') return !hasPrint(r);
+                if (st === 'hidden') return PTYPES.some(function (t) { return r.prints.hidden[t]; });
+                if (st === 'offsite') return r.status !== 'publish' || r.product_status !== 'publish';
                 if (st && r.status !== st) return false;
                 return true;
             }).sort(function (a, b) {
@@ -828,6 +846,9 @@ function monospace_artwork_editor_page() {
             return '<select class="ae-field' + (changed(r, tax) ? ' is-changed' : '') + '" data-f="' + tax + '"><option value="">—</option>' + optionsHtml(tax, get(r, tax)) + '</select>';
         }
 
+        // The print types, as the chips and the Prints panel list them
+        var PTYPES = ['framed', 'unframed', 'postcard'], PNAMES = { framed: 'Framed print', unframed: 'Unframed print', postcard: 'Postcard' };
+        function hasPrint(r) { return PTYPES.some(function (t) { return r.prints[t]; }); }
         // Prints: green = Shown, crossed out = Hidden, blue = Being made, red = a print job stopped (details: Prints > All prints)
         function printState(r, type) {
             var P = r.prints;
@@ -837,16 +858,16 @@ function monospace_artwork_editor_page() {
         }
         function printChip(r, type, letter) {
             var st = printState(r, type);
-            return '<span class="' + st[0] + '" title="' + (type === 'framed' ? 'Framed' : 'Unframed') + ' print: ' + esc(st[1]) + '">' + letter + '</span>';
+            return '<span class="' + st[0] + '" title="' + PNAMES[type] + ': ' + esc(st[1]) + '">' + letter + '</span>';
         }
         // A running / stopped print job: a link to Prints > All prints, where it shows in full
         // Every linked print hidden?
         function allHidden(r) {
-            var P = r.prints, types = ['framed', 'unframed'].filter(function (t) { return P[t]; });
+            var P = r.prints, types = PTYPES.filter(function (t) { return P[t]; });
             return types.length > 0 && types.every(function (t) { return P.hidden[t]; });
         }
         // Wording, the same everywhere: "prints" (both) or "framed print" / "unframed print"
-        function visLabel(types) { return types && types.length === 1 ? types[0] + ' print' : 'prints'; }
+        function visLabel(types) { return types && types.length === 1 ? (types[0] === 'postcard' ? 'postcard' : types[0] + ' print') : 'prints'; }
         function visQ(op, types) {
             var l = visLabel(types);
             return op === 'hide' ? 'Hide ' + l + '? Off the price card and the site. Nothing is deleted - Show ' + l + ' puts ' + (l === 'prints' ? 'them' : 'it') + ' back.'
@@ -880,6 +901,7 @@ function monospace_artwork_editor_page() {
             // Sold / private / gallery pieces may have no price - available, reserved and Gallery QR ones need it
             if (!(parseFloat(get(r, 'price')) > 0) && C.price_optional.indexOf(get(r, 'availability')) < 0) out.push(['No price', '']);
             if (!r.thumb) out.push(['No image - set a featured image on the post', '']);
+            if (r.status !== 'publish' && r.product_status === 'publish') out.push(['The post is a ' + esc(r.status === 'draft' ? 'draft' : r.status) + ' but its product is still on sale', '<button type="button" class="button" data-vis="hide">Hide artwork</button>']);
             return out;
         }
         function termsHtml(r) {
@@ -892,7 +914,7 @@ function monospace_artwork_editor_page() {
             var av = get(r, 'availability'), id = r.post_id;
             var avSel = '<select class="ae-field ae-av' + (changed(r, 'availability') ? ' is-changed' : '') + '" data-f="availability" data-status="' + esc(av) + '">' +
                 avPairs.map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === av ? ' selected' : '') + '>' + esc(p[1]) + '</option>'; }).join('') + '</select>';
-            var pr = printChip(r, 'framed', 'F') + printChip(r, 'unframed', 'U');
+            var pr = printChip(r, 'framed', 'F') + printChip(r, 'unframed', 'U') + printChip(r, 'postcard', 'P');
             return '<tr data-id="' + id + '" class="' + (edits[id] ? 'is-dirty ' : '') + (errors[id] ? 'is-error' : '') + '">' +
                 '<td><input type="checkbox" class="ae-tick"' + (ticked[id] ? ' checked' : '') + '></td>' +
                 '<td>' + (r.thumb ? '<img class="ae-thumb" loading="lazy" src="' + esc(r.thumb) + '" data-preview="' + esc(r.preview || r.thumb) + '" alt="">' : '<span class="ae-thumb"></span>') + '</td>' +
@@ -905,7 +927,7 @@ function monospace_artwork_editor_page() {
                 '<td class="v-d"><div class="ae-terms' + (changed(r, 'categories') || changed(r, 'tags') ? ' is-changed' : '') + '" tabindex="0" title="Edit categories and tags">' + termsHtml(r) + '</div></td>' +
                 '<td class="v-d ae-prints-cell"><span class="ae-prints" tabindex="0" title="Prints - click to add or remove">' + pr + '</span>' +
                     jobLink(r) +
-                    ((r.prints.framed || r.prints.unframed) ? '<button type="button" class="button button-small ae-pp-toggle" data-op="' + (allHidden(r) ? 'show' : 'hide') + '">' + (allHidden(r) ? 'Show prints' : 'Hide prints') + '</button>' : '') + '</td>' +
+                    (hasPrint(r) ? '<button type="button" class="button button-small ae-pp-toggle" data-op="' + (allHidden(r) ? 'show' : 'hide') + '">' + (allHidden(r) ? 'Show prints' : 'Hide prints') + '</button>' : '') + '</td>' +
                 '<td class="v-d">' + (C.cards.length ? '<select class="ae-field' + (changed(r, 'card') ? ' is-changed' : '') + '" data-f="card">' +
                     C.cards.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === get(r, 'card') ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' : '') + '</td>' +
                 '<td class="v-s"><input type="text" inputmode="decimal" placeholder="none" class="ae-field ae-price' + (changed(r, 'sale') ? ' is-changed' : '') + '" data-f="sale" value="' + esc(get(r, 'sale')) + '"></td>' +
@@ -914,8 +936,9 @@ function monospace_artwork_editor_page() {
                 '<td class="v-s"><input type="number" step="0.01" placeholder="–" class="ae-field ae-pct' + (changed(r, 'extra') ? ' is-changed' : '') + '" data-f="extra" value="' + esc(get(r, 'extra')) + '"></td>' +
                 '<td class="v-s"><input type="checkbox" class="ae-field' + (changed(r, 'no_adj') ? ' is-changed' : '') + '" data-f="no_adj"' + (get(r, 'no_adj') ? ' checked' : '') + '></td>' +
                 '<td class="v-s ae-shop">' + shopHtml(r) + '</td>' +
-                '<td class="ae-post">' + (r.status !== 'publish' ? '<span class="ae-draft">' + esc(r.status === 'draft' ? 'Draft' : r.status) + '</span> · ' : '') +
-                    '<a href="' + esc(r.edit) + '" target="_blank">Edit</a> · <a href="' + esc(r.view) + '" target="_blank">View</a><br>' + esc(r.date) + '</td>' +
+                '<td class="ae-post">' + (r.status !== 'publish' ? '<span class="ae-draft">' + (r.hidden ? 'Hidden' : esc(r.status === 'draft' ? 'Draft' : r.status)) + '</span> · ' : '') +
+                    '<a href="' + esc(r.edit) + '" target="_blank">Edit</a> · <a href="' + esc(r.view) + '" target="_blank">View</a> · ' +
+                    '<button type="button" class="button-link ae-vis" data-vis="' + (r.status === 'publish' ? 'hide' : 'show') + '" title="' + (r.status === 'publish' ? 'Off the site: the post, the product and the prints' : 'Back on the site: the post, the product and the prints') + '">' + (r.status === 'publish' ? 'Hide' : 'Show') + '</button><br>' + esc(r.date) + '</td>' +
                 '</tr>';
         }
 
@@ -1005,6 +1028,52 @@ function monospace_artwork_editor_page() {
                 return res.data;
             });
         }
+        // Hide artwork / Show artwork: at once (not on Save), the Art Post + product + prints (artwork-hide.php)
+        function visibilityOp(ids, op) {
+            var body = new FormData();
+            body.append('action', 'monospace_artwork_editor_visibility');
+            body.append('_ajax_nonce', C.nonce);
+            body.append('op', op);
+            ids.forEach(function (id) { body.append('post_ids[]', id); });
+            return fetch(C.ajax, { method: 'POST', body: body, credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (res) {
+                if (!res.success) throw new Error(res.data || 'Failed');
+                res.data.rows.forEach(function (fresh) {
+                    var i = rows.indexOf(byId[fresh.post_id]);
+                    if (i > -1) rows[i] = fresh;
+                    byId[fresh.post_id] = fresh;
+                });
+                return res.data;
+            });
+        }
+        function visWords(op, n) { return (op === 'hide' ? 'Hide' : 'Show') + (n > 1 ? ' ' + n + ' artworks' : ' this artwork'); }
+        function visExplain(op) { return op === 'hide' ? 'The Art Post and the product become Drafts and the prints are hidden - nothing is deleted, and Show puts everything back.' : 'The Art Post and the product are published again and the prints Hide artwork hid are shown.'; }
+        $('ae-body').addEventListener('click', function (e) {
+            var b = e.target.closest('[data-vis]'); if (!b) return;
+            var id = +b.closest('tr').dataset.id, op = b.dataset.vis;
+            if (!confirm(visWords(op, 1) + '?\n\n' + visExplain(op))) return;
+            b.disabled = true;
+            visibilityOp([id], op).then(function (d) {
+                if (d.errors[id]) throw new Error(d.errors[id]);
+                $('ae-msg').className = ''; $('ae-msg').textContent = op === 'hide' ? 'Hidden - off the site.' : 'Shown - back on the site.';
+                render();
+            }).catch(function (err) { b.disabled = false; $('ae-msg').className = 'is-error'; $('ae-msg').textContent = err.message; });
+        });
+        $('ae-b-visibility-go').addEventListener('click', function () {
+            var op = $('ae-b-visibility').value; if (!op) { $('ae-msg').textContent = 'Pick Hide artwork or Show artwork first.'; return; }
+            var ids = Object.keys(ticked).map(Number), total = ids.length;
+            if (!confirm(visWords(op, total) + ' - right now?\n\n' + visExplain(op))) return;
+            var done = 0, failed = 0, btn = this; btn.disabled = true;
+            (function next() {
+                if (!ids.length) { btn.disabled = false; $('ae-msg').className = failed ? 'is-error' : ''; $('ae-msg').textContent = (op === 'hide' ? 'Hidden: ' : 'Shown: ') + done + (failed ? ', ' + failed + ' not - see the red rows.' : '.'); render(); return; }
+                var batch = ids.splice(0, 5);
+                $('ae-msg').textContent = (op === 'hide' ? 'Hiding… ' : 'Showing… ') + done + ' done';
+                visibilityOp(batch, op).then(function (d) {
+                    done += d.done.length;
+                    Object.keys(d.errors).forEach(function (id) { errors[id] = d.errors[id]; failed++; });
+                    next();
+                }).catch(function (err) { batch.forEach(function (id) { errors[id] = err.message; failed++; }); next(); });
+            })();
+        });
         var ppId = null;
         function openPrints(cell) {
             var r = byId[+cell.closest('tr').dataset.id], pop = $('ae-ppop');
@@ -1016,17 +1085,17 @@ function monospace_artwork_editor_page() {
             pop.style.left = Math.max(0, Math.min(b.left - host.left - 200, host.width - pop.offsetWidth)) + 'px';
         }
         function drawPrints() {
-            var r = byId[ppId], P = r.prints, has = P.framed || P.unframed;
+            var r = byId[ppId], P = r.prints, has = hasPrint(r);
             $('ae-ppop-title').textContent = (r.num != null ? r.num + ' · ' : '') + get(r, 'title');
             var html = '';
             // The main control first: both prints at once
             if (has) {
-                var all = allHidden(r), some = P.hidden.framed || P.hidden.unframed;
+                var all = allHidden(r), some = PTYPES.some(function (t) { return P.hidden[t]; });
                 html += '<div class="ae-pp-main' + (all ? ' is-hidden' : '') + '"><span><b>Prints</b> ' + (all ? 'Hidden - off the price card and the site' : some ? 'Partly hidden' : 'Shown') + '</span><span class="ae-pp-btns">' +
                     (some ? '<button type="button" class="button button-primary" data-pp="show">Show prints</button>' : '') +
                     (!all ? '<button type="button" class="button' + (some ? '' : ' button-primary') + '" data-pp="hide">Hide prints</button>' : '') + '</span></div>';
             }
-            html += [['framed', 'Framed print'], ['unframed', 'Unframed print']].map(function (t) {
+            html += PTYPES.map(function (k) { return [k, PNAMES[k]]; }).map(function (t) {
                 var st = printState(r, t[0]);
                 var lc = t[1].toLowerCase(), btn;
                 if (P[t[0]]) btn = '<span class="ae-pp-btns"><button type="button" class="button button-small" data-pp="' + (P.hidden[t[0]] ? 'show' : 'hide') + '" data-type="' + t[0] + '">' + (P.hidden[t[0]] ? 'Show ' : 'Hide ') + lc + '</button>' +
@@ -1041,7 +1110,7 @@ function monospace_artwork_editor_page() {
         $('ae-ppop-body').addEventListener('click', function (e) {
             var b = e.target.closest('[data-pp]'); if (!b || ppId == null) return;
             var op = b.dataset.pp, type = b.dataset.type, r = byId[ppId];
-            if (op === 'remove' && !confirm('Remove ' + type + ' print of “' + get(r, 'title') + '”?\n\nIt leaves Printful and its product goes to the Trash.')) return;
+            if (op === 'remove' && !confirm('Remove ' + (type === 'postcard' ? 'postcard' : type + ' print') + ' of “' + get(r, 'title') + '”?\n\nIt leaves Printful and its product goes to the Trash.')) return;
             if ((op === 'hide' || op === 'show') && !confirm(visQ(op, type ? [type] : []))) return;
             b.disabled = true; $('ae-ppop-msg').textContent = 'Working…';
             printsOp([ppId], op, type ? [type] : []).then(function (d) {

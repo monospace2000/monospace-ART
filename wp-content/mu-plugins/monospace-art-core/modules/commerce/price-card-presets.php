@@ -248,8 +248,10 @@ function monospace_render_price_card_badge( $card ) {
     $pill  = '<span class="pc-badge' . esc_attr( $card['status_class'] ) . '">' . implode( '<span class="pc-badge-sep" aria-hidden="true">·</span>', $bits ) . '</span>';
     $align = monospace_price_card_badge_align( (string) ( $card['badge_align'] ?? '' ) );
     $align = $align === 'right' ? '' : ' pc-badge-' . $align; // right: the stylesheet's own
-    if ( is_singular() && (int) get_queried_object_id() === $post_id ) {
-        return '<details class="pc-badge-card' . $align . '"><summary>' . $pill . '</summary>' . monospace_render_price_card( $card, 'full' ) . '</details>';
+    // The Price Card screen's preview (price-card-screen.php) opens the card like an artwork's own page does
+    $preview = ! empty( $_GET['ms_pc_preview'] ) && current_user_can( 'edit_theme_options' );
+    if ( $preview || ( is_singular() && (int) get_queried_object_id() === $post_id ) ) {
+        return '<details class="pc-badge-card' . $align . '"' . ( $preview ? ' open' : '' ) . '><summary>' . $pill . '</summary><div class="pc-badge-body"><div class="pc-badge-inner">' . monospace_render_price_card( $card, 'full' ) . '</div></div></details>';
     }
     return '<a class="pc-badge-link' . $align . '" href="' . esc_url( get_permalink( $post_id ) ) . '">' . $pill . '</a>';
 }

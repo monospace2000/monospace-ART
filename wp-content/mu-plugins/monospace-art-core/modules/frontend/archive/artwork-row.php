@@ -97,16 +97,46 @@ function monospace_row_thumb( $post_id ) {
     ] ) : '';
 }
 
-/** Is this post a miniature - or a miniature set (diptych, triptych)? 4" × 4" and its 2- / 3-piece sets, or the miniature category */
+/** Is this post a miniature - or a miniature set (diptych, triptych)? Its product's SKU says so (type M, monospace_is_miniature_product());
+ *  a post without a product: the miniature category */
 function monospace_is_miniature( $post_id ) {
-    if ( has_category( 'miniature', $post_id ) ) return true;
     $pid = function_exists( 'monospace_get_post_product_id' ) ? (int) monospace_get_post_product_id( $post_id ) : 0;
+    if ( $pid && function_exists( 'monospace_is_miniature_product' ) ) return monospace_is_miniature_product( $pid );
+    if ( has_category( 'miniature', $post_id ) ) return true;
     return $pid && defined( 'MONOSPACE_MINIATURE_SIZES' ) && array_intersect( (array) wp_get_post_terms( $pid, 'pa_size', [ 'fields' => 'slugs' ] ), MONOSPACE_MINIATURE_SIZES );
 }
 
 /** The small "Miniature" tag. Beside the dimensions in the info lines; beside the title of a post that has no info lines. */
 function monospace_row_miniature_tag( $post_id ) {
     return monospace_is_miniature( $post_id ) ? '&nbsp;<span class="ms-info-mini">Miniature</span>' : ''; // &nbsp;: stays with the word before it
+}
+
+/** The lowest price (as HTML) of an artwork's published, in-stock print products; '' when none has a price */
+function monospace_row_prints_from_price( $post_id ) {
+    if ( ! function_exists( 'wc_get_product' ) ) return '';
+    $low = null;
+    foreach ( [ '_print_product_id', '_framed_print_product_id' ] as $key ) {
+        $pid = (int) get_post_meta( $post_id, $key, true );
+        if ( ! $pid || get_post_status( $pid ) !== 'publish' || get_post_meta( $pid, '_stock_status', true ) !== 'instock' ) continue;
+        $p = wc_get_product( $pid );
+        if ( ! $p ) continue;
+        $price = $p->is_type( 'variable' ) ? (float) $p->get_variation_price( 'min' ) : (float) $p->get_price();
+        if ( $price > 0 && ( $low === null || $price < $low ) ) $low = $price;
+    }
+    return $low === null ? '' : wp_kses_post( wc_price( $low ) );
+}
+
+/** Is the product's size 16 x 20 inches or bigger? Sets (three numbers, e.g. 2 x 4 x 4) never count. */
+function monospace_is_large_size( $product_id ) {
+    $names = wp_get_post_terms( (int) $product_id, 'pa_size', [ 'fields' => 'names' ] );
+    if ( is_wp_error( $names ) ) return false;
+    foreach ( $names as $n ) {
+        if ( ! preg_match_all( '/\d+(?:\.\d+)?/', $n, $m ) || count( $m[0] ) !== 2 ) continue;
+        $d = array_map( 'floatval', $m[0] );
+        sort( $d );
+        if ( $d[0] >= 16 && $d[1] >= 20 ) return true;
+    }
+    return false;
 }
 
 /** The first $chars characters of a post's text (its excerpt, else its content), cut at a word, '' when it has none */
@@ -172,7 +202,7 @@ function monospace_artwork_info_html( $post_id, $product, $lines = [ 'made', 'st
     if ( $size ) $made[] = $size;
     if ( $made && in_array( 'made', $lines, true ) ) {
         // The tag belongs to the last part (the dimensions, else the material) so they wrap together
-        $tag   = monospace_row_miniature_tag( $post_id );
+        $tag   = monospace_row_miniature_tag( $post_id ) . ( monospace_is_large_size( $pid ) ? '&nbsp;<span class="ms-info-mini ms-info-large">Oversized Item</span>' : '' );
         $parts = array_map( fn( $m ) => esc_html( $m ), $made );
         $parts[ count( $parts ) - 1 ] .= $tag;
         $out[] = '<div class="ms-info-made">' . implode( ', ', array_map( fn( $m ) => '<span class="ms-info-part">' . $m . '</span>', $parts ) ) . '</div>';
@@ -191,7 +221,10 @@ function monospace_artwork_info_html( $post_id, $product, $lines = [ 'made', 'st
     }
 
     // Line 3
-    if ( in_array( 'prints', $lines, true ) && function_exists( 'monospace_prints_for_sale_post_ids' ) && in_array( $post_id, monospace_prints_for_sale_post_ids(), true ) ) $out[] = '<div class="ms-info-prints">Prints available</div>';
+    if ( in_array( 'prints', $lines, true ) && function_exists( 'monospace_prints_for_sale_post_ids' ) && in_array( $post_id, monospace_prints_for_sale_post_ids(), true ) ) {
+        $from = monospace_row_prints_from_price( $post_id );
+        $out[] = '<div class="ms-info-prints">' . ( $from !== '' ? 'Prints from ' . $from : 'Prints available' ) . '</div>';
+    }
 
     return $out ? '<div class="ms-info">' . implode( '', $out ) . '</div>' : '';
 }
@@ -207,9 +240,12 @@ function monospace_artwork_row_html( $post_id ) {
     $title = esc_html( get_the_title( $post_id ) );
 
     $thumb = monospace_row_thumb( $post_id );
+    // Look > Availability dots, "on every artwork": the dot on the picture (theme: design/availability-dots.php)
+    $dot   = function_exists( 'monospace_dots_all' ) && monospace_dots_all()
+        ? '<div class="ms-availability-badge ms-' . esc_attr( monospace_dots_state( monospace_artwork_status( $pid ) ) ) . '"></div>' : '';
 
     return '<div class="ms-artwork-row">'
-        . ( $thumb ? '<a class="ms-archive-image-link ms-artwork-row-pic" href="' . $url . '" tabindex="-1" aria-hidden="true">' . $thumb . '</a>' : '' )
+        . ( $thumb ? '<a class="ms-archive-image-link ms-artwork-row-pic" href="' . $url . '" tabindex="-1" aria-hidden="true">' . $thumb . $dot . '</a>' : '' )
         . '<div class="ms-artwork-row-text">'
         . '<h3 class="ms-artwork-row-title"><a href="' . $url . '">' . $title . '</a></h3>'
         . monospace_artwork_info_html( $post_id, $product )

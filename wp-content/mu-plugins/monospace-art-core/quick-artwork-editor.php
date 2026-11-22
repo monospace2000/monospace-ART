@@ -131,6 +131,9 @@ class MetaBox
 		$this->render_card_message_fields(); // saved by the button below, not by the post save
 		$this->section_close();
 
+		// A feature can add its own folding panel here (the AI alt text plugin: Alt text & tags), same classes as the sections above
+		do_action('monospace_quick_editor_sections', $this->post);
+
 		echo '</div>';
 
 		echo '</div>';
@@ -158,8 +161,8 @@ class MetaBox
 		// Prints: which ones, and hidden or shown on the site
 		$id = $this->post->ID;
 		$types = [];
-		foreach (['framed' => __('Framed', 'quick-product'), 'unframed' => __('Unframed', 'quick-product')] as $type => $label) {
-			if (! get_post_meta($id, $type === 'framed' ? '_framed_print_product_id' : '_print_product_id', true)) continue;
+		foreach (['framed' => __('Framed', 'quick-product'), 'unframed' => __('Unframed', 'quick-product'), 'postcard' => __('Postcard', 'quick-product')] as $type => $label) {
+			if (! get_post_meta($id, ['framed' => '_framed_print_product_id', 'unframed' => '_print_product_id', 'postcard' => '_postcard_product_id'][$type], true)) continue;
 			$hidden = function_exists('monospace_prints_is_hidden') && monospace_prints_is_hidden($id, $type);
 			$types[] = $label . ($hidden ? ' ' . __('(hidden)', 'quick-product') : '');
 		}
@@ -209,7 +212,7 @@ class MetaBox
 					'pa_medium'  => '',         // default medium slug
 					'pa_surface' => '',          // default surface slug
 					'pa_size'    => '',             // default size slug
-					'pa_year-created'   => date('Y'),         // default  year
+					'pa_year-created'   => wp_date('Y'),      // default  year (site time)
 				],
 				'categories'     => [],                 // default categories handled below
 				'availability'   => 'available',       // default availability
@@ -736,6 +739,25 @@ class MetaBox
 				cursor: text;
 			}
 
+			.qp-qr {
+				display: flex;
+				gap: 12px;
+				align-items: center;
+				margin-top: 10px;
+				padding-top: 10px;
+				border-top: 1px solid #c5d9ed;
+			}
+
+			.qp-qr svg {
+				flex: none;
+				border: 1px solid #c5d9ed;
+				border-radius: 4px;
+			}
+
+			.qp-qr .qp-help {
+				margin: 2px 0 8px;
+			}
+
 			.qp-copy-row .button {
 				flex: none;
 			}
@@ -843,6 +865,23 @@ class MetaBox
 				flex-basis: 100%;
 				font-size: 12px;
 				color: #8a6100;
+			}
+
+			/* Categories matter to the post and the product alike: the louder warning */
+			.qp-dirty.qp-dirty--cats:not([hidden]) {
+				background: #fcf0f1;
+				border-color: #d63638;
+				color: #8a2424;
+			}
+
+			/* Unsaved changes (the product box's, the post's) - a warning chip, not a footnote (owner, 2026-11-01) */
+			.qp-dirty:not([hidden]) {
+				flex-basis: auto;
+				padding: 1px 9px;
+				border-radius: 9px;
+				background: #fcf9e8;
+				border: 1px solid #dba617;
+				font-weight: 600;
 			}
 
 			.qp-dirty[hidden] {
@@ -1039,9 +1078,11 @@ class MetaBox
 						? esc_html(sprintf(__('Product #%d', 'quick-product'), $product_id))
 						: esc_html__('No product linked', 'quick-product');
 				?></span>
-				<a id="qp-edit-link" href="<?php echo $product_id ? esc_url(get_edit_post_link($product_id)) : '#'; ?>" target="_blank" <?php echo $product_id ? '' : 'hidden'; ?>><?php esc_html_e('Edit product ↗', 'quick-product'); ?></a>
+				<a id="qp-edit-link" href="<?php echo $product_id ? esc_url(get_edit_post_link($product_id)) : '#'; ?>" target="_blank" <?php echo $product_id ? '' : 'hidden'; ?>><?php esc_html_e('Edit product ↗︎', 'quick-product'); ?></a>
 			</span>
 			<span class="qp-dirty" id="qp-dirty" hidden><?php esc_html_e('Changes not sent to the product yet', 'quick-product'); ?></span>
+			<span class="qp-dirty" id="qp-dirty-post" hidden><?php esc_html_e('The post has unsaved changes', 'quick-product'); ?></span>
+			<span class="qp-dirty qp-dirty--cats" id="qp-dirty-cats" hidden><?php esc_html_e('Categories changed - save the post and click Update product, so the post and the product both get them', 'quick-product'); ?></span>
 		</div>
 	<?php
 	}
@@ -1247,6 +1288,7 @@ class MetaBox
 		$fields = [
 			'print_product_id'        => __('Unframed print ID', 'quick-product'),
 			'framed_print_product_id' => __('Framed print ID', 'quick-product'),
+			'postcard_product_id'     => __('Postcard ID', 'quick-product'),
 		];
 	?>
 		<p class="qp-sec-help"><?php esc_html_e('Printful product IDs. Each one adds a tab to the price card.', 'quick-product'); ?></p>
@@ -1259,7 +1301,7 @@ class MetaBox
 					<div class="qp-label-row">
 						<label for="<?php echo esc_attr($id); ?>"><?php echo esc_html($label); ?></label>
 						<?php if ($value && get_post($value)) : ?>
-							<a href="<?php echo esc_url(get_edit_post_link($value)); ?>" target="_blank"><?php esc_html_e('Edit ↗', 'quick-product'); ?></a>
+							<a href="<?php echo esc_url(get_edit_post_link($value)); ?>" target="_blank"><?php esc_html_e('Edit ↗︎', 'quick-product'); ?></a>
 						<?php endif; ?>
 					</div>
 					<input type="number"
@@ -1300,7 +1342,7 @@ class MetaBox
 				echo $paused
 				? esc_html__('Hidden - off the price card and the site. Nothing is deleted. Tick to show prints.', 'quick-product')
 				: ($partly
-					? esc_html(monospace_prints_hidden_words($this->post->ID) . ' - framed and unframed one by one: Artworks > Artwork Editor. Untick to hide both.')
+					? esc_html(monospace_prints_hidden_words($this->post->ID) . ' - each print on its own: Artworks > Artwork Editor. Untick to hide them all.')
 					: esc_html__('Shown on the price card and the site. Untick to hide prints - at once, nothing is deleted.', 'quick-product')); ?></p>
 		</div>
 		<script>
@@ -1371,6 +1413,25 @@ class MetaBox
 			<p class="qp-help">
 				<?php esc_html_e('Send this to the customer: it bypasses the "Reserved" status and shows the buy button.', 'quick-product'); ?>
 			</p>
+			<?php
+			// Scan to buy (2026-10-30): the same link as a QR code, for the gallery's label
+			if (function_exists('monospace_qr_svg')) :
+				$qr_svg = monospace_qr_svg($reserved_url, ['size' => 112, 'bg' => '#ffffff', 'label' => __('QR code of the reserved purchase link', 'quick-product')]);
+				$qr_png = function_exists('imagecreate') ? monospace_qr_png($reserved_url, ['size' => 16]) : '';
+				if ($qr_svg !== '') : ?>
+					<div class="qp-qr">
+						<?php echo $qr_svg; // phpcs:ignore WordPress.Security.EscapeOutput -- built by monospace_qr_svg() 
+						?>
+						<div>
+							<strong><?php esc_html_e('Scan to buy', 'quick-product'); ?></strong>
+							<p class="qp-help"><?php esc_html_e('The same link as a QR code - print it for the gallery label.', 'quick-product'); ?></p>
+							<?php if ($qr_png !== '') : ?>
+								<a class="button" download="<?php echo esc_attr('scan-to-buy-' . sanitize_title($this->data['sku'] ?? ('artwork-' . $product_id)) . '.png'); ?>" href="data:image/png;base64,<?php echo esc_attr(base64_encode($qr_png)); ?>"><?php esc_html_e('Download QR (PNG)', 'quick-product'); ?></a>
+							<?php endif; ?>
+						</div>
+					</div>
+			<?php endif;
+			endif; ?>
 		</div>
 	<?php
 	}
@@ -1638,6 +1699,9 @@ class MetaBox
 		if (get_post_meta($this->post->ID, '_print_product_id', true)) {
 			$tabs['unframed'] = __('Unframed Print', 'quick-product');
 		}
+		if (get_post_meta($this->post->ID, '_postcard_product_id', true)) {
+			$tabs['postcard'] = __('Postcard', 'quick-product');
+		}
 		$modes  = ['site' => __('Use site messages', 'quick-product'), 'custom' => __('Custom text', 'quick-product'), 'none' => __('No message', 'quick-product')];
 		$styles = ['green' => __('Green', 'quick-product'), 'red' => __('Red', 'quick-product'), 'blue' => __('Blue', 'quick-product'), 'gray' => __('Gray', 'quick-product')];
 	?>
@@ -1715,7 +1779,53 @@ class MetaBox
 					var $dirty = $('#qp-dirty');
 
 					function hasProduct() { return !!$('#qp-product-id').val(); }
-					function setDirty(on) { $dirty.prop('hidden', !on); }
+					var productDirty = false;
+					function setDirty(on) {
+						productDirty = !!on;
+						$dirty.prop('hidden', !on);
+					}
+
+					// Leaving the page with changes the product has not received: the browser asks first (the editor already asks
+					// about the post's own unsaved changes). Owner, 2026-11-01.
+					window.addEventListener('beforeunload', function(e) {
+						if (!productDirty && !catsPending) return;
+						e.preventDefault();
+						e.returnValue = '';
+					});
+
+					// The post's own unsaved changes (title, text, images): a second note here, so the two saves are not mixed up -
+					// Update saves the post, the product button saves the product
+					if (window.wp && wp.data && wp.data.subscribe) {
+						var $dirtyPost = $('#qp-dirty-post');
+						wp.data.subscribe(function() {
+							var ed = wp.data.select('core/editor');
+							if (ed && ed.isEditedPostDirty) $dirtyPost.prop('hidden', !ed.isEditedPostDirty());
+							checkCats();
+						});
+					}
+
+					// Categories (owner, 2026-11-01: "essential not just for the post but also for the product"): the product's own category
+					// ticks are hidden in this box (they follow the post's), so the post's Categories panel in the editor is where they
+					// change - and Update product is what hands them to the product. A change there raises a red warning that stays until
+					// Update product succeeds - also after the post itself was saved. The starting point is the saved post once the editor
+					// has loaded it (before that the panel reads empty, which looked like a change).
+					var $dirtyCats = $('#qp-dirty-cats');
+					var catsPending = false, postCatBase = null;
+					function postCats(attr) {
+						var ed = window.wp && wp.data && wp.data.select('core/editor');
+						if (!ed || !ed.getCurrentPost || !ed.getEditedPostAttribute) return null;
+						var cur = ed.getCurrentPost();
+						if (!cur || +cur.id !== +qp.postId || !Array.isArray(cur.categories)) return null; // not loaded yet
+						return (attr === 'edited' ? (ed.getEditedPostAttribute('categories') || []) : cur.categories).slice().sort().join(',');
+					}
+					function checkCats() {
+						var saved = postCats('saved');
+						if (saved === null) return;
+						if (postCatBase === null) postCatBase = saved;
+						if (postCats('edited') !== postCatBase) catsPending = true;
+						$dirtyCats.prop('hidden', !catsPending);
+					}
+					checkCats();
 					function showStatus(type, html) { $status.removeClass('success error').addClass(type).html(html).show(); }
 
 					// Price needed or not, by availability: the * shows only when it is; an empty price reads "--"
@@ -1883,6 +1993,7 @@ class MetaBox
 							gallery_url: $('#qp-gallery-url').val(),
 							print_product_id: $('#qp-print-product-id').val(),
 							framed_print_product_id: $('#qp-framed-print-product-id').val(),
+							postcard_product_id: $('#qp-postcard-product-id').val(),
 							card_message: {}
 						};
 						// Price card style (only when the field is there - Core's presets)
@@ -1923,6 +2034,10 @@ class MetaBox
 										wp.data.dispatch('core/editor').editPost({ categories: response.data.categories });
 									}
 									updatePill();
+									// The product has the categories now: start counting again
+									postCatBase = postCats('edited');
+									catsPending = false;
+									$dirtyCats.prop('hidden', true);
 								} else {
 									showStatus('error', '<strong>' + qp.text.error + '</strong> ' + response.data);
 								}
@@ -2105,7 +2220,7 @@ class AjaxHandler
 	{
 		$override = [];
 		foreach ($raw as $tab => $o) {
-			if (! in_array($tab, ['original', 'framed', 'unframed'], true) || ! is_array($o)) continue;
+			if (! in_array($tab, ['original', 'framed', 'unframed', 'postcard'], true) || ! is_array($o)) continue;
 			$mode = in_array($o['mode'] ?? '', ['custom', 'none'], true) ? $o['mode'] : 'site';
 			$text = sanitize_text_field($o['text'] ?? '');
 			if ($mode === 'site' || ($mode === 'custom' && $text === '')) continue;
@@ -2115,7 +2230,8 @@ class AjaxHandler
 				'style' => in_array($o['style'] ?? '', ['green', 'red', 'blue', 'gray'], true) ? $o['style'] : 'green',
 			];
 		}
-		$override ? update_post_meta($post_id, '_qp_card_message', $override) : delete_post_meta($post_id, '_qp_card_message');
+		// wp_slash: update_post_meta strips one level of backslashes, which ate a typed \n (post 7617, 2026-11-01)
+		$override ? update_post_meta($post_id, '_qp_card_message', wp_slash($override)) : delete_post_meta($post_id, '_qp_card_message');
 	}
 
 	private function sanitize_input()
@@ -2132,6 +2248,7 @@ class AjaxHandler
 			'gallery_url'     => esc_url_raw(wp_unslash($_POST['gallery_url'] ?? '')),
 			'print_product_id' => intval($_POST['print_product_id'] ?? 0),
 			'framed_print_product_id' => intval($_POST['framed_print_product_id'] ?? 0),
+			'postcard_product_id' => intval($_POST['postcard_product_id'] ?? 0),
 		];
 	}
 
@@ -2343,8 +2460,9 @@ class ProductSyncer
     update_post_meta($this->post_id, '_qp_categories', $this->data['categories']);
     update_post_meta($this->post_id, '_qp_availability', $this->data['availability']);
 
-    // Save print product IDs (unframed and framed)
-    foreach (['print_product_id', 'framed_print_product_id'] as $key) {
+    // Save print product IDs (unframed, framed, postcard) - only the ones this save sends
+    foreach (['print_product_id', 'framed_print_product_id', 'postcard_product_id'] as $key) {
+        if (! array_key_exists($key, $this->data)) continue;
         $print_id = monospace_print_parent_id(intval($this->data[$key] ?? 0));
         if ($print_id > 0) {
             update_post_meta($this->post_id, '_' . $key, $print_id);
@@ -2606,6 +2724,11 @@ class ProductSyncer
 			}
 		}
 
+		// Numbers of removed artworks are retired for good (Artworks > Remove artwork keeps them in its log)
+		if (function_exists('monospace_artwork_removed_max_number')) {
+			$next_number = max($next_number, monospace_artwork_removed_max_number() + 1);
+		}
+
 		// Build final SKU: MNSPC-YEAR-FORMAT-XXXX
 		return sprintf('MNSPC-%s-%s-%04d', $year, $format, $next_number);
 	}
@@ -2735,8 +2858,8 @@ class MetaSaver
 			return;
 		}
 
-		// Save print product IDs (unframed and framed)
-		foreach (['print_product_id', 'framed_print_product_id'] as $key) {
+		// Save print product IDs (unframed, framed, postcard)
+		foreach (['print_product_id', 'framed_print_product_id', 'postcard_product_id'] as $key) {
 			if (! isset($_POST['qp_' . $key])) {
 				continue;
 			}
@@ -2838,7 +2961,7 @@ function monospace_print_parent_id( $id ) {
 /**
  * Keep a linked print product in "print" whenever the product itself is saved or modified - e.g.
  * when Printful re-syncs it (Printful puts its products in custom-order). Linked = a post's
- * _print_product_id / _framed_print_product_id points at it. Runs after WooCommerce has written the
+ * _print_product_id / _framed_print_product_id / _postcard_product_id points at it. Runs after WooCommerce has written the
  * product's categories (woocommerce_new_product / woocommerce_update_product).
  */
 function monospace_keep_print_category( $product_id ) {
@@ -2847,7 +2970,7 @@ function monospace_keep_print_category( $product_id ) {
 
     global $wpdb;
     $post_id = (int) $wpdb->get_var( $wpdb->prepare(
-        "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key IN ('_print_product_id', '_framed_print_product_id') AND meta_value = %s LIMIT 1",
+        "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key IN ('_print_product_id', '_framed_print_product_id', '_postcard_product_id') AND meta_value = %s LIMIT 1",
         (string) $product_id
     ) );
     if ( ! $post_id ) return;

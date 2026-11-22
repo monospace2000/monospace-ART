@@ -8,10 +8,10 @@
  *   paragraphs, [price_card], the "meta" synced block (#428 - MONOSPACE_ARTWORK_META_BLOCK)
  * - categories: format + medium from the details (painting / drawing, acrylic / ink …), plus the look
  *   ticked here (color, black-and-white, sepia, miniature, favorite - line & wash was merged into the
- *   Ink & Wash medium category 2026-10-19); tags; featured image
+ *   line & wash medium category 2026-10-19); tags; featured image
  * - the product, through Quick Product's own ProductSyncer (same SKU rule, Original category,
  *   shipping class by size), so it's identical to one made from the Quick Product box
- * - prints, when ticked: every size and frame at the default prices, sizes under 100 dpi left out
+ * - prints, when ticked: every size and frame (and the postcard) at the default prices, sizes under 100 dpi left out
  *   (monospace_prints_queue(), as Prints > New prints does)
  * and opens the draft in the block editor - the story and the rest are edited there as usual.
  *
@@ -36,7 +36,7 @@ function monospace_artwork_look_categories() {
 /** Post category for a medium (pa_medium term name), or '' */
 function monospace_artwork_medium_category( $medium ) {
     $map = [
-        'acrylic' => 'acrylic', 'casein' => 'casein', 'gouache' => 'gouache', 'ink & wash' => 'ink',
+        'acrylic' => 'acrylic', 'casein' => 'casein', 'gouache' => 'gouache', 'line & wash' => 'ink',
         'ink & markers' => 'ink', 'watercolor' => 'watercolor', 'graphite pencil' => 'pencil',
         'color pencil' => 'pencil', 'oil' => 'oil', 'tempera' => 'tempera', 'sanguine' => 'sanguine',
     ];
@@ -105,7 +105,7 @@ function monospace_new_artwork_attributes() {
 /** Starting values: medium, surface and format from the last piece entered, year = this year */
 function monospace_new_artwork_defaults() {
     $defaults = [ 'pa_year-created' => '' ];
-    $year = get_term_by( 'name', date( 'Y' ), 'pa_year-created' );
+    $year = get_term_by( 'name', wp_date( 'Y' ), 'pa_year-created' );  // site time; the term is added by year-term.php
     if ( $year ) $defaults['pa_year-created'] = $year->slug;
 
     $last = get_posts( [ 'post_type' => 'post', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids',
@@ -163,6 +163,12 @@ function monospace_new_artwork_page() {
                     </button>
                     <input type="hidden" name="image_id" id="ms-na-image-id">
                     <p class="ms-na-help" id="ms-na-image-info">The post's image and featured image. Drag a file onto the media window to upload.</p>
+                    <div class="ms-na-field ms-na-alt-field">
+                        <label for="ms-na-alt">Alt text</label>
+                        <textarea id="ms-na-alt" name="alt" rows="4" maxlength="800" placeholder="What is in the picture - for screen readers and search"><?php echo esc_textarea( ! empty( $prefill['image_id'] ) ? (string) get_post_meta( (int) $prefill['image_id'], '_wp_attachment_image_alt', true ) : '' ); ?></textarea>
+                        <?php do_action( 'monospace_new_artwork_alt_tools' ); // a feature can add its buttons here (the AI alt text plugin: Generate alt text) ?>
+                        <p class="ms-na-help">Saved with the image (Media Library) and in the post. Empty = no alt text; you get a reminder when you create the draft.</p>
+                    </div>
                 </section>
 
                 <div class="ms-na-main">
@@ -238,11 +244,13 @@ function monospace_new_artwork_page() {
                         <div class="ms-na-field ms-na-tags-field">
                             <label for="ms-na-tag-input">Tags</label>
                             <div class="ms-na-tags" id="ms-na-tags">
-                                <input type="text" id="ms-na-tag-input" list="ms-na-tag-list" placeholder="Type a tag, Enter or comma to add" autocomplete="off">
+                                <input type="text" id="ms-na-tag-input" placeholder="Type a tag, Enter or comma to add" autocomplete="off" aria-autocomplete="list" aria-controls="ms-na-tag-suggest">
                             </div>
+                            <ul class="ms-na-suggest" id="ms-na-tag-suggest" role="listbox" hidden></ul>
                             <datalist id="ms-na-tag-list">
                                 <?php foreach ( is_array( $tags ) ? $tags : [] as $name ) echo '<option value="' . esc_attr( html_entity_decode( $name, ENT_QUOTES, 'UTF-8' ) ) . '">'; ?>
                             </datalist>
+                            <?php do_action( 'monospace_new_artwork_tag_tools' ); // a feature can add its buttons here (the AI alt text plugin: Suggest tags) ?>
                             <p class="ms-na-help">Places and subjects. Existing tags are suggested as you type; new ones are created.</p>
                         </div>
                     </section>
@@ -252,9 +260,9 @@ function monospace_new_artwork_page() {
                         <textarea id="ms-na-story" name="story" rows="5" placeholder="A blank line starts a new paragraph. You can also write it in the editor."></textarea>
                     </details>
 
-                    <section class="ms-na-card"<?php echo monospace_feature( 'prints' ) ? '' : ' hidden'; // the Prints plugin is off ?>>
+                    <section class="ms-na-card"<?php echo monospace_feature( 'prints' ) && empty( $prefill['no_prints'] ) ? '' : ' hidden'; // the Prints plugin is off, or the opening feature says no prints (a commission) ?>>
                         <label class="ms-na-switch"><input type="checkbox" name="prints" value="1" id="ms-na-prints"> Make prints</label>
-                        <p class="ms-na-help">Every size and frame at the default prices (Prints &gt; New prints); sizes the image is too small for are left out. Runs in the background - the prints go on sale once Printful has linked them. You can also make them later from the post's Prints box.</p>
+                        <p class="ms-na-help">Every size and frame, and a postcard, at the default prices (Prints &gt; New prints); sizes the image is too small for are left out. Runs in the background - the prints go on sale once Printful has linked them. You can also make them later from the post's Prints box.</p>
                     </section>
 
                     <div class="ms-na-actions">
@@ -330,6 +338,11 @@ function monospace_new_artwork_page() {
         .ms-na .ms-na-chip-check:has(input:checked) { border-color: #2271b1; background: #f0f6fc; color: #135e96; }
 
         .ms-na-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px; min-height: 40px; border: 1px solid #8c8f94; border-radius: 4px; background: #fff; cursor: text; }
+        .ms-na-tags-field { position: relative; }
+        .ms-na-suggest { position: absolute; z-index: 20; left: 0; right: 0; margin: 2px 0 0; padding: 4px 0; list-style: none; background: #fff; border: 1px solid #8c8f94; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.15); max-height: 260px; overflow: auto; }
+        .ms-na-suggest[hidden] { display: none; }
+        .ms-na-suggest li { margin: 0; padding: 7px 12px; cursor: pointer; font-size: 14px; }
+        .ms-na-suggest li.is-active, .ms-na-suggest li:hover { background: #f0f6fc; color: #2271b1; }
         .ms-na-tags:focus-within { border-color: #2271b1; box-shadow: 0 0 0 1px #2271b1; }
         .ms-na .ms-na-tags input[type="text"] { flex: 1; min-width: 200px; width: auto; min-height: 28px; border: 0; box-shadow: none; padding: 0 4px; }
         .ms-na-tag { display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 9px; border-radius: 999px; background: #f0f0f1; font-size: 13px; line-height: 20px; }
@@ -363,18 +376,50 @@ function monospace_new_artwork_page() {
 
         // ---- Image: the media window (pick or upload)
         var frame;
+        function useImage(id, url, info, alt, title) {
+            $('#ms-na-alt').val(alt || '');
+            $('#ms-na-image-id').val(id).trigger('change');
+            $('#ms-na-pick').addClass('has-image').find('img').attr('src', url).prop('hidden', false);
+            $('#ms-na-image-info').text(info);
+            $('.ms-na-image').removeClass('is-invalid');
+            // An empty title starts from the image's title (often the file name - edit it)
+            if (!$.trim($('#ms-na-title').val()) && title && !/^(img|dsc|image|photo)[\s_-]?\d/i.test(title)) $('#ms-na-title').val(title).trigger('input');
+        }
+        function convertHeic(a) {
+            var $info = $('#ms-na-image-info');
+            $info.text('This is a HEIC photo, which the site cannot show. Making a JPEG copy…');
+            var img = new Image();
+            img.onload = function () {
+                var long = Math.max(img.naturalWidth, img.naturalHeight), k = Math.min(1, 4000 / long), c = document.createElement('canvas');
+                c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                c.toBlob(function (blob) {
+                    if (!blob) { $info.text('This browser could not make a JPEG from the HEIC photo. Export it as a JPEG (Preview > File > Export) and upload that.'); return; }
+                    var fd = new FormData();
+                    fd.append('action', 'monospace_heic_jpeg');
+                    fd.append('_ajax_nonce', $('#ms-na-form [name="_ajax_nonce"]').val());
+                    fd.append('title', a.title || '');
+                    fd.append('file', blob, (a.filename || 'photo').replace(/\.(heic|heif)$/i, '') + '.jpg');
+                    $.ajax({ url: ajaxurl, type: 'POST', data: fd, processData: false, contentType: false })
+                        .done(function (r) {
+                            if (r && r.success) useImage(r.data.id, r.data.url, r.data.filename + ' · ' + r.data.width + ' × ' + r.data.height + ' px (a JPEG copy of the HEIC photo) - click the image to choose another.', '', a.title);
+                            else $info.text((r && r.data) || 'The JPEG copy could not be saved.');
+                        })
+                        .fail(function (x) { $info.text('The JPEG copy could not be saved (' + x.status + ').'); });
+                }, 'image/jpeg', 0.9);
+            };
+            img.onerror = function () { $info.text('This browser cannot open the HEIC photo. Export it as a JPEG (Preview > File > Export) and upload that, or use Safari.'); };
+            img.src = a.url;
+        }
         $('#ms-na-pick').on('click', function () {
             if (!frame) {
                 frame = wp.media({ title: 'Artwork image', button: { text: 'Use this image' }, library: { type: 'image' }, multiple: false });
                 frame.on('select', function () {
                     var a = frame.state().get('selection').first().toJSON();
+                    // An iPhone photo (HEIC) the server cannot resize has no size or preview: it is turned into a JPEG here, in the browser, and uploaded as a new image
+                    if (/heic|heif/i.test((a.mime || '') + ' ' + (a.subtype || '')) || /\.(heic|heif)$/i.test(a.filename || a.url || '')) { convertHeic(a); return; }
                     var preview = (a.sizes && (a.sizes.large || a.sizes.medium_large || a.sizes.full)) || a;
-                    $('#ms-na-image-id').val(a.id).trigger('change');
-                    $('#ms-na-pick').addClass('has-image').find('img').attr('src', preview.url).prop('hidden', false);
-                    $('#ms-na-image-info').text(a.filename + ' · ' + a.width + ' × ' + a.height + ' px - click the image to choose another.');
-                    $('.ms-na-image').removeClass('is-invalid');
-                    // An empty title starts from the image's title (often the file name - edit it)
-                    if (!$.trim($('#ms-na-title').val()) && a.title && !/^(img|dsc|image|photo)[\s_-]?\d/i.test(a.title)) $('#ms-na-title').val(a.title).trigger('input');
+                    useImage(a.id, preview.url, a.filename + (a.width ? ' · ' + a.width + ' × ' + a.height + ' px' : '') + ' - click the image to choose another.', a.alt, a.title);
                 });
             }
             frame.open();
@@ -487,14 +532,35 @@ function monospace_new_artwork_page() {
                 .append($('<input type="hidden" name="tags[]">').val(name));
             $chip.insertBefore('#ms-na-tag-input');
         }
+        // Suggestions (owner, 2026-11-15: the browser's list of every tag was far too long): after two letters, at most 8 matching
+        // tags that start with them first, then ones that contain them; click or arrow keys + Enter to pick
+        var names = Object.keys(known).map(function (k) { return known[k]; }), $sug = $('#ms-na-tag-suggest'), act = -1;
+        function hideSug() { $sug.prop('hidden', true).empty(); act = -1; }
+        function showSug(q) {
+            q = $.trim(q).toLowerCase();
+            if (q.length < 2) { hideSug(); return; }
+            var have = {}; $('#ms-na-tags input[name="tags[]"]').each(function () { have[this.value.toLowerCase()] = 1; });
+            var starts = [], inside = [];
+            names.forEach(function (n) { var l = n.toLowerCase(); if (have[l]) return; if (l.indexOf(q) === 0) starts.push(n); else if (l.indexOf(q) > 0) inside.push(n); });
+            var list = starts.concat(inside).slice(0, 8);
+            $sug.empty(); act = -1;
+            list.forEach(function (n) { $('<li role="option">').text(n).appendTo($sug); });
+            $sug.prop('hidden', !list.length);
+        }
+        function pick(name) { addTag(name); $('#ms-na-tag-input').val('').trigger('focus'); hideSug(); }
+        $sug.on('mousedown', 'li', function (e) { e.preventDefault(); pick($(this).text()); });
         $('#ms-na-tag-input').on('keydown', function (e) {
-            if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(this.value); this.value = ''; }
+            var $li = $sug.children();
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                if (!$li.length) return;
+                e.preventDefault(); act = (act + (e.key === 'ArrowDown' ? 1 : -1) + $li.length) % $li.length;
+                $li.removeClass('is-active').eq(act).addClass('is-active');
+            } else if (e.key === 'Enter' && act >= 0 && $li.length) { e.preventDefault(); pick($li.eq(act).text()); }
+            else if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(this.value); this.value = ''; hideSug(); }
+            else if (e.key === 'Escape') hideSug();
             else if (e.key === 'Backspace' && !this.value) $(this).prev('.ms-na-tag').remove();
-        }).on('input', function (e) {
-            // Picking a suggestion from the list adds it at once (typing doesn't - "park" on the way to "parking")
-            var how = e.originalEvent && e.originalEvent.inputType;
-            if (known[this.value.toLowerCase()] && (how === undefined || how === 'insertReplacementText')) { addTag(this.value); this.value = ''; }
-        }).on('blur', function () { if ($.trim(this.value)) { addTag(this.value); this.value = ''; } });
+        }).on('input', function () { showSug(this.value); })
+          .on('blur', function () { hideSug(); if ($.trim(this.value)) { addTag(this.value); this.value = ''; } });
         $('#ms-na-tags').on('click', 'button', function () { $(this).closest('.ms-na-tag').remove(); })
             .on('click', function (e) { if (e.target === this) $('#ms-na-tag-input').trigger('focus'); });
 
@@ -554,11 +620,31 @@ function monospace_new_artwork_page() {
  * CREATE
  * ============================================================ */
 
+/** A JPEG copy of an iPhone (HEIC) photo, made in the browser, comes in here and becomes a normal Media Library image */
+add_action( 'wp_ajax_monospace_heic_jpeg', function () {
+    check_ajax_referer( 'monospace_new_artwork' );
+    if ( ! current_user_can( 'edit_products' ) || ! current_user_can( 'upload_files' ) ) wp_send_json_error( 'Not allowed.' );
+    if ( empty( $_FILES['file'] ) ) wp_send_json_error( 'No file came through.' );
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+    $id = media_handle_upload( 'file', 0, [ 'post_title' => sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) ) ], [ 'test_form' => false, 'mimes' => [ 'jpg|jpeg|jpe' => 'image/jpeg' ] ] );
+    if ( is_wp_error( $id ) ) wp_send_json_error( $id->get_error_message() );
+    $meta = wp_get_attachment_metadata( $id );
+    wp_send_json_success( [
+        'id'       => $id,
+        'url'      => wp_get_attachment_image_url( $id, 'large' ) ?: wp_get_attachment_url( $id ),
+        'width'    => (int) ( $meta['width'] ?? 0 ),
+        'height'   => (int) ( $meta['height'] ?? 0 ),
+        'filename' => basename( (string) get_attached_file( $id ) ),
+    ] );
+} );
+
 /** The post body in the owner's shape: image + caption, More, story, [price_card], meta block */
-function monospace_new_artwork_content( $image_id, $caption, $story ) {
+function monospace_new_artwork_content( $image_id, $caption, $story, $alt = '' ) {
     $url = wp_get_attachment_url( $image_id );
     $out  = '<!-- wp:image {"id":' . (int) $image_id . ',"sizeSlug":"full","linkDestination":"none"} -->' . "\n";
-    $out .= '<figure class="wp-block-image size-full"><img src="' . esc_url( $url ) . '" alt="" class="wp-image-' . (int) $image_id . '"/>';
+    $out .= '<figure class="wp-block-image size-full"><img src="' . esc_url( $url ) . '" alt="' . esc_attr( $alt ) . '" class="wp-image-' . (int) $image_id . '"/>';
     if ( $caption !== '' ) $out .= '<figcaption class="wp-element-caption">' . esc_html( $caption ) . '</figcaption>';
     $out .= "</figure>\n<!-- /wp:image -->\n\n";
     $out .= "<!-- wp:more {\"customText\":\" \"} -->\n<!--more  -->\n<!-- /wp:more -->\n\n";
@@ -584,6 +670,7 @@ add_action( 'wp_ajax_monospace_new_artwork', function () {
     $price    = preg_replace( '/[^\d.]/', '', (string) ( $in['price'] ?? '' ) );
     $status   = sanitize_key( $in['status'] ?? 'available' );
     $story    = sanitize_textarea_field( $in['story'] ?? '' );
+    $alt      = trim( preg_replace( '/\s+/', ' ', sanitize_textarea_field( $in['alt'] ?? '' ) ) );
 
     // Attributes: only real terms of the form's taxonomies
     $attributes = [];
@@ -627,13 +714,15 @@ add_action( 'wp_ajax_monospace_new_artwork', function () {
         'post_type'     => 'post',
         'post_status'   => 'draft',
         'post_title'    => $title,
-        'post_content'  => monospace_new_artwork_content( $image_id, $caption, $story ),
+        'post_content'  => monospace_new_artwork_content( $image_id, $caption, $story, $alt ),
         'post_category' => $categories ?: [ (int) get_option( 'default_category' ) ],
         'tags_input'    => $tags,
     ] ), true );
     if ( is_wp_error( $post_id ) ) wp_send_json_error( $post_id->get_error_message() );
 
     set_post_thumbnail( $post_id, $image_id );
+    // The alt text goes into the Media Library too (the image block's own box holds the same words); empty = left as it is
+    if ( $alt !== '' ) update_post_meta( $image_id, '_wp_attachment_image_alt', wp_slash( $alt ) );
     if ( ! wp_get_post_parent_id( $image_id ) ) wp_update_post( [ 'ID' => $image_id, 'post_parent' => $post_id ] );
 
     // 2. The product - Quick Product's own sync, as its Create product button does
@@ -650,6 +739,7 @@ add_action( 'wp_ajax_monospace_new_artwork', function () {
         'gallery_url'             => esc_url_raw( $in['gallery_url'] ?? '' ),
         'print_product_id'        => 0,
         'framed_print_product_id' => 0,
+        'postcard_product_id'     => 0,
     ] );
     $result = $syncer->sync();
     if ( is_wp_error( $result ) ) {
@@ -660,7 +750,8 @@ add_action( 'wp_ajax_monospace_new_artwork', function () {
 
     // 3. Prints, when asked: every size and frame at the default prices, too-small sizes skipped
     $notes = [];
-    if ( ! empty( $in['prints'] ) && function_exists( 'monospace_prints_queue' ) ) {
+    // (filter monospace_new_artwork_allow_prints: a feature can refuse prints for an artwork it opened the page for - a commission's)
+    if ( ! empty( $in['prints'] ) && function_exists( 'monospace_prints_queue' ) && apply_filters( 'monospace_new_artwork_allow_prints', true, $in ) ) {
         $request = [ 'min_dpi' => 100 ];
         foreach ( monospace_print_templates() as $type => $tpl ) {
             $request[ $type ] = [ 'variants' => array_map( function ( $v ) { return $v['price']; }, $tpl['variants'] ) ];
@@ -671,6 +762,11 @@ add_action( 'wp_ajax_monospace_new_artwork', function () {
         } catch ( Exception $e ) {
             $notes[] = 'Prints not started: ' . $e->getMessage();
         }
+    }
+
+    // Reminder (owner, 2026-11-15): nothing to read aloud or index until the image has alt text
+    if ( trim( (string) get_post_meta( $image_id, '_wp_attachment_image_alt', true ) ) === '' ) {
+        $notes[] = 'No alt text was added to the image. Add it in the Media Library (or use Generate alt text on this screen next time).';
     }
 
     do_action( 'monospace_new_artwork_created', $post_id, $product, $in );

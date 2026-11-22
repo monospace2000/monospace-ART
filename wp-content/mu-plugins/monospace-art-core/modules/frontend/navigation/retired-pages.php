@@ -2,23 +2,20 @@
 /**
  * Retired pages (2026-10-15 menu redesign): permanent redirects, and left out of Jetpack's sitemap.
  *
- * Services, Connect, Markets and Events and About only served as menu headers - the menu now has
- * real headers (menu-items.php). They stay published, because their child pages' URLs run through
- * them (/services/custom-work/, /connect/contact/, ...); deleting one would change those URLs.
- * Art Shop is WooCommerce's shop page (its archive of all 497 products); Print Gallery is obsolete.
+ * Art Shop is WooCommerce's shop page (its archive of all 497 products) and forwards to Available Originals.
+ * The old menu-header pages (Services, Connect, Markets and Events, About) used to be listed here too: they stayed published
+ * because their children's addresses ran through them. Since 2026-11-16 (owner) they are folders - Private pages with children,
+ * no forwarding, a bare folder address is a 404 and that is intended (Admin tools' page-folders.php); the entries were removed.
  *
  * Keyed by page path (get_page_uri). Editing them in wp-admin still works; "View page" redirects.
+ * wp-admin's Pages list labels each one "Forwarding page → /where/" (2026-11-16, owner: "label them") and, for a parent, how many
+ * child pages run through it - the list below is the one definition of which pages these are.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 const MONOSPACE_RETIRED_PAGES = [
-    'art-shop'           => '/category/available/',
-    'services'           => '/services/custom-work/',
-    'markets-and-events' => '/markets-and-events/schedule/',
-    'about'              => '/about/about-me/',
-    'connect'            => '/connect/contact/',
-    'print-gallery'      => '/category/print/',
+    'art-shop'           => '/category/artworks/available/',
 ];
 
 add_action( 'template_redirect', function () {
@@ -44,8 +41,10 @@ add_action( 'template_redirect', function () {
  * would be a 404, so a category re-created with that name wins. Keyed by path, any /page/N/ after it.
  */
 const MONOSPACE_RETIRED_ARCHIVES = [
-    'category/medium/line-wash' => '/category/medium/ink/', // "line & wash" merged into Ink & Wash
-    'category/line-wash'        => '/category/medium/ink/',
+    'category/medium/line-wash'         => '/category/artworks/medium/ink/', // "line & wash" merged into the one line & wash category (slug ink)
+    'category/line-wash'                => '/category/artworks/medium/ink/',
+    'category/artworks/medium/line-wash' => '/category/artworks/medium/ink/',
+    'category/print'                    => '/category/artworks/prints/',   // the category's slug became prints (2026-11)
 ];
 
 add_action( 'template_redirect', function () {
@@ -65,19 +64,19 @@ add_action( 'template_redirect', function () {
  * WordPress guessed a random print). Only when it would be a 404; a /page/N/ after it is kept.
  */
 const MONOSPACE_ART_SHOP_SHORTCUTS = [
-    'available'  => '/category/available/',
-    'original'   => '/category/available/',
-    'originals'  => '/category/available/',
-    'print'      => '/category/print/',
-    'prints'     => '/category/print/',
-    'miniature'  => '/category/format/miniature/',
-    'miniatures' => '/category/format/miniature/',
-    'favorite'   => '/category/favorite/',
-    'favorites'  => '/category/favorite/',
-    'painting'   => '/category/format/painting/',
-    'paintings'  => '/category/format/painting/',
-    'drawing'    => '/category/format/drawing/',
-    'drawings'   => '/category/format/drawing/',
+    'available'  => '/category/artworks/available/',
+    'original'   => '/category/artworks/available/',
+    'originals'  => '/category/artworks/available/',
+    'print'      => '/category/artworks/prints/',
+    'prints'     => '/category/artworks/prints/',
+    'miniature'  => '/category/artworks/format/miniature/',
+    'miniatures' => '/category/artworks/format/miniature/',
+    'favorite'   => '/category/artworks/collections/favorite/',
+    'favorites'  => '/category/artworks/collections/favorite/',
+    'painting'   => '/category/artworks/format/painting/',
+    'paintings'  => '/category/artworks/format/painting/',
+    'drawing'    => '/category/artworks/format/drawing/',
+    'drawings'   => '/category/artworks/format/drawing/',
 ];
 
 add_action( 'template_redirect', function () {
@@ -88,6 +87,20 @@ add_action( 'template_redirect', function () {
     wp_safe_redirect( home_url( $to ), 301, 'monospace art-shop shortcut' );
     exit;
 }, 5 );
+
+// The Pages list in wp-admin: a label next to the title, so these pages aren't taken for real ones (WordPress / WooCommerce add their own
+// "Front Page", "Posts Page", "Shop Page" labels beside it)
+add_filter( 'display_post_states', function ( $states, $post ) {
+    if ( ! is_object( $post ) || ( $post->post_type ?? '' ) !== 'page' ) return $states;
+    if ( ( $post->post_status ?? '' ) !== 'publish' ) return $states;   // it only forwards while published (an unpublished one is a folder: Admin tools' page-folders.php)
+    $path = get_page_uri( $post->ID );
+    if ( ! isset( MONOSPACE_RETIRED_PAGES[ $path ] ) ) return $states;
+    $kids  = count( get_posts( [ 'post_type' => 'page', 'post_parent' => $post->ID, 'post_status' => [ 'publish', 'draft', 'private' ], 'numberposts' => -1, 'fields' => 'ids' ] ) );
+    $label = 'Forwarding page → ' . esc_html( MONOSPACE_RETIRED_PAGES[ $path ] );
+    if ( $kids ) $label .= ' · parent of ' . $kids . ( $kids === 1 ? ' page' : ' pages' );
+    $states['ms_forwarding'] = '<span class="ms-pg-chip ms-pg-forwarding">' . $label . '</span>';
+    return $states;
+}, 10, 2 );
 
 add_filter( 'jetpack_sitemap_skip_post', function ( $skip, $post ) {
     if ( $skip || ! is_object( $post ) || ( $post->post_type ?? '' ) !== 'page' ) return $skip;

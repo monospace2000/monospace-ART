@@ -19,6 +19,49 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 const MONOSPACE_MINIATURE_SIZES = [ '4x4', '2x4x4', '3x4x4' ];
+const MONOSPACE_MINIATURE_SET_SIZES = [ '2x4x4', '3x4x4' ]; // diptych, triptych: one piece with its own price
+
+/**
+ * What is a miniature - the one test for every part of the site (owner, 2026-11-14): the SKU's type letter M
+ * (MNSPC-2026-M-0753). The letter is given when the artwork is made (a 4" × 4", or the miniature category:
+ * QuickProduct's SKU generator); the "miniature" post category follows the same details. Product tags are not a
+ * test: no artwork tool writes them (the volume discount read the tag "miniature" until 2026-11-14 and missed
+ * every miniature made after 2026-11-04).
+ */
+
+/** The type letter of a SKU (MNSPC-2026-M-0753 -> M); '' when it has none */
+function monospace_sku_type( $sku ) {
+    return preg_match( '/^[A-Z]+-\d{4}-([A-Z])-\d+$/', (string) $sku, $m ) ? $m[1] : '';
+}
+
+/** Is this product a miniature - a single one or a set? */
+function monospace_is_miniature_product( $product_id ) {
+    return $product_id && monospace_sku_type( get_post_meta( $product_id, '_sku', true ) ) === 'M';
+}
+
+/** Is this product a miniature set (diptych, triptych)? */
+function monospace_is_miniature_set( $product_id ) {
+    if ( ! monospace_is_miniature_product( $product_id ) ) return false;
+    $sizes = wp_get_post_terms( $product_id, 'pa_size', [ 'fields' => 'slugs' ] );
+    return ! is_wp_error( $sizes ) && (bool) array_intersect( $sizes, MONOSPACE_MINIATURE_SET_SIZES );
+}
+
+/**
+ * Does a product belong to the group a price rule names (the Sales Dashboard's rule keys)? "miniature" = a single
+ * miniature by its SKU - a set is priced as one piece and never counts towards a deal for single miniatures.
+ * Any other key: a product category, a product tag, or attr:pa_taxonomy=slug.
+ */
+function monospace_product_in_group( $product_id, $key ) {
+    if ( ! $product_id || ! $key ) return false;
+    if ( $key === 'miniature' ) return monospace_is_miniature_product( $product_id ) && ! monospace_is_miniature_set( $product_id );
+    if ( has_term( $key, 'product_cat', $product_id ) || has_term( $key, 'product_tag', $product_id ) ) return true;
+    if ( strpos( $key, 'attr:' ) === 0 && strpos( $key, '=' ) !== false ) {
+        list( $tax, $slug ) = array_map( 'sanitize_text_field', array_map( 'trim', explode( '=', substr( $key, 5 ), 2 ) ) );
+        $terms = $tax && $slug ? wp_get_post_terms( $product_id, $tax, [ 'fields' => 'slugs' ] ) : [];
+        return ! is_wp_error( $terms ) && in_array( $slug, (array) $terms, true );
+    }
+    return false;
+}
 
 /** The category slugs a set of details calls for (format, medium, miniature) */
 function monospace_artwork_detail_categories( $attrs ) {
