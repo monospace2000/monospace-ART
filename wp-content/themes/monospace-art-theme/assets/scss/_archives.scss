@@ -1,0 +1,650 @@
+@import 'variables';
+@import 'mixins';
+
+
+
+
+/* Archive items */
+.archive-item {
+    margin-bottom: 6rem;
+}
+
+/* Scroll slide-in: post previews slide into place as they come into view - from below when
+   scrolling down, from above when scrolling up - with a gentle ease-out overshoot. No slide out.
+   assets/scripts/scroll-slide.js adds the classes; it loads only while Layout Manager > Effects >
+   Scroll slide-in is on, and skips visitors who prefer reduced motion.
+   Tuning: Layout Manager > Effects (distance, duration, bounce), output as the CSS variables
+   --slide-distance, --slide-duration and --slide-curve; the values below are the fallbacks. */
+$slide-curve: cubic-bezier(0.22, 1.08, 0.36, 1);   // soft ease-out, just a hint of overshoot
+
+@keyframes slide-from-below {
+    from { transform: translateY(var(--slide-distance, 120px)); }
+    to   { transform: none; }
+}
+@keyframes slide-from-above {
+    from { transform: translateY(calc(-1 * var(--slide-distance, 120px))); }
+    to   { transform: none; }
+}
+
+// Before the script has taken over, everything it will watch starts shifted from the first paint,
+// so items on screen at load can slide up into place as the page opens (feeds and home page alike).
+// html.slide-ready is only set when the slide will actually run (inline script in the head,
+// layout-manager.php); the same items as SELECTOR in scroll-slide.js
+html.slide-ready body.scroll-focus:is(.blog, .archive, .search) #main-content .archive-item:not([data-slide-watched]),
+html.slide-ready body.scroll-focus.page-template-start_template .container > .box:not([data-slide-watched]),
+html.slide-ready body.scroll-focus .scroll-fade:not([data-slide-watched]) {
+    transform: translateY(var(--slide-distance, 120px));
+}
+
+// Waiting off screen, already in the starting position (so nothing shows before the slide)
+.slide-pending-below { transform: translateY(var(--slide-distance, 120px)); }
+.slide-pending-above { transform: translateY(calc(-1 * var(--slide-distance, 120px))); }
+
+.slide-from-below { animation: slide-from-below var(--slide-duration, 0.9s) var(--slide-curve, $slide-curve) both; }
+.slide-from-above { animation: slide-from-above var(--slide-duration, 0.9s) var(--slide-curve, $slide-curve) both; }
+
+// Where the browser supports scroll-driven animations, the waiting classes carry the slide itself:
+// the browser moves the item in step with the scroll on every frame (off the page's main thread),
+// so it can't lag behind a fast phone swipe. The script then only arms the side and clears the
+// class once the item is in place. Elsewhere scroll-slide.js drives the offset itself.
+// The progress points match the script: the slide starts once the item is --slide-distance into
+// the screen and settles over --slide-settle. Coming from above runs the timeline backwards, so it
+// uses the mirrored curve. --slide-scroll-curve matches the script's ease-out (cubic, plus the bounce).
+@supports (animation-timeline: view()) and (animation-range: cover 10px cover 20px) {
+    @keyframes slide-scroll-below {
+        from { transform: translateY(var(--slide-distance, 120px)); }
+        to   { transform: none; }
+    }
+    @keyframes slide-scroll-above {
+        from { transform: none; }
+        to   { transform: translateY(calc(-1 * var(--slide-distance, 120px))); }
+    }
+    .slide-pending-below:not([data-slide-on-load]),
+    .slide-pending-above {
+        animation-duration: 1ms;
+        animation-duration: auto;
+        animation-fill-mode: both;
+        animation-timeline: view();
+    }
+    .slide-pending-below:not([data-slide-on-load]) {
+        animation-name: slide-scroll-below;
+        animation-timing-function: var(--slide-scroll-curve, cubic-bezier(0.33, 1.2, 0.68, 1));
+        animation-range: cover var(--slide-distance, 120px) cover calc(var(--slide-distance, 120px) + var(--slide-settle, 40vh));
+    }
+    // Measured from the top of the screen against its full height (100lvh, address bar hidden) rather
+    // than from the bottom edge: on iPhones the bottom edge moves when the address bar expands or
+    // collapses, which made items mid-slide jump. "exit" 0 = the item's top at the top of the screen
+    @supports (animation-range: exit -10px exit -5px) {
+        .slide-pending-below:not([data-slide-on-load]) {
+            animation-range: exit calc(var(--slide-distance, 120px) - 100lvh) exit calc(var(--slide-distance, 120px) + var(--slide-settle, 40vh) - 100lvh);
+        }
+    }
+    .slide-pending-above {
+        animation-name: slide-scroll-above;
+        animation-timing-function: var(--slide-scroll-curve-rev, cubic-bezier(0.32, 0, 0.67, -0.2));
+        animation-range: cover calc(100% - var(--slide-distance, 120px) - var(--slide-settle, 40vh)) cover calc(100% - var(--slide-distance, 120px));
+    }
+}
+
+.archive-item-title {
+}
+
+.archive-item-title a {
+}
+
+.archive-item-title a:hover {
+}
+
+.archive-item-excerpt {
+}
+
+.archive-thumb {
+}
+
+.entry-title {
+}
+
+.entry-content {
+}
+
+/* Pagination */
+.pagination {
+    text-align: center;
+    margin-bottom: 6rem;
+
+    a {
+        &:hover {
+        }
+    }
+}
+
+.archive-thumb-caption {
+    &:hover {
+    }
+}
+
+/* Make the_content clickable */
+.archive-item-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Gallery captions: left align */
+.wp-block-gallery figcaption {
+    text-align: left;
+}
+
+/* ============================================================
+   LIST / GRID VIEW TOGGLE
+   archive-view-toggle.php - per-term option; html.archive-view-grid set by JS
+============================================================ */
+
+.archive-view-toggle {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    margin: 0 0 $global-margin 0;
+
+    button {
+        appearance: none;
+        background: none;
+        border: 0;
+        border-radius: 4px;
+        padding: 0.35rem;
+        line-height: 0;
+        color: $body-text-color;
+        opacity: 0.4;
+        cursor: pointer;
+        transition: opacity 0.2s ease;
+
+        svg {
+            fill: currentColor;
+        }
+
+        &:hover {
+            opacity: 0.7;
+        }
+
+        &[aria-pressed="true"] {
+            opacity: 1;
+        }
+
+        &:focus-visible {
+            outline: 2px solid black;
+            outline-offset: 2px;
+        }
+    }
+}
+
+.archive-view-label {
+    align-self: center;
+    margin-right: 0.25rem;
+    font-family: $component-font;
+    font-size: 0.85em;
+    color: $body-text-color-light;
+}
+
+// Available only + sort, left of the view icons (archive-view-toggle.php)
+.archive-view-toggle {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+}
+
+.archive-tools {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin-right: auto;
+    font-family: $component-font;
+    font-size: 0.85em;
+    color: $body-text-color;
+
+    label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        cursor: pointer;
+    }
+
+    input[type="checkbox"] {
+        margin: 0;
+        accent-color: $body-text-color;
+    }
+
+    select {
+        font: inherit;
+        color: inherit;
+        background: transparent;
+        border: 1px solid rgba(0, 0, 0, 0.25);
+        border-radius: 4px;
+        padding: 0.2rem 0.4rem;
+        cursor: pointer;
+    }
+
+    input:focus-visible,
+    select:focus-visible {
+        outline: 2px solid black;
+        outline-offset: 2px;
+    }
+}
+
+// The two filter checkboxes: a group only phones lay out (below); on bigger screens it's invisible
+// to the layout and the toolbar stays one line
+.archive-tools-filters {
+    display: contents;
+}
+
+// Phones: filters as tappable chips on the first row; sort menu (full width) + list / grid icons on
+// the second. "View as" is dropped.
+@include mobile {
+    .archive-view-toggle {
+        align-items: center;
+        column-gap: 0.25rem;
+        row-gap: 0.6rem;
+    }
+
+    .archive-tools {
+        display: contents;
+    }
+
+    .archive-tools-filters {
+        display: flex;
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+
+        label {
+            padding: 0.45rem 0.8rem;
+            border: 1px solid rgba(0, 0, 0, 0.25);
+            border-radius: 999px;
+            line-height: 1.2;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+
+            &:has(input:checked) {
+                background: rgba(0, 0, 0, 0.08);
+                border-color: $body-text-color;
+            }
+        }
+    }
+
+    .archive-tools-sort {
+        flex: 1 1 auto;
+        min-width: 0;
+        margin-right: 0.25rem;
+
+        select {
+            width: 100%;
+            font-size: 16px;      // under 16px iPhones zoom the page in when the menu is tapped
+            padding: 0.4rem 0.5rem;
+        }
+    }
+
+    .archive-view-label {
+        display: none;
+    }
+
+    .archive-view-toggle button {
+        padding: 0.45rem;      // a bigger tap target
+    }
+}
+
+.archive-tools-empty {
+    font-family: $component-font;
+}
+
+.feed-header:has(+ .archive-view-toggle) {
+    margin-bottom: 1.75rem; // 2026-10-23, owner: "category headers need more bottom margin" (was 1rem)
+}
+
+// Square tiles, green dot for available work. Columns: --grid-cols (computers & tablets) and --grid-cols-m (phones), 3 and 3
+// unless set in Layout Manager > Links & toolbar > Grid view columns (design/archive-toolbar.php, 2026-10-26)
+html.archive-view-grid #main-content {
+    --grid-gap: 20px;
+    display: grid;
+    grid-template-columns: repeat(var(--grid-cols, 3), minmax(0, 1fr));
+    gap: var(--grid-gap);
+    align-items: start;
+
+    @include mobile {
+        grid-template-columns: repeat(var(--grid-cols-m, 3), minmax(0, 1fr));
+        --grid-gap: 8px;
+    }
+
+    // Header, toggle, loading indicator span the full row
+    > :not(article),
+    .feed-header {
+        grid-column: 1 / -1;
+    }
+
+    // Same 1.75rem between header and toggle as in list view (the row gap adds the rest),
+    // so the toggle icons don't move when switching views
+    .feed-header {
+        margin-bottom: calc(1.75rem - var(--grid-gap));
+    }
+
+    .archive-view-toggle {
+        margin: 0;
+    }
+
+    // Infinite scroll wraps each appended page in a bare div - let its posts join the grid
+    > div:not(.infinite-scroll-loading) {
+        display: contents;
+    }
+
+    .archive-item > .ms-thumb-fallback {
+        display: block;
+    }
+
+    .archive-item {
+        margin: 0;
+
+        // Just the image - text, buy rows and print cards stay on the post
+        > :not(figure:first-of-type) {
+            display: none;
+        }
+
+        > figure:first-of-type {
+            position: relative;
+            aspect-ratio: 1 / 1;
+            margin: 0;
+            overflow: hidden;
+            border-radius: var(--ms-img-radius, var(--ms-radius, 5px));
+            box-shadow: 0 0 8px ms-shadow(0.3);
+
+            &.is-style-no-shadow {
+                box-shadow: none;
+            }
+
+            // Diptychs and triptychs (2026-10-23, owner: "a single image in detail and grid view"): the first picture only,
+            // as any other tile - the whole set shows in list view. The grid's columns are set inline, one per picture.
+            .ms-miniature-set-wrapper,
+            .miniature-set-grid {
+                height: 100%;
+            }
+
+            .miniature-set-grid {
+                grid-template-columns: 1fr !important;
+
+                > .ms-miniature-link:not(:first-child),
+                > img:not(:first-child) {
+                    display: none;
+                }
+            }
+        }
+    }
+
+    .ms-archive-image-wrapper,
+    .ms-archive-image-link,
+    .ms-image-container,
+    .ms-miniature-background {
+        height: 100%;
+    }
+
+    // A picture the post links elsewhere itself (the first image is left as it is) still fills the tile
+    .archive-item > figure:first-of-type > a {
+        display: block;
+        height: 100%;
+    }
+
+    .ms-miniature-background {
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    // A miniature is the standard thumbnail here (2026-10-23, owner): not the cover of a blurred, darkened copy behind a
+    // shrunken one - that stays in list view and on the post page
+    .ms-miniature-cover {
+        .ms-miniature-background {
+            background-image: none !important; // set inline
+        }
+
+        .ms-miniature-background::before,
+        .ms-miniature-overlay {
+            display: none;
+        }
+
+        .ms-miniature-image-container {
+            position: static;
+            transform: none;
+            height: 100%;
+        }
+    }
+
+    // Crop to the square
+    .archive-item > figure:first-of-type img {
+        width: 100%;
+        height: 100% !important; // infinite scroll sets height:auto inline
+        object-fit: cover;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    figcaption,
+    .ms-feed-info,
+    .ms-blog-excerpt,
+    .ms-attribute-label,
+    .ms-availability-badge:not(.ms-available, .ms-gallery, .ms-reserved, .ms-sold, .ms-private) {
+        display: none;
+    }
+
+    .ms-miniature-mark {
+        display: block;
+    }
+
+    // Same dot as .ms-availability-dot in the Art Filter (the mixin is in _mixins.scss)
+    .ms-availability-badge.ms-available,
+    .ms-availability-badge.ms-gallery,
+    .ms-availability-badge.ms-reserved,
+    .ms-availability-badge.ms-sold,
+    .ms-availability-badge.ms-private {
+        @include ms-dot-badge;
+    }
+}
+
+// Look > Availability dots, "on every artwork": the dot in every view of the feed, list and detail views included
+// (body class from design/availability-dots.php; a state that is switched off is hidden by the CSS that module prints)
+body.ms-dots-all .ms-availability-badge:is(.ms-available, .ms-gallery, .ms-reserved, .ms-sold, .ms-private) {
+    display: block;
+    @include ms-dot-badge;
+}
+
+/* A page's own <h1> block shown in a feed is printed as <h2> (modules/frontend/seo/headings-alt.php) - same size */
+h2[data-heading="h1"] {
+    font-size: 2em;
+    margin-block: 0.67em;
+}
+
+/* -----------------------------------------------------------
+   Cards view (archive-view-toggle.php, 2026-10-21): each artwork as a standalone price card. The card rides along in
+   every view (.archive-sa-card, added to the artwork's content) and shows only in cards view - where it's all an
+   artwork shows (its image, caption, info and archive price card step aside). Blog posts stay as they are.
+----------------------------------------------------------- */
+.archive-sa-card {
+    display: none;
+}
+
+html.archive-view-cards {
+    .archive-item:has(> .archive-sa-card) > :not(.archive-sa-card) {
+        display: none !important;
+    }
+
+    .archive-sa-card {
+        display: block;
+
+        .pc-standalone {
+            margin: 0 0 $global-margin;
+        }
+    }
+}
+
+/* -----------------------------------------------------------
+   Detail list view (archive-view-toggle.php + Core's artwork-row.php, 2026-10-23): each artwork as a row - its picture on
+   the left, title / SKU number / availability / price / details on the right. The row rides along in every view
+   (.archive-detail-row) and shows only in detail view, where it's all an artwork shows; search results are always in it
+   (html.archive-view-detail), and the Art Filter draws the same row. Blog posts and pages stay as they are.
+----------------------------------------------------------- */
+.archive-detail-row {
+    display: none;
+}
+
+// A post with no picture of its own gets a thumbnail tile (clickable-feed-image.php, 2026-10-23): shown in grid view only
+.ms-thumb-fallback {
+    display: none;
+}
+
+html.archive-view-detail {
+    .archive-item:has(> .archive-detail-row) > :not(.archive-detail-row) {
+        display: none !important;
+    }
+
+    .archive-detail-row {
+        display: block;
+    }
+}
+
+.ms-artwork-row {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+    margin: 0 0 $global-margin;
+
+    // The picture's look (shadow, outline, rounding, rollover) is the feed pictures' - the link is an .ms-archive-image-link.
+    // Every picture is the same square (cropped to its middle) at the column's width, so the rows line up.
+    .ms-artwork-row-pic {
+        position: relative; // the availability dot (Look > Availability dots) sits on the picture
+        width: 100%;
+        line-height: 0;
+
+        img {
+            display: block;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+        }
+    }
+
+    .ms-artwork-row-title {
+        margin: 0 0 0.35rem;
+        font-size: 1.2rem;
+        line-height: 1.25;
+
+        a {
+            color: inherit;
+            text-decoration: none;
+
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+    }
+
+    .ms-artwork-row-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.25rem 0.9rem;
+        margin: 0;
+        font-family: $component-font;
+    }
+}
+
+/* The small "Miniature" tag after the dimensions (or beside the title of a post with no info lines) */
+.ms-info-mini {
+    display: inline-block;
+    margin-left: 0.1rem;
+    padding: 0 0.45em;
+    border: 1px solid currentColor;
+    border-radius: 1em;
+    font-family: $component-font;
+    font-size: 0.65rem;
+    font-weight: normal;
+    line-height: 1.6;
+    vertical-align: middle;
+    color: $body-text-color-light;
+    white-space: nowrap;
+}
+
+/* The info under a title - the list view's and the detail list's, the same three lines (monospace_artwork_info_html()),
+   all in the UI font: medium on surface, dimensions / availability #number price / prints available */
+.ms-info {
+    font-family: $component-font;
+    line-height: 1.5;
+
+    .ms-info-made {
+        margin: 0 0 0.4rem;
+        font-size: 0.9em;
+        line-height: 1.4;
+    }
+
+    // Each part never breaks inside ("Canvas panel", 10" × 8"); a line wraps only between them
+    .ms-info-part,
+    .ms-info-price,
+    .ms-info-prints {
+        white-space: nowrap;
+    }
+
+    // A status that has to wrap ("Artist’s Private / Collection") splits evenly
+    .ms-info-status .status-label {
+        text-wrap: balance;
+    }
+
+    .ms-info-number {
+        font-size: 0.7em;
+        color: $body-text-color-light;
+        white-space: nowrap;
+    }
+
+    .ms-info-price {
+        margin-left: 0.4rem;
+        font-weight: 700;
+
+        // WooCommerce's amount has its own face and size - the UI font, at the line's size, here
+        .woocommerce-Price-amount,
+        bdi {
+            font-family: inherit;
+            font-size: inherit;
+        }
+    }
+
+    .ms-info-prints {
+        margin-top: 0.2rem;
+        font-size: 0.9em;
+        color: $body-text-color-light;
+    }
+}
+
+.ms-artwork-row.ms-artwork-row-no-pic {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.ms-artwork-row .ms-artwork-row-date {
+    font-size: 0.8em;
+    color: $body-text-color-light;
+}
+
+.ms-artwork-row .ms-artwork-row-excerpt {
+    margin: 0;
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+    .ms-artwork-row {
+        grid-template-columns: 110px minmax(0, 1fr);
+        gap: 0.9rem;
+        margin-bottom: 0;
+
+        .ms-artwork-row-title {
+            font-size: 1.05rem;
+        }
+    }
+
+    // The list view's 96px between artworks is too much beside a 110px picture, 24px too little
+    html.archive-view-detail .archive-item:has(> .archive-detail-row) {
+        margin-bottom: 2.75rem;
+    }
+}

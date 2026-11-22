@@ -1,0 +1,557 @@
+/* -----------------------------------------------------------
+   Global settings
+----------------------------------------------------------- */
+
+// Import foundation
+@import 'variables';
+@import 'mixins';
+
+:root {
+    /* CSS custom properties - keep these for runtime changes */
+    --menu-bar-height: #{$menu-bar-height};
+    --column-center-width: #{$column-center-width};
+    --column-sidebar-width: #{$column-sidebar-width};
+    --global-width: #{$global-width};
+    --global-padding: #{$global-padding};
+    --global-margin: #{$global-margin};
+
+    /* Gradients (colors: the Appearance's background, below) */
+    --gradient-foreground: #{$gradient-foreground};
+    --gradient-background: #{$gradient-background};
+    --gradient-center-x: 40vw;
+    --gradient-center-y: 40vh;
+    --gradient-start: 20%;
+    --gradient-radius: 50vw;
+}
+
+/* Mobile Variables */
+@include tablet {
+    :root {
+        --gradient-center-x: 50vw;
+        --gradient-center-y: 40vh;
+        --gradient-start: 20%;
+        --gradient-radius: 80vw;
+    }
+}
+
+@include mobile {
+    :root {
+        --gradient-center-x: 50vw;
+        --gradient-center-y: 30vh;
+        --gradient-start: 20%;
+        --gradient-radius: 100vw;
+    }
+}
+
+/* Ensure body always stretches with content */
+html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    position: relative;
+}
+
+/* Fixed spotlight gradient */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background: radial-gradient(
+        circle at var(--gradient-center-x) var(--gradient-center-y),
+        var(--gradient-foreground) var(--gradient-start),
+        var(--gradient-background) var(--gradient-radius)
+    );
+    background-blend-mode: color-burn;
+}
+
+/* The spotlight as a beam (2026-10-24): the light comes in at an angle (--beam-angle, clockwise from straight above; 300deg =
+   10 o'clock) - all gradients. ::before is the pool of light where it lands; this layer is the shade over the rest of the page
+   with a soft cone cut out of it, running from a point off-screen (--sx / --sy: back along the angle from the landing point)
+   to the pool; the radial mask lets the shade close in again past the pool. */
+:root {
+    --beam-angle: 300deg;
+    --beam-half: 13deg; // half the cone's width
+    --beam-len: 110vmax; // the distance from the light to its pool
+}
+
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    --sx: calc(var(--gradient-center-x) + var(--beam-len) * sin(var(--beam-angle)));
+    --sy: calc(var(--gradient-center-y) - var(--beam-len) * cos(var(--beam-angle)));
+    background: linear-gradient(var(--beam-shade, var(--gradient-background)), var(--beam-shade, var(--gradient-background)));
+    -webkit-mask-image: conic-gradient(from calc(var(--beam-angle) + 180deg - var(--beam-half)) at var(--sx) var(--sy),
+            #000 0deg, rgba(0, 0, 0, 0.85) calc(var(--beam-half) * 0.3), rgba(0, 0, 0, 0.1) calc(var(--beam-half) * 0.8), transparent var(--beam-half),
+            rgba(0, 0, 0, 0.1) calc(var(--beam-half) * 1.2), rgba(0, 0, 0, 0.85) calc(var(--beam-half) * 1.7), #000 calc(var(--beam-half) * 2)),
+        radial-gradient(circle at var(--sx) var(--sy), transparent calc(var(--beam-len) * 0.9), #000 calc(var(--beam-len) + var(--gradient-radius) * 1.3));
+    mask-image: conic-gradient(from calc(var(--beam-angle) + 180deg - var(--beam-half)) at var(--sx) var(--sy),
+            #000 0deg, rgba(0, 0, 0, 0.85) calc(var(--beam-half) * 0.3), rgba(0, 0, 0, 0.1) calc(var(--beam-half) * 0.8), transparent var(--beam-half),
+            rgba(0, 0, 0, 0.1) calc(var(--beam-half) * 1.2), rgba(0, 0, 0, 0.85) calc(var(--beam-half) * 1.7), #000 calc(var(--beam-half) * 2)),
+        radial-gradient(circle at var(--sx) var(--sy), transparent calc(var(--beam-len) * 0.9), #000 calc(var(--beam-len) + var(--gradient-radius) * 1.3));
+}
+
+/* Scrolling paper texture. z-index: 0 makes body its own stacking context, which keeps the
+   spotlight (z-index -2) inside body, painted above the texture. Without it Safari showed no
+   texture at all (removed 2026-10-14 for the logo's multiply blend, restored 2026-10-15); the
+   logo's multiply now blends with the spotlight only, not the texture. */
+body {
+    position: relative;
+    z-index: 0;
+    margin: $global-margin;
+    font-family: $body-font;
+    font-weight: $base-font-weight;
+    font-size: $base-font-size;
+    line-height: $base-line-height;
+    color: $body-text-color;
+    background-color: var(--page-color, transparent);
+    background-image: url(/wp-content/themes/monospace-art-theme/assets/images/canvas.jpeg);
+    background-repeat: repeat;
+
+    @include mobile {
+        margin: calc($global-margin / 2);
+    }
+}
+
+/* Appearance backgrounds (Layout Manager > Effects > Appearance; appearance.php puts the class on
+   <body>): the page texture or color, and the colors of the fixed spotlight over it.
+   The texture is set as background-image directly (root-relative), not through a variable */
+body.bg-canvas {
+    background-image: url(/wp-content/themes/monospace-art-theme/assets/images/canvas.jpeg);
+}
+body.bg-paper {
+    background-image: url(/wp-content/themes/monospace-art-theme/assets/images/paper.jpeg);
+    --gradient-foreground: rgba(255, 255, 255, 0.5);
+    --gradient-background: rgba(50, 30, 0, 0.35);
+}
+body.bg-watercolor {
+    background-image: url(/wp-content/uploads/paper2.jpg);
+    --gradient-foreground: rgba(255, 255, 255, 0.5);
+    --gradient-background: rgba(50, 30, 0, 0.3);
+}
+body.bg-cream {
+    background-image: none;
+    --page-color: rgb(179, 164, 146);
+    --gradient-foreground: rgba(255, 255, 255, 0.9);
+    --gradient-background: rgba(255, 255, 255, 0);
+    --beam-shade: rgba(60, 45, 30, 0.3);
+}
+body.bg-studio {
+    background-image: none;
+    --page-color: rgb(168, 163, 156);
+    --gradient-foreground: rgba(255, 255, 255, 0.9);
+    --gradient-background: rgba(255, 255, 255, 0);
+    --gradient-radius: 120vw;
+    --beam-shade: rgba(60, 45, 30, 0.3);
+}
+
+/* Blog post content typography */
+.entry-content,
+.wp-block-post-content {
+    line-height: 1.7;
+}
+
+.wp-block-separator,
+hr {
+    border: none !important;
+    height: 1px;
+    background-color: #333;
+    width: 100%;
+    margin: 4rem 0 1rem 0;
+}
+
+input {
+    font-size: 1rem;
+    padding: 0.25rem;
+}
+
+text-area {
+    min-width: 100%;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    font-family: $heading-font;
+    font-weight: 700;
+    color: $header-color;
+}
+
+/* For search engines and screen readers only (hidden <h1>s - modules/frontend/seo/) */
+.screen-reader-text {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Code blocks */
+.price,
+.woocommerce-Price-amount,
+.amount,
+pre, code, kbd, samp {
+    font-family: $mono-font;
+    font-weight: 500 !important;
+    font-size: 125%;
+    text-decoration: none;
+}
+
+/* Every price amount: Courier, bold (owner, 2026-10-19). The Art Filter's price range labels print a bare $ amount */
+.price,
+.woocommerce-Price-amount,
+.amount,
+.ms-product-price,
+#ms-price-min-display,
+#ms-price-max-display {
+    font-family: $mono-font;
+    font-weight: 700 !important;
+}
+
+/* Sale prices: the regular price struck through in gray, the sale price black - easier to read (owner, 2026-10-31) */
+.price del,
+.price del .amount,
+.price del .woocommerce-Price-amount,
+.print-size-price del,
+.print-size-price del .amount,
+.print-size-price del .woocommerce-Price-amount,
+.pc-badge-prints del,
+.pc-badge-prints del .amount,
+.pc-badge-prints del .woocommerce-Price-amount,
+.ms-info-prints del,
+.ms-info-prints del .amount,
+.ms-info-prints del .woocommerce-Price-amount {
+    color: #b3b3b3;
+    opacity: 1;
+}
+.price ins,
+.price ins .amount,
+.price ins .woocommerce-Price-amount,
+.print-size-price ins,
+.print-size-price ins .amount,
+.print-size-price ins .woocommerce-Price-amount,
+.pc-badge-prints ins,
+.pc-badge-prints ins .amount,
+.pc-badge-prints ins .woocommerce-Price-amount,
+.ms-info-prints ins,
+.ms-info-prints ins .amount,
+.ms-info-prints ins .woocommerce-Price-amount {
+    color: #000;
+    background: none;
+    text-decoration: none;
+}
+
+/* Links */
+a {
+    color: $link-color;
+    text-decoration: underline;
+
+    &:hover {
+        color: $link-color;
+        text-decoration: underline;
+    }
+}
+
+
+#site-footer{
+    margin: $global-margin auto;
+}
+// The home page ends on a row of boxes with nothing below them: the footer needs more room there than after a
+// post's buttons (owner, 2026-10-20)
+body.home #site-footer {
+    margin-top: calc($global-margin * 2);
+}
+/* legal links (legal-links.php), above the copyright notice */
+.legal-links {
+    text-align: center;
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+
+    a {
+        color: inherit;
+    }
+}
+/* Footer Menu (footer.php, Appearance > Menus): columns - each a heading ("#" item, menu-items.php)
+   over its links. Four across, two on phones. */
+.footer-menu-wrapper {
+    max-width: 760px;
+    margin: 0 auto $global-margin;
+    padding: 0 $global-padding;
+}
+
+.footer-menu {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem 2rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1.9;
+
+    .sub-menu {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    a {
+        color: inherit;
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    .footer-heading {
+        margin: 0 0 0.35rem;
+        font-family: inherit;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: inherit;
+        opacity: 0.6;
+    }
+
+
+    .menu-divider {
+        display: none;
+    }
+
+    @include mobile {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Menu icons (menu-icons.php - the Icon field in Appearance > Menus): the picture is a mask filled with the link's
+   text color, so it follows the look and dark mode; "Its own colors" shows the picture as it is. */
+.ms-menu-icon::before {
+    content: '';
+    display: inline-block;
+    width: 1.15em;
+    height: 1.15em;
+    margin-right: 0.45em;
+    vertical-align: -0.2em;
+    background-color: currentColor;
+    -webkit-mask: var(--ms-icon) center / contain no-repeat;
+    mask: var(--ms-icon) center / contain no-repeat;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+}
+.ms-menu-icon:hover::before,
+.ms-menu-icon:focus-visible::before {
+    opacity: 0.9;
+}
+.ms-menu-icon-own::before {
+    background: var(--ms-icon) center / contain no-repeat;
+    -webkit-mask: none;
+    mask: none;
+    opacity: 1;
+}
+
+/* copyright notice */
+.copyright-notice{
+    text-align:center;
+    font-size: 0.8rem;
+    margin-bottom: $global-margin;
+}
+.social-icons {
+  display: flex;
+  gap: 80px;
+  width: fit-content;
+  opacity: 0.6;
+margin: $global-margin auto;
+}
+
+.social-icons img {
+  width: 48px;
+  height: auto;
+  display: block;
+}
+
+
+
+/* Tag cloud links */
+.tagcloud {
+    //margin-top: $global-margin;
+    line-height: 1.9;
+    //letter-spacing: 0.05rem;
+    word-spacing: 0.2rem;
+    /*
+    &::before{
+        content: "Tag Cloud";
+        word-spacing: 0rem;
+        font-family: $heading-font;
+        font-weight: 700;
+        color: rgba(100, 100, 100, 0.7);
+        display: block;
+        margin-bottom: 0.5rem;
+    }*/
+
+    a {
+        color: $tag-cloud-color;
+        text-decoration: none;
+
+        &:hover {
+            color: $tag-cloud-color;
+            text-decoration: underline;
+        }
+    }
+}
+
+.ms-product-price {
+    font-family: $mono-font;
+    font-weight: 400;
+    font-size: 1.5rem;
+    margin: 0.5rem;
+    line-height: 2;
+    text-decoration: none !important;
+}
+
+/*--------------------------------
+CHECKOUT PAYPAL MESSAGING
+----------------------------------*/
+.payment_method_ppcp-gateway .payment_box p{
+    //display: none !important;
+    visibility: hidden;
+}
+.payment_method_ppcp-gateway .payment_box p::before{
+    content: "Click below to complete your checkout on PayPal.";
+    visibility: visible;
+    display: block;
+}
+
+
+
+
+.is-layout-flex {
+    //row-gap: 0 !important;
+}
+
+.post-date {
+    font-size: 1rem !important;
+    font-weight: 700;
+}
+
+// Quotations (the Quote block, a <blockquote>): indented, with a bar on the left - black at 30% (white at 35% in the dark
+// look, _dark-mode.scss), not a solid gray (2026-10-22, owner: "bar is solid gray, should be solid black or white but with
+// opacity"). The column's full width, and the bar only as tall as the text (the paragraphs' own top and bottom margins
+// were inside it). !important: WordPress's quote styles
+.wp-block-quote,
+blockquote {
+    display: block;
+    margin: 1.25rem 0 1.25rem $global-padding !important;
+    font-size: 0.9rem !important;
+    font-style: normal !important;
+    padding: 0 1.25rem !important;
+    border-left: 6px solid rgba(0, 0, 0, 0.3) !important;
+
+    > :first-child { margin-top: 0; }
+    > :last-child { margin-bottom: 0; }
+
+    cite {
+        display: block;
+        margin-top: 0.5em;
+        font-size: 0.9em;
+        font-style: normal;
+        opacity: 0.75;
+    }
+
+    @include mobile {
+        margin-left: 1rem !important;
+    }
+}
+
+input[type="text"],
+input[type="email"],
+input[type="search"],
+input[type="url"],
+input[type="tel"],
+input[type="password"],
+input[type="number"],
+input:not([type]),
+textarea {
+    @include input-base;
+}
+
+/* Box shadow for images (except author photo) */
+img.miniature-set-image,
+.sidebar img,
+.ms-archive-image-link img,
+.ms-standard-image img,
+.wp-block-image img:not(.wp-image-1491),
+.woocommerce-product-gallery__image,
+.woocommerce-product-gallery__wrapper {
+    @include box-shadow;
+    border-radius: var(--ms-img-radius, var(--ms-radius, 5px)); // Look > Rounding (design/rounding.php)
+}
+/* Video embeds (YouTube, Vimeo...): fill the content width, keep 16:9 */
+.wp-block-embed.is-type-video .wp-block-embed__wrapper iframe {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+}
+
+/* Look > Shadows & outlines > Outline (design/shadows.php): a stroke around the pictures that have the shadow -
+   --ms-stroke-w (0 = none) and --ms-stroke-c; drawn inside the picture's edge (like the cards'
+   border, so a thick one keeps the edges in line with the header cards and text), following its rounding. (In the category grid the
+   tile's figure draws it - the picture inside is clipped by it.) Not the standalone price card's picture (owner,
+   2026-10-22): it's fitted inside its box, so a line would frame the box, not the artwork. */
+img.miniature-set-image,
+.sidebar img,
+.ms-archive-image-link img,
+.ms-standard-image img,
+.wp-block-image img:not(.wp-image-1491),
+.woocommerce-product-gallery__image,
+.ms-miniature-cover .ms-miniature-background,
+.monospace-related-thumb,
+.ms-product-item,
+html.archive-view-grid #main-content .archive-item > figure:first-of-type {
+    outline: var(--ms-stroke-w, 0px) solid var(--ms-stroke-c, transparent);
+    outline-offset: calc(-1 * var(--ms-stroke-w, 0px)); // inside the edge, like the cards' border - their edges line up (2026-10-22)
+}
+
+/* Image block style "No shadow" (block editor: Image > Styles) - also on feed images; no outline either (a cut-out on
+   a transparent background) */
+.is-style-no-shadow img,
+.is-style-no-shadow .ms-miniature-background {
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Block style "Card" (block editor: Styles on Group, Columns, Column, Paragraph, Quote, List, Image) - the same box as the
+   site's cards, so Appearance > Look > Cards restyles it too */
+.is-style-card {
+    @include card-style;
+    padding: 1rem 1.25rem;
+    box-sizing: border-box;
+}
+figure.is-style-card img {
+    max-width: 100%;
+    height: auto;
+}
+
+.sidebar img{
+    max-width: 200px;
+    margin: 0 auto;
+}
+
+/* For infinite scroll */
+#main-content > div {
+    transition: opacity 0.5s ease-in-out;
+}
+
+.external-html-container {
+    @include card-style;
+    overflow: hidden;
+    max-width: var(--column-center-width) !important;
+}

@@ -1,0 +1,150 @@
+/**
+ * Ko-fi buttons (includes/modules/frontend/content/kofi.php, 2026-10-22, owner: "Override the Kofi button styles so it
+ * matches my site")
+ *   .ms-kofi-float    the floating button: the scroll-to-top button's look (infinite-scroll.js, _components.scss) - a
+ *                     50px see-through dark circle, 30px from the corner, but bottom left (where Ko-fi puts it, so the
+ *                     two never meet); the text slides out on hover. Under the menus (9998+) and the lightbox.
+ *   .ms-kofi-button   [kofi] and the block: a.button - the site's button style (Look > Buttons) - with the cup
+ *   .ms-kofi-panel    Ko-fi's donation page, opened on the page
+ */
+
+@import 'variables';
+
+.ms-kofi-float {
+    position: fixed;
+    left: 30px;
+    bottom: 30px;
+    z-index: 9990;
+    display: inline-flex;
+    align-items: center;
+    height: 50px;
+    min-width: 50px;
+    padding: 0 13px;
+    box-sizing: border-box;
+    border-radius: 25px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    text-decoration: none !important; // the site's link underline on hover
+    transition: background-color 0.3s ease;
+    -webkit-tap-highlight-color: transparent;
+
+    &:hover,
+    &:focus-visible,
+    &[aria-expanded="true"] {
+        background-color: rgba(0, 0, 0, 0.7);
+        color: #fff;
+    }
+
+    &:focus-visible {
+        outline: 2px solid $body-text-color;
+        outline-offset: 2px;
+    }
+
+    .ms-kofi-cup {
+        flex: 0 0 auto;
+        width: 24px;
+        height: 24px;
+    }
+
+    // The text: hidden in the circle, slides out on hover / keyboard focus (computers only)
+    span {
+        max-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        font-family: $component-font;
+        font-size: 0.85rem;
+        font-weight: 600;
+        transition: max-width 0.3s ease, margin 0.3s ease;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+        &:hover span,
+        &:focus-visible span {
+            max-width: 16rem;
+            margin: 0 4px 0 8px;
+        }
+    }
+
+    @media print {
+        display: none;
+    }
+}
+
+// [kofi] / the block: the site's button with the cup before the text
+.ms-kofi {
+    margin: 1rem 0;
+
+    &.ms-kofi-center { text-align: center; }
+    &.ms-kofi-right { text-align: right; }
+}
+
+a.button.ms-kofi-button .ms-kofi-cup {
+    // The site's buttons stay as they are (inline-block): the cup sits on the text's middle
+    width: 1.35em;
+    height: 1.35em;
+    margin-right: 0.45em;
+    vertical-align: -0.33em;
+}
+
+// The donation panel: Ko-fi's page in a card; beside the floating button, else in the middle
+.ms-kofi-panel {
+    position: fixed;
+    z-index: 9991;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(360px, calc(100vw - 32px));
+    height: min(640px, calc(100vh - 120px));
+    height: min(640px, calc(100dvh - 120px));
+    background: #fff;
+    border-radius: var(--ms-card-radius, var(--ms-radius, 8px));
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+
+    &[hidden] {
+        display: none;
+    }
+
+    &.is-docked {
+        left: 30px;
+        top: auto;
+        bottom: 90px;
+        transform: none;
+    }
+
+    iframe {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 0;
+    }
+}
+
+// The × - discreet, on Ko-fi's white
+.ms-kofi-close {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 1;
+    width: 32px;
+    height: 32px;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: rgba(255, 255, 255, 0.85) !important;
+    box-shadow: none !important;
+    color: #333 !important;
+    font: 400 22px/32px sans-serif !important;
+    cursor: pointer;
+
+    &:hover {
+        background: #eee !important;
+    }
+}
+
+@media (max-width: $breakpoint-mobile) {
+    .ms-kofi-panel.is-docked {
+        left: 16px;
+    }
+}

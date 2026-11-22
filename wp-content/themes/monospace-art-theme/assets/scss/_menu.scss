@@ -1,0 +1,872 @@
+@import 'variables';
+@import 'mixins';
+@import 'button-styles';
+
+$mm-gap: 8px; // the phone menu window floats this far from the menu bar and the screen's edges
+
+/* -------------------------------
+   WP Admin Bar Support
+--------------------------------*/
+// The toolbar's height: --ms-ab-h, measured by the Admin tools plugin (it can wrap to a second row on narrower
+// screens, e.g. an iPad on an artwork's page - 2026-10-21); 32px = WordPress's one row
+body.admin-bar {
+    margin-top: calc(#{$menu-bar-height} + 32px); // the page's own space under the menu bar - the toolbar's is html's margin (below)
+
+    .primary-menu-bar {
+        top: var(--ms-ab-h, 32px);
+    }
+
+    .mobile-menu-overlay {
+        top: calc(#{$menu-bar-height} + var(--ms-ab-h, 32px) + #{$mm-gap});
+        max-height: calc(100dvh - #{$menu-bar-height} - var(--ms-ab-h, 32px) - #{$mm-gap * 2});
+    }
+
+    // Phones: the menu bar sits under the phone toolbar when it's on (--ms-ab-h = its height, set by the Admin
+    // tools plugin; 0 without it)
+    @media (max-width: 782px) {
+        margin-top: $menu-bar-height;
+
+        .primary-menu-bar {
+            top: var(--ms-ab-h, 0px);
+        }
+
+        .mobile-menu-overlay {
+            top: calc(#{$menu-bar-height} + var(--ms-ab-h, 0px) + #{$mm-gap});
+            max-height: calc(100dvh - #{$menu-bar-height} - var(--ms-ab-h, 0px) - #{$mm-gap * 2});
+        }
+    }
+}
+
+// Tablets and computers: the page starts below the toolbar however many rows it has (WordPress pushes it down 32px)
+@media (min-width: 783px) {
+    html { margin-top: var(--ms-ab-h, 32px) !important; }
+}
+
+// Phones: WordPress's toolbar is hidden - unless the Admin tools plugin's phone toolbar is on (body.ms-phone-toolbar)
+@media (max-width: 782px) {
+    body:not(.ms-phone-toolbar) #wpadminbar { display: none !important; }
+    html { margin-top: var(--ms-ab-h, 0px) !important; }
+}
+/* -------------------------------
+   Primary Menu Bar
+--------------------------------*/
+.primary-menu-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: $menu-bar-height;
+    z-index: 9999;
+
+    // The bevel (a highlight at the top edge, a glow at the bottom); --ms-menu-bevel: none = switched off in Look >
+    // Menu bar (theme mod ms_menu_bevel, customizer.php)
+    background: var(--ms-menu-bevel, linear-gradient(
+        180deg,
+        rgba(255,255,255,0.6) 0%,
+        rgba(255,255,255,0) 15%
+    ) , linear-gradient(
+        180deg,
+        rgba(255,255,255,0.0) 50%,
+        rgba(255,255,255,0.2) 100%
+    )) , $menu-background;
+
+
+    background-color: $menu-background;
+    color: $menulink-color;
+    font-family: $component-font;
+    font-size: calc($base-font-size * 0.85);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 20px;
+    box-sizing: border-box;
+    // --ms-menu-shadow: none = switched off in Look > Menu bar (theme mod ms_menu_shadow, customizer.php)
+    @include box-shadow(var(--ms-menu-shadow, 0px 2px 8px #{ms-shadow(0.5)}));
+
+    a {
+        color: $menulink-color;
+        text-decoration: none;
+
+        &:hover,
+        &:focus {
+            color: $menulink-hover;
+            background: $menu-background-hover;
+        }
+    }
+}
+
+/* Center Menu Container */
+.primary-menu-container {
+    max-width: $global-width;
+    flex: 1 1 0;
+    display: flex;
+    min-width: 0;
+}
+
+/* -------------------------------
+   Home and Cart (fixed size)
+--------------------------------*/
+.menu-bar-home,
+.menu-bar-account,
+.menu-bar-cart {
+    flex: 0 0 auto;
+
+    a {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: $menu-bar-height;
+        padding: 0;
+
+        &:hover {
+            background: $menu-background-hover;
+        }
+    }
+}
+
+/* Rollover: the same for every icon in the bar (home, search, dark mode, cart) - a circle behind the icon, not the home
+   and cart links' full-height block (2026-10-22). The search button and the dark mode switch draw their own circle. */
+.primary-menu-bar {
+    .menu-bar-home a,
+    .menu-bar-account a,
+    .menu-bar-cart a {
+        &:hover,
+        &:focus {
+            background: none;
+        }
+    }
+
+    .monospace-home-icon,
+    .monospace-account-icon,
+    .monospace-cart-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        transition: background-color 0.15s ease;
+    }
+
+    .monospace-home-link:hover .monospace-home-icon,
+    .monospace-home-link:focus-visible .monospace-home-icon,
+    .monospace-account-link:hover .monospace-account-icon,
+    .monospace-account-link:focus-visible .monospace-account-icon,
+    .monospace-cart-link:hover .monospace-cart-icon,
+    .monospace-cart-link:focus-visible .monospace-cart-icon {
+        background: $menu-background-hover;
+    }
+
+    // the person icon takes the menu link colors, like the cart's (cart-icon-shortcode.php)
+    .monospace-account-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .monospace-account-icon svg {
+        stroke: var(--ms-menu-link, #ffffff);
+    }
+
+    .monospace-account-link:hover .monospace-account-icon svg {
+        stroke: var(--ms-menu-link-hover, #ffffff);
+    }
+}
+
+/* What comes after the Menu sits at the right end of the bar - lined up with the right edge of the content below
+   (2026-10-19) as the home icon lines up with its left edge: a spacer after the Menu (menu-bar-items.php). Phones and
+   tablets: the "Menu ☰" button fills the bar already. */
+.ms-bar-spacer {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* -------------------------------
+   Search (menu-bar-items.php, menu-search.js): an icon that opens the search field in the bar. Computers: the field
+   grows beside the other items. Phones and tablets: the field takes the whole bar (body .is-searching hides the rest).
+--------------------------------*/
+.primary-menu-bar .menu-bar-search { // inside the bar: beats the site's input:focus rules
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    height: $menu-bar-height;
+
+    .ms-bar-search {
+        display: flex;
+        align-items: center;
+        margin: 0;
+    }
+
+    .ms-bar-search-btn {
+        appearance: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        width: 40px;
+        height: 40px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: none;
+        box-shadow: none;
+        color: $menulink-color;
+        cursor: pointer;
+
+        &:hover,
+        &:focus-visible {
+            color: $menulink-hover;
+            background: $menu-background-hover;
+        }
+
+        svg {
+            width: 22px;
+            height: 22px;
+        }
+    }
+
+    // The field: closed = no width
+    .ms-bar-search-field {
+        appearance: none;
+        box-sizing: border-box;
+        width: 0;
+        height: 34px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 17px;
+        opacity: 0;
+        background: $menu-background-hover;
+        box-shadow: none;
+        color: $menulink-color;
+        font: inherit;
+        font-weight: 500;
+        transition: width 0.2s ease, padding 0.2s ease, opacity 0.15s ease;
+
+        &::placeholder {
+            color: inherit;
+            opacity: 0.7;
+        }
+
+        &::-webkit-search-cancel-button {
+            display: none;
+        }
+
+        &:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px $menulink-color;
+        }
+    }
+
+    .ms-bar-search-close {
+        display: none;
+    }
+
+    &.is-open {
+        .ms-bar-search-field {
+            width: 220px;
+            padding: 0 14px;
+            opacity: 1;
+        }
+
+        .ms-bar-search-close {
+            display: inline-flex;
+            width: 34px;
+            height: 34px;
+        }
+    }
+}
+
+/* -------------------------------
+   Primary Menu
+--------------------------------*/
+.primary-menu {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    align-items: stretch;
+    flex-shrink: 1;
+
+    > li {
+        position: relative;
+        height: $menu-bar-height;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        flex-shrink: 0;
+
+        > a,
+        > .menu-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 0 20px;
+            color: $menulink-color;
+        }
+
+        // A divider has no place in the bar itself
+        &.menu-divider {
+            display: none;
+        }
+    }
+
+    /* Menu headers (menu-items.php): a button that looks and acts like the old parent links - not
+       clickable (the dropdown opens on hover), skipped by the site's button styles (_components.scss).
+       Keyboard focus still reaches it and opens the dropdown (:focus-within below). */
+    .menu-header {
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+        font: inherit;
+        text-transform: none;
+        letter-spacing: inherit;
+        -webkit-appearance: none;
+        appearance: none;
+        cursor: default;
+        pointer-events: none;
+
+        &:focus-visible {
+            color: $menulink-hover;
+            background: $menu-background-hover;
+            outline: none;
+        }
+    }
+
+    /* Submenu Indicator */
+    .menu-item-has-children > .menu-header::after,
+    .menu-item-has-children > a::after {
+        content: ' ▾';
+        font-size: 0.8em;
+        margin-left: 4px;
+    }
+
+    /* Submenus */
+    .sub-menu {
+        display: none !important;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    > li > .sub-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        background: $menu-background;
+        @include box-shadow(var(--ms-menu-shadow, 0px 2px 8px #{ms-shadow(0.5)})); // the bar's switch, Look > Menu bar
+        padding: 0;
+        min-width: 200px;
+        z-index: 999;
+    }
+
+    > li.menu-item-has-children:hover > .sub-menu,
+    > li:hover > .sub-menu,
+    > li:focus-within > .sub-menu {
+        display: block !important;
+    }
+
+    // Computers: the dropdown folds out from the bar instead of popping in (2026-11-17). It stays display: block so it
+    // can transition; clip-path unrolls it downward (the sides and bottom reach past the box so the shadow isn't cut).
+    // Phones and tablets use the floating window below, whose clone of this list has its own rules.
+    @media (min-width: #{$breakpoint-desktop + 1}) {
+        > li > .sub-menu {
+            display: block !important;
+            visibility: hidden;
+            opacity: 0;
+            clip-path: inset(0 -24px 100% -24px);
+            transform: translateY(-6px);
+            transform-origin: top center;
+            pointer-events: none;
+            transition: clip-path 0.22s ease, opacity 0.18s ease, transform 0.22s ease, visibility 0s linear 0.22s;
+        }
+
+        > li.menu-item-has-children:hover > .sub-menu,
+        > li:hover > .sub-menu,
+        > li:focus-within > .sub-menu {
+            visibility: visible;
+            opacity: 1;
+            clip-path: inset(0 -24px -40px -24px);
+            transform: none;
+            pointer-events: auto;
+            transition-delay: 0s;
+        }
+    }
+
+    > li.menu-item-has-children > a {
+        cursor: default;
+        pointer-events: none;
+    }
+
+    .sub-menu li {
+        width: 100%;
+
+        a {
+            display: block;
+            padding: 10px 20px;
+            white-space: nowrap;
+            pointer-events: auto;
+            //border-top: solid 1px rgba(255, 255, 255, 0.3);
+
+            &:hover {
+                background: $menu-background-hover;
+            }
+        }
+
+        // Divider (menu-items.php): a thin line between groups
+        &.menu-divider {
+            height: 1px;
+            margin: 6px 12px;
+            width: auto;
+            background: color-mix(in srgb, $menulink-color 38%, transparent);
+        }
+
+        // Label: a small caption above a group
+        .menu-label {
+            display: block;
+            padding: 10px 20px 2px;
+            font-size: 0.8em;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.6;
+        }
+    }
+}
+
+/* --------------------------------
+   Mobile Menu (≤ 1024px)
+--------------------------------- */
+// Under the phone menu: invisible, takes the taps outside it and the page's scrolling (top is set by menu.js: under the bar)
+.mobile-menu-backdrop {
+    display: none;
+}
+
+body.mobile-menu-open {
+    overflow: hidden;
+}
+
+@include desktop {
+    body.mobile-menu-open .mobile-menu-backdrop {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 9997;
+        touch-action: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mobile-menu-overlay,
+    .primary-menu > li > .sub-menu { transition: none !important; }
+}
+
+.mobile-menu-toggle {
+    display: none;
+}
+
+.mobile-menu-overlay {
+    display: none;
+}
+
+@include desktop {
+    .primary-menu-bar {
+        justify-content: space-between;
+        padding: 0 $global-padding;
+    }
+
+    .primary-menu-container {
+        //flex: 0 1 auto;
+        //max-width: none;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 0;
+
+        .menu-bar-cart {
+            //position: absolute;
+            right: $global-padding;
+        }
+
+        > .primary-menu {
+            display: none !important;
+        }
+    }
+
+    .mobile-menu-overlay {
+        .primary-menu {
+            display: flex !important;
+            flex-direction: column;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    }
+
+.mobile-menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    height: $menu-bar-height;
+    flex: 1;
+    padding: 0 0 0 20px;
+    background: none;
+    border: none;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    color: $menulink-color;
+    font-family: $component-font;
+
+    &:hover {
+        color: $menulink-hover;
+        background: $menu-background-hover;
+    }
+}
+    // The phone menu is a floating window, not a page: the page behind stays visible and scrolls, nothing is dimmed.
+    // It follows the Look: the menu bar's color and transparency (--ms-menu-bg), the cards' rounding and the shadows
+    // (--ms-card-radius / --ms-radius, --ms-shadow-rgb / --ms-shadow-k); the outline is the menu text color, faint.
+    .mobile-menu-overlay {
+        display: flex; // always laid out so it can fold open and shut; hidden = visibility (2026-11-17)
+        visibility: hidden;
+        opacity: 0;
+        clip-path: inset(0 -40px 100% -40px);
+        transform: translateY(-6px);
+        transform-origin: top center;
+        pointer-events: none;
+        transition: clip-path 0.24s ease, opacity 0.18s ease, transform 0.24s ease, visibility 0s linear 0.24s;
+        position: fixed;
+        top: calc(#{$menu-bar-height} + #{$mm-gap});
+        left: $mm-gap;
+        right: $mm-gap;
+        max-height: calc(100dvh - #{$menu-bar-height} - #{$mm-gap * 2});
+        flex-direction: column;
+        overflow: hidden;
+        background: $menu-background;
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border: 1px solid color-mix(in srgb, $menulink-color 30%, transparent);
+        border-radius: var(--ms-card-radius, var(--ms-radius, 8px));
+        box-shadow: 0 10px 30px rgb(var(--ms-shadow-rgb, 0 0 0) / calc(0.45 * var(--ms-shadow-k, 1)));
+        z-index: 9998;
+
+        // Tablets: a wider margin
+        @media (min-width: 600px) {
+            left: 48px;
+            right: 48px;
+        }
+
+        &.active {
+            visibility: visible;
+            opacity: 1;
+            clip-path: inset(0 -40px -60px -40px);
+            transform: none;
+            pointer-events: auto;
+            transition-delay: 0s;
+        }
+
+        // Fixed: the close button stays put while the items scroll under it
+        .mobile-menu-head {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 4px 0 20px;
+            min-height: 44px;
+            border-bottom: 1px solid color-mix(in srgb, $menulink-color 38%, transparent);
+            font-family: $component-font;
+            font-size: 0.85em;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: $menulink-color;
+            opacity: 0.9;
+        }
+
+        .mobile-menu-close {
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            border: 0;
+            background: none;
+            color: $menulink-color;
+            font-size: 1.4em;
+            line-height: 1;
+            cursor: pointer;
+            border-radius: var(--ms-card-radius, var(--ms-radius, 8px));
+
+            &:hover {
+                color: $menulink-hover;
+                background: $menu-background-hover;
+            }
+        }
+
+        .mobile-menu-scroll {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+        }
+
+        .primary-menu {
+            > li {
+                display: block;
+                height: auto;
+
+                > a {
+                    display: block;
+                    padding: 1em 20px;
+                    font-family: $component-font;
+                    font-size: 1em;
+                    font-weight: 600;
+                    color: $menulink-color;
+                    text-decoration: none;
+                    cursor: pointer;
+                    pointer-events: auto;
+                    border-bottom: 1px solid color-mix(in srgb, $menulink-color 38%, transparent);
+                    background-color: scale-color($menu-background-base,  $alpha: 10%);
+                    transition: background-color 0.15s ease;
+                }
+
+                > .menu-header {
+                    display: block;
+                    width: 100%;
+                    text-align: left;
+                    padding: 1em 20px;
+                    font-size: 1em;
+                    font-weight: 600;
+                    border-bottom: 1px solid color-mix(in srgb, $menulink-color 38%, transparent);
+                    background-color: scale-color($menu-background-base,  $alpha: 10%);
+                }
+
+                &.menu-item-has-children > a,
+                &.menu-item-has-children > .menu-header {
+                    pointer-events: none;
+                    cursor: default;
+                    opacity: 0.75;
+
+                    &::after {
+                        content: ' ▾';
+                        font-size: 0.8em;
+                        margin-left: 4px;
+                    }
+                }
+            }
+
+            .sub-menu {
+                display: block !important;
+                position: static;
+                margin: 0;
+                padding: 0;
+                list-style: none;
+                box-shadow: none;
+                background: transparent;
+
+                > li > a {
+                    display: block;
+                    padding: 0.75em 20px 0.75em 40px;
+                    font-family: $component-font;
+                    font-size: 1em;
+                    font-weight: 600;
+                    color: $menulink-color;
+                    text-decoration: none;
+                    cursor: pointer;
+                    pointer-events: auto;
+                    border-bottom: 1px solid color-mix(in srgb, $menulink-color 38%, transparent);
+                    transition: background-color 0.15s ease;
+                }
+
+                .sub-menu > li > a {
+                    padding-left: 60px;
+                    border-bottom-color: color-mix(in srgb, $menulink-color 38%, transparent);
+                }
+
+                .sub-menu .sub-menu > li > a {
+                    padding-left: 80px;
+                }
+
+                > li.menu-divider {
+                    height: 0.75em;
+                    margin: 0;
+                    background: none;
+                    border-bottom: 1px solid color-mix(in srgb, $menulink-color 38%, transparent);
+                }
+
+                > li > .menu-label {
+                    padding: 0.75em 20px 0.25em 40px;
+                }
+            }
+        }
+
+        a:hover {
+            color: $menulink-hover;
+            background: $menu-background-hover;
+        }
+
+        a:active {
+            background: var(--highlight-color);
+            color: #fff;
+        }
+    }
+}
+
+// The window's inner look (2026-10-24): the menu bar's color and transparency, with the site's UI font; parents are small section labels, links have a soft rollover
+@include desktop {
+    .mobile-menu-overlay {
+        background: $menu-background;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border: 1px solid color-mix(in srgb, $menulink-color 30%, transparent);
+        color: $menulink-color;
+
+        .mobile-menu-head {
+            border-bottom: 1px solid color-mix(in srgb, $menulink-color 38%, transparent);
+            color: color-mix(in srgb, $menulink-color 70%, transparent);
+            opacity: 1;
+        }
+
+        .mobile-menu-close {
+            color: $menulink-color;
+
+            &:hover {
+                color: $menulink-hover;
+                background: $menu-background-hover;
+            }
+        }
+
+        .primary-menu {
+            > li > a,
+            > li > .menu-header {
+                padding: 0.85em 20px;
+                font-family: $component-font;
+                font-size: 1em;
+                font-weight: 600;
+                color: $menulink-color;
+                background: none;
+                border-bottom: 1px solid color-mix(in srgb, $menulink-color 25%, transparent);
+            }
+
+            // A parent: a small section label (its items are always shown)
+            > li.menu-item-has-children > a,
+            > li.menu-item-has-children > .menu-header {
+                padding: 1.1em 20px 0.4em;
+                font-size: 0.75em;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: color-mix(in srgb, $menulink-color 70%, transparent);
+                opacity: 1;
+                border-bottom: 0;
+
+                &::after {
+                    content: none;
+                }
+            }
+
+            .sub-menu {
+                > li > a,
+                .sub-menu > li > a,
+                .sub-menu .sub-menu > li > a {
+                    padding: 0.7em 20px 0.7em 32px;
+                    color: $menulink-color;
+                    border-bottom: 1px solid color-mix(in srgb, $menulink-color 25%, transparent);
+                }
+
+                .sub-menu > li > a { padding-left: 48px; }
+                .sub-menu .sub-menu > li > a { padding-left: 64px; }
+
+                > li.menu-divider {
+                    border-bottom-color: color-mix(in srgb, $menulink-color 25%, transparent);
+                }
+            }
+
+            a:hover,
+            a:focus-visible {
+                color: $menulink-hover;
+                background: $menu-background-hover;
+            }
+
+            a:active {
+                background: var(--highlight-color);
+                color: #fff;
+            }
+
+            > li:last-child > a,
+            .sub-menu > li:last-child > a {
+                border-bottom: 0;
+            }
+        }
+    }
+}
+
+// Dividers (2026-10-24): a faint hairline inset from the window's edges, not a full-width rule; a divider row is just space
+@include desktop {
+    .mobile-menu-overlay .primary-menu {
+        li > a,
+        li > .menu-header {
+            position: relative;
+            border-bottom: 0 !important;
+        }
+
+        li:not(:last-child) > a:not(:only-child)::after,
+        li:not(:last-child) > a::after {
+            content: '';
+            position: absolute;
+            left: 20px;
+            right: 20px;
+            bottom: 0;
+            height: 1px;
+            background: color-mix(in srgb, $menulink-color 15%, transparent);
+        }
+
+        li.menu-item-has-children > a::after,
+        li.menu-item-has-children > .menu-header::after {
+            content: none;
+        }
+
+        li.menu-divider {
+            height: 0.5em;
+            border: 0 !important;
+        }
+    }
+}
+
+// The search field over the whole bar (menu-search.js sets .is-searching): everything else steps aside
+@include desktop {
+    .ms-bar-spacer {
+        display: none;
+    }
+
+    .primary-menu-bar.is-searching .primary-menu-container {
+        > :not(.menu-bar-search) {
+            display: none !important;
+        }
+
+        .menu-bar-search {
+            flex: 1 1 auto;
+            min-width: 0;
+
+            .ms-bar-search {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+
+            .ms-bar-search-field {
+                flex: 1 1 auto;
+                width: auto;
+                min-width: 0;
+            }
+        }
+    }
+}
+
+@include mobile{
+    .primary-menu-bar {
+        padding: 0 ($global-padding / 2);
+    }
+}
+
+

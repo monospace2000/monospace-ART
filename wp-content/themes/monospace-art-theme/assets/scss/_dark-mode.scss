@@ -1,0 +1,519 @@
+@import 'variables';
+@import 'mixins';
+
+/* -----------------------------------------------------------
+   DARK MODE (design/dark-mode.php). html.ms-dark-ui = the page is dark (also in Appearance > Look's preview of the
+   dark look). The look's own colors come from the dark look's settings; these are the parts drawn in fixed colors.
+----------------------------------------------------------- */
+
+html.ms-dark-ui {
+    color-scheme: dark; // form controls and scrollbars
+
+    // Frames stay as their pages draw them: when the page's color scheme (dark) differs from a framed page's (light, the
+    // default), Chrome paints the frame solid instead of see-through - the payment providers' hidden helper frames on
+    // checkout showed as a blue and white block in the top left corner (2026-10-21)
+    iframe {
+        color-scheme: light;
+    }
+
+    // The logo is black drawn with multiply - inverted and screened, it's light on the dark page (each part of the
+    // two-part logo; --logo-invert keeps it inverted under the hover lift's drop-shadow, _hover-effects.scss)
+    .site-logo {
+        --logo-invert: invert(1);
+
+        img.custom-logo {
+            filter: invert(1);
+            mix-blend-mode: screen;
+        }
+
+        // A part with its own color in the dark look (design/logo-layout.php) keeps it instead of being inverted
+        @each $part in word, art {
+            img.ms-logo-#{$part} {
+                --logo-invert: var(--ms-logo-#{$part}-f, invert(1));
+                filter: var(--ms-logo-#{$part}-f, invert(1));
+            }
+        }
+    }
+
+    // Welcome (plain text box): black text by default
+    #welcome,
+    .box-plain {
+        .box-title,
+        .box-content {
+            color: $body-text-color;
+        }
+    }
+
+    // Text fields (input-base, _global.scss: white with dark text)
+    input[type="text"],
+    input[type="email"],
+    input[type="search"],
+    input[type="url"],
+    input[type="tel"],
+    input[type="password"],
+    input[type="number"],
+    input:not([type]),
+    textarea,
+    select {
+        color: $body-text-color;
+        background-color: var(--ms-card-bg, #2b2926);
+        border-color: var(--ms-card-border, #48443f);
+    }
+
+    // Colored text - green / red / blue / gray picked for a light page (2026-10-21, owner: "easier to read in dark
+    // mode"): lighter shades of the same colors. Status labels (price card, the feed's "Original / Prints available"),
+    // the price card's message strip (Sales Dashboard's colors) and the cart's "Free shipping".
+    .status-label.status-available,
+    .card-message--green,
+    [style*="color:#28a745"] {
+        color: #6fd36f !important;
+    }
+
+    .status-label.status-sold,
+    .status-label.status-private,
+    .status-label.status-reserved,
+    .card-message--red {
+        color: #ff7a7a;
+    }
+
+    .status-label.status-gallery,
+    .status-label.status-gallery-reserved,
+    .card-message--blue {
+        color: #6fb3ff;
+    }
+
+    .status-label.status-coming-soon,
+    .card-message--gray,
+    .card-message-sub {
+        color: $body-text-color-light;
+    }
+
+    // Tag cloud (sidebars, _global.scss: links black at 40%, its "Tag Cloud" heading a dim gray) - the dark look's
+    // secondary text for the links (the text color on hover) and its heading color for the heading
+    .tagcloud {
+        &::before {
+            color: $header-color;
+            opacity: 1;
+        }
+
+        a,
+        a:hover {
+            color: $body-text-color-light;
+            opacity: 0.7;
+        }
+
+        a:hover {
+            color: $body-text-color;
+        }
+    }
+
+    // The viewing toolbar's sort menu and, on phones, the Original / Prints available pills (_archives.scss: black lines
+    // and tint - lost on a dark page): light ones (2026-10-22, owner: "Pills around the availability checkmarks in the
+    // View toolbar need dark mode")
+    .archive-tools {
+        select {
+            border-color: rgba(255, 255, 255, 0.28);
+        }
+
+        // The menu's list: the browser's own (white) on Windows / Android unless told the page is dark
+        select,
+        option {
+            color-scheme: dark;
+        }
+
+        input:focus-visible,
+        select:focus-visible {
+            outline-color: $body-text-color;
+        }
+    }
+
+    @include mobile {
+        .archive-tools-filters label {
+            border-color: rgba(255, 255, 255, 0.28);
+
+            &:has(input:checked) {
+                background: rgba(255, 255, 255, 0.12);
+                border-color: $body-text-color;
+            }
+        }
+    }
+
+    // Quotations (_global.scss: a black bar at 30% - lost on a dark page): a white one
+    .wp-block-quote,
+    blockquote {
+        border-left-color: rgba(255, 255, 255, 0.35) !important;
+    }
+
+    // Scroll-to-top button (_components.scss: black at 50% - lost on a dark page): a light see-through circle
+    .scroll-to-top,
+    .ms-kofi-float {
+        color: $body-text-color !important;
+        background-color: rgba(255, 255, 255, 0.16) !important;
+
+        &:hover {
+            background-color: rgba(255, 255, 255, 0.28) !important;
+        }
+    }
+
+    // MailPoet forms (the form designer's fixed colors: a photo on blue-grey, black text on every line, light fields):
+    // the photo stays under a dark tint, the text turns light, the fields dark - the subscribe button keeps its colors
+    [id^="mp_form_"] {
+        color: $body-text-color !important;
+        box-shadow: inset 0 0 0 100vmax rgba(20, 18, 16, 0.72);
+
+        h1, h2, h3, h4, p, label, span, .mailpoet_paragraph, .mailpoet-heading, [style*="color"] {
+            color: $body-text-color !important;
+        }
+
+        .mailpoet_text,
+        .mailpoet_textarea,
+        .mailpoet_select,
+        input[type="email"],
+        input[type="text"] {
+            color: $body-text-color !important;
+            background-color: var(--ms-card-bg, #2b2926) !important;
+            border-color: var(--ms-card-border, #48443f) !important;
+
+            &::placeholder {
+                color: $body-text-color-light;
+            }
+        }
+    }
+
+    // MailPoet's Manage subscription page (_components.scss: a white box): the cards' colors
+    .mailpoet-manage-subscription {
+        color: $body-text-color;
+        background: var(--ms-card-bg, #2b2926);
+        border-color: var(--ms-card-border, #48443f);
+
+        fieldset {
+            border-color: var(--ms-card-border, #48443f);
+        }
+
+        input[disabled] {
+            color: $body-text-color-light;
+            background: rgba(255, 255, 255, 0.05);
+        }
+    }
+
+    // "See also" titles (#333)
+    .monospace-related-title {
+        color: $body-text-color-light;
+    }
+
+    // Blocks given black text in the editor (Filed under, the color disclaimer: #000000cc) - and their links
+    .has-text-color[style*="color:#000"] {
+        color: $body-text-color-light !important;
+
+        a {
+            color: $link-color !important;
+        }
+    }
+
+    // The secondary buttons (button-flat-nav: Older / Newer, sidebar menus, "More posts") - drawn in black tints: their
+    // dark defaults, as values on <html> so the dark look's Look > Secondary buttons (printed after this) wins
+    --nb-text: rgba(255, 255, 255, 0.65);
+    --nb-bg: rgba(255, 255, 255, 0.06);
+    --nb-bg-hover: rgba(255, 255, 255, 0.12);
+    --nb-bg-active: rgba(255, 255, 255, 0.03);
+    --nb-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(255, 255, 255, 0.14);
+
+    // Inset panels (inset-panel: an order's addresses) - the same dark tints as the secondary buttons above
+    --ms-inset-bg: rgba(255, 255, 255, 0.06);
+    --ms-inset-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(255, 255, 255, 0.14), inset 1px 0 0 rgba(128, 128, 128, 0.35), inset -1px 0 0 rgba(128, 128, 128, 0.35);
+
+    // The price card's tabs (_components.scss): the selected one is filled with the text color (light here) - so its
+    // label takes the page's color instead of white; the light gray outline softened
+    .print-type-switch {
+        border-color: rgba(255, 255, 255, 0.3);
+
+        label:hover input:not(:checked) + span {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        input:checked + span {
+            color: var(--page-color, #111);
+        }
+    }
+
+    // The price card's Badge style (_components.scss .pc-badge: white with a light gray line) - the dark cards' fill, a soft
+    // light line, the open badge a shade lighter (2026-10-22)
+    .pc-badge {
+        background: var(--ms-card-bg, #2b2926);
+        border-color: rgba(255, 255, 255, 0.28);
+    }
+
+    .pc-badge-sep {
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .pc-badge-card[open] > summary .pc-badge {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    // The price card's print sizes: the amounts (#555) in the text color, the details link (#666) in the secondary one
+    .print-size-label .print-size-price {
+        color: $body-text-color;
+    }
+
+    .pc-details > summary {
+        color: $body-text-color-light;
+    }
+
+    // Sale prices: the regular price stays gray, the sale price is white (the light look's inverse)
+    .price del,
+    .price del .amount,
+    .price del .woocommerce-Price-amount,
+    .print-size-price del,
+    .print-size-price del .amount,
+    .print-size-price del .woocommerce-Price-amount,
+    .pc-badge-prints del,
+    .pc-badge-prints del .amount,
+    .pc-badge-prints del .woocommerce-Price-amount,
+    .ms-info-prints del,
+    .ms-info-prints del .amount,
+    .ms-info-prints del .woocommerce-Price-amount {
+        color: #777;
+    }
+
+    .price ins,
+    .price ins .amount,
+    .price ins .woocommerce-Price-amount,
+    .print-size-price ins,
+    .print-size-price ins .amount,
+    .print-size-price ins .woocommerce-Price-amount,
+    .pc-badge-prints ins,
+    .pc-badge-prints ins .amount,
+    .pc-badge-prints ins .woocommerce-Price-amount,
+    .ms-info-prints ins,
+    .ms-info-prints ins .amount,
+    .ms-info-prints ins .woocommerce-Price-amount {
+        color: #fff;
+    }
+
+    // Home page boxes: their own dark mode background if set (--bg-dark: an image, or none - home-boxes.php)
+    .box::before {
+        background-image: var(--bg-dark, var(--bg));
+        filter: blur(var(--bg-blur-dark, var(--bg-blur, 0px)));
+        transform: scale(var(--bg-scale-dark, var(--bg-scale, 1)));
+    }
+
+    // News (boxed text box): a dark panel instead of the light one
+    #news .box-content,
+    .box-boxed .box-content {
+        background: rgba(0, 0, 0, 0.45);
+    }
+}
+
+// Images with a dark version (dark-mode.php: printed twice while dark mode is on) - one shows
+html:not(.ms-dark-ui) .ms-dark-only,
+html.ms-dark-ui .ms-light-only {
+    display: none !important;
+}
+
+// The switch in the menu bar (header.php, hook monospace_menu_bar_end): a moon in the light look, a sun in the dark
+.ms-theme-toggle {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px; // the same circle as the other icons in the bar (_menu.scss)
+    height: 40px;
+    margin: 0 4px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: $menulink-color;
+    cursor: pointer;
+    align-self: center; // the bar's items stretch to its height - the round button stays in the middle
+
+    &:hover,
+    &:focus-visible {
+        color: $menulink-hover;
+        background: $menu-background-hover;
+    }
+
+    svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+        stroke: currentColor;
+        stroke-width: 0;
+    }
+
+    .ms-sun {
+        display: none;
+        fill: none;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+
+        circle {
+            fill: currentColor;
+        }
+    }
+}
+
+html.ms-dark .ms-theme-toggle {
+    .ms-moon { display: none; }
+    .ms-sun { display: block; }
+}
+
+/* -----------------------------------------------------------
+   DARK MODE - WOOCOMMERCE (shop, cart, checkout, my account). The theme's WooCommerce styles (_woocommerce.scss) and
+   WooCommerce's own draw these white with !important: in the dark look they take the cards' colors (Look > Cards).
+----------------------------------------------------------- */
+
+html.ms-dark-ui {
+    // Alerts (_woocommerce.scss: cards already): their colors a shade lighter, as the site's other colored text here
+    .woocommerce-message { --ms-alert: #6fd36f; }
+    .woocommerce-info    { --ms-alert: #6fb3ff; }
+    .woocommerce-error   { --ms-alert: #ff7a7a; }
+
+    // White surfaces: tables, the payment box, the commission notes
+    .woocommerce-cart table,
+    .woocommerce-page table,
+    .woocommerce table,
+    .commission-deposit-info,
+    .commission-shipping-note {
+        background-color: var(--ms-card-bg, #2b2926) !important;
+        color: $body-text-color;
+    }
+
+    // Table lines (WooCommerce: black at 10% - invisible on dark)
+    .woocommerce table.shop_table,
+    .woocommerce table.shop_table th,
+    .woocommerce table.shop_table td,
+    .woocommerce table.shop_table tbody th,
+    .woocommerce table.shop_table tfoot th,
+    .woocommerce table.shop_table tfoot td {
+        border-color: rgba(255, 255, 255, 0.12) !important;
+    }
+
+    // The grey-out while the cart / checkout updates (blockUI: WooCommerce sets a white overlay inline, 60% opaque)
+    .woocommerce .blockUI.blockOverlay,
+    .woocommerce-page .blockUI.blockOverlay {
+        background: #111 !important;
+        opacity: 0.6 !important;
+    }
+
+    // Text fields and dropdowns - WooCommerce's (.form-row) and the country / state pickers (select2)
+    .woocommerce form .form-row .input-text,
+    .woocommerce form .form-row select,
+    .woocommerce-page form .form-row .input-text,
+    .woocommerce-page form .form-row select,
+    .woocommerce #coupon_code,
+    .select2-container--default .select2-selection--single,
+    .select2-dropdown,
+    .select2-search--dropdown .select2-search__field {
+        color: $body-text-color !important;
+        background-color: var(--ms-card-bg, #2b2926) !important;
+        border-color: var(--ms-card-border, #48443f) !important;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        color: $body-text-color;
+    }
+
+    .select2-container--default .select2-results__option[aria-selected="true"],
+    .select2-container--default .select2-results__option[data-selected="true"] {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    // My account: the tabs' hover, the chips, the table's header and rows, the "Edit" pills
+    .woocommerce-account .woocommerce-MyAccount-navigation-link a:hover,
+    .woocommerce-account .woocommerce-MyAccount-content a.edit:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .woocommerce-account .woocommerce-MyAccount-navigation-link.is-active a:hover {
+        background-color: $button-base-color;
+    }
+
+    .woocommerce-account .woocommerce-MyAccount-content .woocommerce-orders-table,
+    .woocommerce-account .woocommerce-MyAccount-content .woocommerce-table--order-details {
+        th { background: rgba(255, 255, 255, 0.04); }
+        td,
+        th { border-bottom-color: var(--ms-card-border, #48443f) !important; }
+        tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+        tbody th, tfoot th { background: none; }
+    }
+
+    .woocommerce-account .ms-acct-status {
+        background: rgba(255, 255, 255, 0.1);
+
+        &.is-completed  { color: #6fd36f; background: rgba(111, 211, 111, 0.14); }
+        &.is-processing { color: #6fb3ff; background: rgba(111, 179, 255, 0.14); }
+        &.is-on-hold,
+        &.is-pending    { color: #f0b84a; background: rgba(240, 184, 74, 0.14); }
+        &.is-cancelled,
+        &.is-failed     { color: #ff7a7a; background: rgba(255, 122, 122, 0.14); }
+    }
+
+    .woocommerce-account .ms-acct-tile::before { color: #6fb3ff; }
+
+    // The footer's old icon row (only without a Footer menu): black pictures, turned light
+    .social-icons img {
+        filter: invert(1);
+    }
+}
+
+// The calendar (Simple Calendar plugin; the sidebar's [calendar]) - drawn in its light look, with today and the dots in fixed
+// inline colors from the plugin's settings (black on black here: today's date was hard to see, 2026-10-28). The plugin's own
+// dark look rules, for the light class; today is a light chip; black event dots turn light (a color keeps its hue)
+html.ms-dark-ui {
+    .simcal-default-calendar-light {
+        .simcal-day:hover {
+            background-color: rgba(255, 255, 255, 0.18);
+        }
+
+        .simcal-day-void,
+        .simcal-day-void:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .simcal-day-number {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .simcal-event {
+            border-bottom-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .simcal-events-toggle {
+            color: rgba(255, 255, 255, 0.6);
+
+            &:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+                color: #fff;
+            }
+        }
+    }
+
+    // Today: the plugin prints black (background and border) inline
+    .simcal-today > div {
+        border-color: $body-text-color !important;
+    }
+
+    .simcal-today .simcal-day-number {
+        background-color: $body-text-color !important;
+        color: #1b1a18 !important;
+        font-weight: 700;
+    }
+
+    .simcal-event-color {
+        filter: invert(1) hue-rotate(180deg);
+    }
+
+    // The hover bubble (a child of body, white): the cards' colors
+    .simcal-event-bubble {
+        background-color: var(--ms-card-bg, #2b2926);
+        border-color: var(--ms-card-border, #48443f);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        color: $body-text-color;
+
+        a {
+            color: inherit;
+        }
+    }
+}

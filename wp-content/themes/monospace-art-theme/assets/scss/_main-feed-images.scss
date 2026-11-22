@@ -1,0 +1,461 @@
+/* ============================================================
+   ARCHIVE IMAGE STYLING
+   Styles for images on archive/feed pages
+============================================================ */
+
+/* -----------------------------------------------------------
+   Shared wrapper styles
+----------------------------------------------------------- */
+.ms-archive-image-wrapper {
+    position: relative;
+    display: block;
+    margin-bottom: 1.5rem;
+}
+
+/* When a caption follows, zero the wrapper margin so both archive and single use only the figcaption margin-top for spacing */
+figure:has(figcaption) .ms-archive-image-wrapper {
+    margin-bottom: 0;
+}
+
+.ms-archive-image-link {
+    text-decoration: none;
+    display: block;
+}
+
+
+/* -----------------------------------------------------------
+   Standard image layout
+----------------------------------------------------------- */
+.ms-standard-image .ms-image-container {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    vertical-align: top; // no text-line gap under the image, so the caption sits as close as on single posts
+}
+
+.ms-standard-image img {
+    // !important: an image resized in the editor carries an inline width / aspect-ratio
+    // (e.g. post 1137: width 1113px, aspect-ratio 1 on a 4:3 photo) - feeds always fill the column
+    width: 100% !important;
+    aspect-ratio: auto !important;
+    height: auto;
+    display: block;
+}
+
+/* -----------------------------------------------------------
+   Miniature cover layout
+----------------------------------------------------------- */
+.ms-miniature-cover .ms-miniature-background {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1/1;
+    background-size: cover;
+    background-position: center;
+    overflow: hidden;
+    border-radius: var(--ms-img-radius, var(--ms-radius, 5px));
+    box-shadow: 0 0 0.5rem ms-shadow(0.6);
+}
+.ms-miniature-cover {
+    position: relative;
+}
+
+.ms-miniature-cover .ms-miniature-background {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--ms-img-radius, var(--ms-radius, 5px));
+}
+
+.ms-miniature-cover .ms-miniature-background::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-image: inherit;
+    filter: blur(2px);
+    transform: scale(1.05); /* prevents edge clipping */
+}
+
+.ms-miniature-cover .ms-miniature-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.ms-miniature-cover .ms-miniature-image-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    transform-origin: center;
+}
+
+.ms-miniature-cover img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+// The cover on a miniature's post page (monospace_single_miniature_cover) is for desktop only:
+// on phones the image shows plainly, as before. (Double class: outranks the feed's phone rule for
+// the cover further down.)
+@include mobile {
+    .ms-miniature-cover.ms-miniature-cover-single {
+        .ms-miniature-background {
+            aspect-ratio: auto;
+            background-image: none !important;
+            box-shadow: none;
+            border-radius: 0;
+            overflow: visible;
+
+            &::before { content: none; }
+        }
+
+        .ms-miniature-overlay { display: none; }
+
+        .ms-miniature-image-container {
+            position: static;
+            transform: none;
+        }
+    }
+}
+
+/* -----------------------------------------------------------
+   Labels (attribute + availability)
+----------------------------------------------------------- */
+.ms-attribute-label,
+.ms-availability-badge {
+    position: absolute;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.03125rem;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border-radius: 0.25rem;
+    font-family: 'Roboto', sans-serif;
+    z-index: 5;
+}
+
+/* Attribute label - bottom right */
+.ms-attribute-label {
+    bottom: 0.625rem;
+    right: 0.625rem;
+}
+
+/* Availability badge - bottom left. Only the grid view's green dot uses it now;
+   list view shows availability in the info line under the caption instead */
+.ms-availability-badge {
+    bottom: 0.625rem;
+    left: 0.625rem;
+}
+html:not(.archive-view-grid) .ms-availability-badge {
+    display: none;
+}
+
+/* Info under the caption (list view): Core's info lines, styled once for both views (_archives.scss .ms-info), right-aligned
+   under the image here. */
+.ms-feed-info {
+    text-align: right;
+    font-size: 1rem;
+    margin: 0.5rem 0 1.5rem;
+}
+@media (max-width: 640px) {
+    .ms-feed-info {
+        font-size: 0.9rem;
+    }
+}
+/* Keep the line close to the caption above it */
+figcaption:has(+ .ms-feed-info) {
+    margin-bottom: 0 !important;
+}
+
+/* Feed (list view): under the image, the title on the left and the info on the right,
+   both starting at the same top edge */
+html:not(.archive-view-grid) figure:has(> .ms-feed-info) {
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-areas:
+        "image image"
+        "title info";
+    justify-content: space-between;
+    align-items: start;
+    column-gap: 1rem;
+
+    > .ms-archive-image-wrapper,
+    > .ms-miniature-set-wrapper { grid-area: image; }
+
+    > figcaption {
+        grid-area: title;
+        margin: 1.5rem 0 0 0 !important;
+    }
+
+    > .ms-feed-info {
+        grid-area: info;
+        margin-top: 1.5rem;
+    }
+}
+
+/* Phones: the title pill above the info instead of beside it (a long title no longer wraps into a tall narrow pill);
+   the pill stays left, the info right */
+@media (max-width: 640px) {
+    html:not(.archive-view-grid) figure:has(> .ms-feed-info) {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "image"
+            "title"
+            "info";
+        justify-content: stretch;
+
+        > figcaption {
+            justify-self: start;
+            max-width: 100%;
+        }
+
+        > .ms-feed-info {
+            margin-top: 0.75rem;
+        }
+    }
+}
+
+.ms-availability-badge.ms-available {
+    color: #ffcc00;
+}
+
+.ms-availability-badge.ms-gallery {
+    color: #ffffff;
+}
+.ms-availability-badge.ms-reserved {
+    color: #ff3300;
+}
+
+/* "M" - a miniature or a miniature set (2026-10-23, owner): bottom right of the grid's picture, opposite the availability dot.
+   Drawn only where the dot is - the archive grid (below, _archives.scss) and the Art Filter's grid (its own CSS). White with a
+   thin dark outline and shadow, so it reads on any picture. */
+.ms-miniature-mark {
+    display: none;
+    position: absolute;
+    right: 7px;
+    bottom: 5px;
+    font-family: $component-font;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: #fff;
+    text-shadow:
+        1px 0 0 rgba(0, 0, 0, 0.55),
+        -1px 0 0 rgba(0, 0, 0, 0.55),
+        0 1px 0 rgba(0, 0, 0, 0.55),
+        0 -1px 0 rgba(0, 0, 0, 0.55),
+        0 1px 4px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    user-select: none;
+}
+
+/* -----------------------------------------------------------
+   Miniature-set blocks
+----------------------------------------------------------- */
+.ms-miniature-set-clickable {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.ms-miniature-link {
+    display: block;
+    text-decoration: none;
+}
+
+.ms-miniature-link img {
+    display: block;
+    transition: transform 0.2s ease;
+}
+
+.ms-miniature-link:hover img {
+   // transform: scale(1.05);
+}
+
+/* -----------------------------------------------------------
+   Responsive adjustments
+----------------------------------------------------------- */
+@media (max-width: 640px) {
+    .ms-miniature-cover .ms-miniature-image-container {
+        transform: translate(-50%, -50%) scale(0.85);
+    }
+
+    .ms-attribute-label,
+    .ms-availability-badge {
+        font-size: 0.625rem;
+        padding: 0.1875rem 0.375rem;
+    }
+}
+
+/* -----------------------------------------------------------
+   Figure and caption styles
+----------------------------------------------------------- */
+figure {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+figure img {
+    margin-bottom: 0;
+}
+
+// Painting label: left-aligned under the image
+// --cap-*: Look > Artwork captions (design/caption-style.php); unset = the theme's own (a card, as Look > Cards)
+figcaption{
+    background: var(--cap-bg, var(--ms-card-bg, white));
+    border-radius: var(--cap-radius, var(--ms-card-radius, var(--ms-radius, 8px)));
+    border: solid var(--cap-border-width, var(--ms-card-border-width, 1px)) var(--cap-border, var(--ms-card-border, #CCC)) !important;
+    box-shadow: var(--cap-shadow, none);
+    display: flex;
+    width: fit-content;
+    padding: var(--cap-pad, 0.5rem 1rem);
+    font-family: var(--cap-font, inherit);
+    font-size: var(--cap-size, 1rem);
+    font-style: var(--cap-italic, italic);
+    font-weight: var(--cap-weight, bold);
+    color: var(--cap-color, #666);
+    max-width: fit-content;
+    text-align: left;
+    margin: 1.5rem auto 1.5rem 0 !important;
+}
+
+// An artwork post's title caption is its <h1> (modules/frontend/seo/headings-alt.php) - no heading look
+figcaption .artwork-title {
+    font: inherit;
+    color: inherit;
+    margin: 0;
+}
+
+figcaption:has(a) {
+    cursor: pointer;
+    margin: 1.5rem auto 1.5rem 0 !important;
+}
+figcaption a{
+    text-decoration: none !important;
+}
+
+
+
+// Timeline image caption override
+figure.wp-block-image.timeline-image figcaption.wp-element-caption {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-size: 0.9rem !important;
+    font-style: italic !important;
+    color: #666 !important;
+    margin: 0.5rem auto 1rem auto !important;
+    display: block !important;
+}
+
+
+/* -----------------------------------------------------------
+   Blog cards (2026-11-01): a post with no artwork in the feed - a blog post, a newsletter - is the artwork card with a small
+   label on the picture, "Blog · date" as its info line and a short excerpt (frontend/archive/blog-card.php). The label shows in
+   every view, grid included (top left: the grid's availability dot is bottom left).
+----------------------------------------------------------- */
+.ms-post-label {
+    position: absolute;
+    top: 0.625rem;
+    left: 0.625rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.03125rem;
+    text-transform: uppercase;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border-radius: 0.25rem;
+    font-family: 'Roboto', sans-serif;
+    z-index: 5;
+}
+
+.ms-blog-excerpt {
+    margin: 0 0 1.5rem;
+    font-size: 1rem;
+    line-height: 1.5;
+
+    .ms-blog-more {
+        white-space: nowrap;
+        font-weight: bold;
+        text-decoration: none;
+    }
+}
+
+/* Captions that are not an artwork's (2026-11-01, owner: "artwork title pills should only be used for artwork"): in a post with no
+   linked product (.ms-plain-post: blog posts, newsletters - the feed card and the post's own page), and every caption but the
+   first picture's in an artwork post (.ms-plain-caption, frontend/content/plain-captions.php: the studio photos), a caption is plain
+   text, small and italic in the page's own text color (so the dark look follows), not the pill. The card's title is a bold line. */
+.ms-plain-post figcaption,
+figcaption.ms-plain-caption {
+    display: block;
+    width: auto;
+    max-width: none;
+    background: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0;
+    font-size: 0.9rem;
+    font-style: italic;
+    font-weight: normal;
+    color: inherit;
+    opacity: 0.8;
+    text-align: right;
+    margin: 0.5rem 0 1.5rem !important;
+
+    a {
+        color: inherit;
+    }
+}
+
+.ms-plain-post figcaption.ms-blog-title {
+    font-size: 1.2rem;
+    font-style: normal;
+    font-weight: bold;
+    opacity: 1;
+    text-align: left;
+    margin: 1.5rem 0 0 !important;
+}
+
+/* Gallery captions, sitewide (2026-11-01, owner; post 1927): the plain caption style, just under the picture - not WordPress's
+   white text on a dark fade over it, and never the pill. The gallery's own caption (under all pictures) too. WordPress puts a
+   picture's caption on top of it, so the picture fills its tile; the tile gets room below instead (only in a gallery that has
+   captions), so every picture keeps its size and the rows stay level. Text color follows the page, so the dark look does. */
+.wp-block-gallery.has-nested-images:has(figure figcaption) figure.wp-block-image {
+  padding-bottom: 2rem;
+}
+.wp-block-gallery.has-nested-images figure.wp-block-image:has(figcaption)::before {
+  display: none;
+}
+.wp-block-gallery.has-nested-images figure.wp-block-image figcaption {
+  bottom: 0;
+  max-height: none;
+  overflow: visible;
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0;
+  margin: 0 !important;
+  color: inherit;
+  text-align: left;
+  font-size: 0.9rem;
+  font-style: italic;
+  font-weight: normal;
+  line-height: 1.4;
+  opacity: 0.8;
+}
+/* The caption of the whole gallery: under it, full width */
+.wp-block-gallery.has-nested-images > figcaption.blocks-gallery-caption {
+  flex: 0 0 100%;
+  margin: 0 !important;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  font-size: 0.9rem;
+  font-style: italic;
+  font-weight: normal;
+  opacity: 0.8;
+}

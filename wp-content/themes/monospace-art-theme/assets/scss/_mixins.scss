@@ -1,0 +1,225 @@
+// Media queries
+@mixin mobile {
+  @media (max-width: $breakpoint-mobile) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (max-width: $breakpoint-tablet) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media (max-width: $breakpoint-desktop) {
+    @content;
+  }
+}
+
+// The cards (white boxes, rounded gray outline). Appearance > Look > Cards sets the variables (2026-10-21);
+// the defaults are the theme's own.
+@mixin card-style {
+  background: var(--ms-card-bg, white);
+  border-radius: var(--ms-card-radius, var(--ms-radius, 8px)); // own, else site-wide (design/rounding.php)
+  border: solid var(--ms-card-border-width, 1px) var(--ms-card-border, #CCC) !important;
+}
+
+// Inset panels (2026-11-18, owner): boxes that hold read-only details (an order's addresses) are pressed into the
+// page like the secondary buttons' Inset look - a light tint with a dark line above, a light line below and neutral gray sides - with the
+// cards' rounding. Their own variables, so Look > Secondary buttons (Flat / Outline) doesn't recolor them; dark
+// mode sets --ms-inset-* (_dark-mode.scss).
+@mixin inset-panel {
+  background: var(--ms-inset-bg, rgba(0, 0, 0, 0.05));
+  box-shadow: var(--ms-inset-shadow, inset 0 1px 0 rgba(0, 0, 0, 0.4), inset 0 -1px 0 rgba(255, 255, 255, 1), inset 1px 0 0 rgba(128, 128, 128, 0.35), inset -1px 0 0 rgba(128, 128, 128, 0.35));
+  border: 0 !important;
+  border-radius: var(--ms-card-radius, var(--ms-radius, 8px));
+}
+
+// Box shadow helper
+@mixin box-shadow($shadow: $global-box-shadow) {
+  box-shadow: $shadow;
+}
+@mixin box-shadow-hover($shadow-hover: $global-box-shadow-hover) {
+  box-shadow: $shadow-hover;
+}
+
+// Button base styles with optional !important
+@mixin button-base($important: false) {
+  $imp: if($important, !important, null);
+
+  width: auto !important;
+  position: relative #{$imp};
+  display: inline-block #{$imp};
+  padding: 7px 16px #{$imp};
+  font-family: $component-font #{$imp};
+  font-weight: 600 #{$imp};
+  font-size: calc($base-font-size * .85) #{$imp};
+  line-height: 1.4 #{$imp};
+  color: #ffffff #{$imp};
+  border: none #{$imp};
+  border-radius: var(--ms-btn-radius, 9999px) #{$imp}; // Look > Rounding > Buttons (design/rounding.php); the theme's: a pill
+  cursor: pointer #{$imp};
+  text-decoration: none #{$imp};
+  text-align: center #{$imp};
+  transition: background-image 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease #{$imp};
+}
+
+// Input base styles
+@mixin input-base {
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #333;
+  background-color: var(--ms-card-bg, #fff); // the cards' look: fill, outline, corners
+  border: solid var(--ms-card-border-width, 1px) var(--ms-card-border, #ccc);
+  border-radius: calc(var(--ms-card-radius, var(--ms-radius, 8px)) - 2px);
+  box-sizing: border-box;
+  transition: border-color 0.2s ease;
+}
+
+
+@mixin buttons {
+  button,
+  input[type="button"],
+  input[type="submit"]:not(.adminbar-button),
+  a.button,
+  .wp-block-button .wp-block-button__link,
+  .wp-block-search__button,
+  .wp-block-search__button .wp-element-button,
+  a.painting-buy-button,
+//  .post-nav-buttons a,
+  .mailpoet_submit,
+  .woocommerce button.button,
+  .woocommerce a.button,
+  .woocommerce input.button,
+  .woocommerce #respond input#submit,
+  .woocommerce a.add_to_cart_button,
+  .woocommerce a.product_type_simple,
+  .woocommerce a.product_type_variable,
+  .woocommerce a.product_type_external,
+  .woocommerce a.product_type_grouped,
+  .woocommerce button.single_add_to_cart_button,
+  .woocommerce a.checkout-button,
+  .woocommerce button[name="update_cart"],
+  .woocommerce button[name="apply_coupon"],
+  .woocommerce button.woocommerce-button,
+  .woocommerce a.woocommerce-button,
+  .woocommerce a.button.wc-forward,
+  .wc-block-components-button,
+  .wc-block-cart__submit-button,
+  .wc-block-checkout__actions_row .wc-block-components-button,
+  .woocommerce button.single_add_to_cart_button.button.alt,
+  .woocommerce button#place_order.button.alt
+  {
+    @content;
+  }
+}
+
+@mixin inputs{
+    input[type="text"]:not(.adminbar-input),
+    input[type="email"],
+    input[type="url"],
+    input[type="password"],
+    input[type="search"]:not(.adminbar-input),
+    input[type="number"],
+    input[type="tel"],
+    input[type="range"],
+    input[type="date"],
+    input[type="month"],
+    input[type="week"],
+    input[type="time"],
+    input[type="datetime"],
+    input[type="datetime-local"],
+    input[type="color"],
+    textarea,
+    select,
+    .woocommerce input[type="text"],
+    .woocommerce input[type="email"],
+    .woocommerce input[type="url"],
+    .woocommerce input[type="password"],
+    .woocommerce input[type="search"],
+    .woocommerce input[type="number"],
+    .woocommerce input[type="tel"],
+    .woocommerce textarea,
+    .woocommerce select,
+    .woocommerce-page input[type="text"],
+    .woocommerce-page input[type="email"],
+    .woocommerce-page input[type="tel"],
+    .woocommerce-page input[type="number"],
+    .woocommerce-page textarea,
+    .woocommerce-page select
+    {
+        @content;
+    }
+}
+
+
+// The availability dot (2026-11-17): ONE look for every place a badge is drawn as a dot - the grid view, every view when
+// Look > Availability dots is on, and [artwork badges="yes"]. Used as: .ms-availability-badge { @include ms-dot-badge; }
+// Colors come from --ms-dot-<state>-1 / -2 / -3 (dark to light) and --ms-dot-<state>-rgb, which Look > Availability dots prints
+// when a color is changed; the numbers here are the defaults (and the Art Filter's own CSS repeats them).
+@mixin ms-dot-badge {
+    --ms-dot-1: var(--ms-dot-available-1, #1a8f1a);
+    --ms-dot-2: var(--ms-dot-available-2, #27c327);
+    --ms-dot-3: var(--ms-dot-available-3, #4ef34e);
+    --ms-dot-rgb: var(--ms-dot-available-rgb, 39, 195, 39);
+    bottom: 6px;
+    left: 6px;
+    width: 12px;
+    height: 12px;
+    padding: 0;
+    font-size: 0;
+    color: transparent;
+    background: linear-gradient(to bottom, var(--ms-dot-1) 0%, var(--ms-dot-2) 50%, var(--ms-dot-3) 100%);
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow:
+        0 2px 6px rgba(var(--ms-dot-rgb), 0.4),
+        inset -2px -2px 4px rgba(0, 0, 0, 0.15),
+        inset 2px 2px 4px rgba(255, 255, 255, 0.6);
+
+    &::before {
+        content: "";
+        position: absolute;
+        top: 1px;
+        left: 2px;
+        right: 2px;
+        height: 45%;
+        border-radius: inherit;
+        background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+    }
+
+    // At a gallery: blue
+    &.ms-gallery {
+        --ms-dot-1: var(--ms-dot-gallery-1, #1a5fbf);
+        --ms-dot-2: var(--ms-dot-gallery-2, #2f86f0);
+        --ms-dot-3: var(--ms-dot-gallery-3, #62b0ff);
+        --ms-dot-rgb: var(--ms-dot-gallery-rgb, 47, 134, 240);
+    }
+
+    // Reserved: yellow
+    &.ms-reserved {
+        --ms-dot-1: var(--ms-dot-reserved-1, #b88a00);
+        --ms-dot-2: var(--ms-dot-reserved-2, #f0b800);
+        --ms-dot-3: var(--ms-dot-reserved-3, #ffd84a);
+        --ms-dot-rgb: var(--ms-dot-reserved-rgb, 240, 184, 0);
+    }
+
+    // Sold (no longer available): red
+    &.ms-sold {
+        --ms-dot-1: var(--ms-dot-sold-1, #a61e1e);
+        --ms-dot-2: var(--ms-dot-sold-2, #e03131);
+        --ms-dot-3: var(--ms-dot-sold-3, #ff7b7b);
+        --ms-dot-rgb: var(--ms-dot-sold-rgb, 224, 49, 49);
+    }
+
+    // Private (the artist's own collection): purple
+    &.ms-private {
+        --ms-dot-1: var(--ms-dot-private-1, #5b2d8a);
+        --ms-dot-2: var(--ms-dot-private-2, #8a4fd1);
+        --ms-dot-3: var(--ms-dot-private-3, #b98ae8);
+        --ms-dot-rgb: var(--ms-dot-private-rgb, 138, 79, 209);
+    }
+}

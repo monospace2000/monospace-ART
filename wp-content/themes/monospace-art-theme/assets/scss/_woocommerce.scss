@@ -1,0 +1,1134 @@
+@import 'variables';
+@import 'mixins';
+
+
+.woocommerce-cart .actions button.button[name="update_cart"] {
+    // hide this button for good
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    left: -9999px !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+
+/* ==========================================================================
+   TABLES
+   ========================================================================== */
+
+.woocommerce-cart table,
+.woocommerce-page table,
+.woocommerce table {
+    background-color: #fff !important;
+    overflow: hidden;
+    border-collapse: collapse;
+}
+
+/* ==========================================================================
+   CUSTOM ORDER STYLING
+   ========================================================================== */
+
+.product_meta {
+    display: none;
+}
+
+.custom-order-options {
+    @include card-style;
+    padding: calc($global-padding /2);
+    margin-bottom: calc($global-margin /2);
+    margin-top: 0 !important;
+
+    textarea {
+        _width: 75% !important;
+    }
+
+    label {
+        font-size: 0.9em;
+    }
+
+    p {
+        margin-bottom: 1em;
+    }
+
+    label {
+        font-weight: 600;
+        display: block;
+        margin-bottom: 0.25em;
+    }
+
+    textarea,
+    input[type="file"] {
+        width: 100%;
+        padding: 0.5em;
+        font-family: inherit;
+    }
+}
+
+.woocommerce:where(body:not(.woocommerce-uses-block-theme)) div.product p.price {
+    display: none;
+}
+.stock.in-stock{
+    display: none;
+}
+.woocommerce-Tabs-panel.woocommerce-Tabs-panel--additional_information h2{
+    display: none;
+}
+.woocommerce-tabs ul.tabs.wc-tabs{
+    margin: 0 !important;
+}
+
+/* ==========================================================================
+   CHECKOUT STYLING
+   ========================================================================== */
+
+.commission-deposit-info {
+    display: inline-block;
+    padding: 0.5em 0.75em;
+    background: #fff;
+    border-left: 3px solid #2271b1;
+    font-size: 0.9em;
+    margin-bottom: 1em;
+}
+
+.commission-shipping-note {
+    background: #fff;
+    border-left: 3px solid #2271b1;
+    padding: 1em;
+    margin: 1em 0;
+    font-size: 0.95em;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ==========================================================================
+   WOOCOMMERCE SPECIFIC OVERRIDES
+   ========================================================================== */
+
+#coupon_code.input-text {
+    width: 200px !important;
+}
+
+/* Checkout and cart forms (billing / shipping fields, notes, coupon, the country and state pickers): the cards' outline,
+   fill and corners like every other field (_mixins.scss input-base; WooCommerce's own rules are more specific, hence !important) */
+.woocommerce form .form-row .input-text,
+.woocommerce form .form-row select,
+.woocommerce form .form-row textarea,
+.woocommerce-page form .form-row .input-text,
+.woocommerce-page form .form-row select,
+.woocommerce-page form .form-row textarea,
+.woocommerce #coupon_code,
+.select2-container--default .select2-selection--single,
+.select2-container--default .select2-selection--multiple,
+.select2-dropdown,
+.select2-search--dropdown .select2-search__field {
+    @include card-style;
+    background-color: var(--ms-card-bg, #fff) !important;
+    border-radius: calc(var(--ms-card-radius, var(--ms-radius, 8px)) - 2px) !important;
+    box-shadow: none;
+}
+
+button[name="update_cart"] {
+    display: none !important;
+}
+
+/* The checkout's payment section (payment methods, PayPal button). One look in light and dark: it takes the cards'
+   colors (Look > Cards), so the dark look needs no rules of its own. WooCommerce draws it with a white fill, a gray
+   explanation box with a pointer, and its own grays for the text - all !important or more specific than a plain rule. */
+.woocommerce-checkout #payment {
+    background: var(--ms-card-bg, #fff) !important;
+    color: $body-text-color;
+    border: solid var(--ms-card-border-width, 1px) var(--ms-card-border, #ccc);
+    border-radius: var(--ms-card-radius, var(--ms-radius, 8px));
+    font-family: $component-font;
+
+    ul.payment_methods {
+        padding: 1em !important;
+        border-bottom: solid 1px var(--ms-card-border, #ccc) !important;
+
+        li {
+            margin: 0 0 0.5em;
+            color: $body-text-color;
+        }
+
+        input[type="radio"] {
+            accent-color: $body-text-color;
+        }
+
+        label {
+            color: $body-text-color;
+        }
+    }
+
+    // The method's explanation: plain text in the site's color - no gray box, no pointer
+    div.payment_box,
+    div.payment_box p {
+        background: transparent !important;
+        color: $body-text-color !important;
+        font-size: 0.95rem;
+    }
+
+    div.payment_box {
+        padding: 0.5em 0 0 !important;
+        margin: 0 !important;
+
+        &::before,
+        &::after {
+            display: none !important;
+            content: none !important;
+            border: 0 !important;
+        }
+
+        p:last-child {
+            margin-bottom: 0;
+        }
+    }
+}
+
+/* The Card method's badge (WooCommerce Payments: the Visa logo and "+5" at the right of the method) - left out. */
+.woocommerce-checkout #payment .payment_method_woocommerce_payments .payment-methods--logos {
+    display: none !important;
+}
+
+/* The checkout's Place order button with PayPal chosen (checkout-pay-button.js): PayPal's gold with dark text. The glass
+   look stays - it only reads --btn-color / --btn-text, which are set here on the button itself. */
+body.ms-pay-paypal .woocommerce #place_order {
+    --btn-color: #ffc439;
+    --btn-text: #1a1a1a;
+}
+
+/* WooCommerce's alerts (added to cart, info, errors) - one look in light and dark (2026-10-21, owner: "fix the font and
+   alert colors on WC pages"): a card (Look > Cards' fill, outline, rounding) with the alert's color as a stripe on the
+   left and its icon, the site's text color and UI font. Was: WooCommerce's gray text and colored top line, the error
+   on a gray fill. The colors: --ms-alert, lighter in the dark look (_dark-mode.scss). */
+.woocommerce-message,
+.woocommerce-info,
+.woocommerce-error {
+    --ms-alert: #2e7d32;
+    box-sizing: border-box;
+    width: 100%;
+    background: var(--ms-card-bg, #fff) !important;
+    color: $body-text-color !important;
+    border: solid var(--ms-card-border-width, 1px) var(--ms-card-border, #ccc) !important;
+    border-left: 4px solid var(--ms-alert) !important;
+    border-radius: var(--ms-card-radius, var(--ms-radius, 8px));
+    font-family: $component-font;
+    font-size: 0.95rem;
+    line-height: 1.5;
+
+    &::before {
+        color: var(--ms-alert) !important;
+    }
+
+    a:not(.button) {
+        color: inherit;
+        text-decoration: underline;
+    }
+}
+
+.woocommerce-info {
+    --ms-alert: #1f6fb2;
+}
+
+.woocommerce-error {
+    --ms-alert: #c62828;
+}
+
+/* Hide entire WooCommerce message if it contains a restore-item link (Undo) */
+.woocommerce-message:has(a.restore-item) {
+    display: none !important;
+}
+
+
+
+
+
+/* ==========================================================================
+   MY ACCOUNT PAGE (redone 2026-11-16): the tabs as one row of pills (a card; swipes sideways when they
+   don't fit), then the content. Everything draws from the theme's own tokens (card-style, --ms-radius, the UI font,
+   the glass-button blue), so the Look settings and the dark look carry through. Markup: includes/modules/commerce/
+   account-page.php (status chips, in-place tab switching), woocommerce/myaccount/dashboard.php (tiles).
+   ========================================================================== */
+
+// Line icons (Feather-style, 24px grid), drawn as a mask in the text color. Used by the tabs and the dashboard tiles.
+@function ms-svg-encode($s) {
+    $out: '';
+    @for $i from 1 through str-length($s) {
+        $c: str-slice($s, $i, $i);
+        @if $c == '<' { $c: '%3C'; } @else if $c == '>' { $c: '%3E'; }
+        $out: $out + $c;
+    }
+    @return $out;
+}
+
+@function ms-icon($body) {
+    @return url("data:image/svg+xml,#{ms-svg-encode("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>#{$body}</svg>")}");
+}
+
+$account-icons: (
+    'dashboard':       "<path d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><polyline points='9 22 9 12 15 12 15 22'/>",
+    'orders':          "<path d='M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z'/><line x1='3' y1='6' x2='21' y2='6'/><path d='M16 10a4 4 0 0 1-8 0'/>",
+    'my-commissions':  "<path d='M12 20h9'/><path d='M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z'/>",
+    'downloads':       "<path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' y1='15' x2='12' y2='3'/>",
+    'edit-address':    "<path d='M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z'/><circle cx='12' cy='10' r='3'/>",
+    'payment-methods': "<rect x='1' y='4' width='22' height='16' rx='2' ry='2'/><line x1='1' y1='10' x2='23' y2='10'/>",
+    'edit-account':    "<path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/>",
+    'customer-logout': "<path d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/><polyline points='16 17 21 12 16 7'/><line x1='21' y1='12' x2='9' y2='12'/>",
+    // The User Switching plugin's "Switch back to ..." item (the tab pill and the dashboard tile): two arrows, round and round
+    'user-switching-switch-back': "<polyline points='17 1 21 5 17 9'/><path d='M3 11V9a4 4 0 0 1 4-4h14'/><polyline points='7 23 3 19 7 15'/><path d='M21 13v2a4 4 0 0 1-4 4H3'/>"
+);
+
+$account-radius: var(--ms-card-radius, var(--ms-radius, 8px));
+
+// The icon itself: a ::before in the text color, shaped by --ms-acct-icon
+@mixin account-icon($size: 18px) {
+    &::before {
+        content: '';
+        flex: 0 0 auto;
+        width: $size;
+        height: $size;
+        background: currentColor;
+        -webkit-mask: var(--ms-acct-icon) center / contain no-repeat;
+        mask: var(--ms-acct-icon) center / contain no-repeat;
+    }
+}
+
+// The "Switch back to ..." link (the User Switching plugin's, in the footer - it prints inline styles: a square blue box; and our own
+// a.ms-view-as-back): the glass pill in red, with the gloss strip and the switch icon, lifted clear of the round buttons in the
+// corner (2026-11-17). The gloss is ::after because ::before carries the icon.
+#user_switching_switch_on {
+    bottom: 92px !important;
+    left: 14px !important;
+}
+
+#user_switching_switch_on a,
+a.ms-view-as-back {
+    --btn-color: rgba(200, 30, 30, 0.9);
+    --ms-acct-icon: #{ms-icon(map-get($account-icons, 'user-switching-switch-back'))};
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px 10px 14px !important;
+    border-radius: 999px !important;
+    background-color: var(--btn-color) !important;
+    background-image: linear-gradient(to top, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.15) 45%, rgba(0, 0, 0, 0.05) 55%, rgba(0, 0, 0, 0.18) 100%) !important;
+    color: #fff !important;
+    font-family: $component-font;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.3), 0 2px 3px rgba(0, 0, 0, 0.25);
+    @include account-icon(18px);
+
+    &::after {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 10px;
+        right: 10px;
+        height: 45%;
+        border-radius: inherit;
+        background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0));
+        pointer-events: none;
+    }
+
+    &:hover {
+        background-color: color-mix(in srgb, var(--btn-color), white 12%) !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+}
+
+.woocommerce-account {
+    .woocommerce {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0;
+
+        // An alert above the tabs and the content gets its own full-width line
+        > .woocommerce-notices-wrapper {
+            width: 100%;
+            flex-shrink: 0;
+        }
+    }
+
+    // --- Tabs ---------------------------------------------------------------
+    .woocommerce-MyAccount-navigation {
+        @include card-style;
+        flex: 0 0 auto;
+        float: none !important; // WooCommerce's layout CSS floats it left at 30% from 768px up
+        box-sizing: border-box; // its padding must not push it wider than the content
+        width: 100% !important;
+        margin: 0 0 28px !important;
+        padding: 6px !important;
+        font-family: $component-font;
+        font-weight: 600;
+
+        ul {
+            display: flex;
+            gap: 4px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+
+            &::-webkit-scrollbar { display: none; }
+        }
+    }
+
+    .woocommerce-MyAccount-navigation-link {
+        flex: 0 0 auto;
+        margin: 0;
+        border: 0 !important;
+
+        a {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 12px;
+            border-radius: calc(#{$account-radius} - 3px);
+            color: $body-text-color;
+            font-family: $component-font;
+            font-size: 0.9rem;
+            line-height: 1.2;
+            white-space: nowrap;
+            text-decoration: none;
+            transition: background-color 0.15s ease, color 0.15s ease;
+
+            @include account-icon;
+
+            &:hover {
+                background-color: rgba(0, 0, 0, 0.05);
+            }
+
+            &:focus-visible {
+                outline: 2px solid var(--btn-color, #{$button-base-color});
+                outline-offset: -2px;
+            }
+        }
+
+        // The current tab: its own color (Look > Tab color), else the Buttons color
+        &.is-active a {
+            background-color: var(--ms-tab-color, var(--btn-color, #{$button-base-color}));
+            color: var(--ms-tab-text, var(--btn-text, #fff));
+        }
+
+        // Log out sits apart, at the end, quieter
+        &--customer-logout {
+            margin-left: auto;
+
+            a:not(:hover) { color: $body-text-color-light; }
+        }
+
+        // The new-previews badge (monospace-commissions) sits inside its pill
+        .ms-badge {
+            margin-left: 2px !important;
+        }
+    }
+
+    @each $endpoint, $body in $account-icons {
+        .woocommerce-MyAccount-navigation-link--#{$endpoint} a,
+        .ms-acct-tile--#{$endpoint} {
+            --ms-acct-icon: #{ms-icon($body)};
+        }
+    }
+
+    // --- Content ------------------------------------------------------------
+    .woocommerce-MyAccount-content {
+        flex: 1 1 auto;
+        float: none !important; // WooCommerce's layout CSS floats it right at 68% from 768px up
+        min-width: 0;
+        width: 100% !important;
+        max-width: none !important;
+        font-family: $component-font;
+        transition: opacity 0.15s ease;
+
+        // While the next tab is being fetched (account-page.php)
+        &.is-loading { opacity: 0.45; }
+
+        // The message under a tab ("No order has been made yet.", "No commissions available yet.", a notice): one box -
+        // same width, padding and height on every tab, the icon centered at the left, the button always last and at the
+        // right (below the text on a phone). WooCommerce prints the button first on some tabs and last on others.
+        .woocommerce-info,
+        .woocommerce-message,
+        .woocommerce-error {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px 16px;
+            box-sizing: border-box;
+            width: 100%;
+            min-height: 60px;
+            margin: 0 0 24px !important;
+            padding: 16px 20px 16px 52px !important;
+            list-style: none;
+
+            &::before {
+                top: 50% !important;
+                left: 20px !important;
+                margin: 0 !important;
+                transform: translateY(-50%);
+            }
+
+            .button {
+                float: none !important;
+                order: 2;
+                flex: 0 0 auto;
+                margin: 0 0 0 auto !important;
+            }
+
+            li { margin: 0; }
+        }
+
+        // The button lifted out of a message box (account-page.php lift()): close under its box, then the box's own gap below
+        // it - it sat 24px away from the box and flush against the dashboard tiles (2026-11-17)
+        .woocommerce-info:has(+ .button),
+        .woocommerce-message:has(+ .button),
+        .woocommerce-error:has(+ .button) { margin-bottom: 12px !important; }
+
+        .woocommerce-info + .button,
+        .woocommerce-message + .button,
+        .woocommerce-error + .button { margin: 0 0 24px !important; }
+
+        // The line of text that opens a tab (Addresses): the same gap below it
+        > p:first-child { margin: 0 0 20px; }
+
+        // The dashboard's welcome line (it follows the alerts' wrapper, so it is not the first child)
+        .ms-acct-welcome { margin: 0 0 20px; font-size: 1.05rem; }
+
+        h2,
+        h3 {
+            margin-top: 0;
+            margin-bottom: 24px;
+            font-family: $heading-font;
+            color: $header-color;
+        }
+
+        // Address cards and "Edit" links
+        a.edit {
+            float: right;
+            padding: 3px 12px;
+            border: 1px solid var(--ms-card-border, #ccc);
+            border-radius: 999px;
+            font-family: $component-font;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            text-decoration: none;
+            color: $body-text-color;
+
+            &:hover { background-color: rgba(0, 0, 0, 0.05); }
+        }
+
+        .woocommerce-Addresses {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+
+            &::before,
+            &::after { display: none; }
+
+            .woocommerce-Address {
+                @include card-style;
+                float: none;
+                width: auto;
+                max-width: none;
+                padding: 20px;
+
+                header.woocommerce-Address-title {
+                    display: flex;
+                    align-items: baseline;
+                    justify-content: space-between;
+                    gap: 12px;
+                    margin-bottom: 12px;
+
+                    // WooCommerce's clearfix pieces would count as flex items
+                    &::before,
+                    &::after { display: none; }
+
+                    h2,
+                    h3 { margin: 0; padding: 0; font-size: 1.2rem; text-align: left; }
+                    a.edit { float: none; flex: 0 0 auto; }
+                }
+
+                address {
+                    font-style: normal;
+                    line-height: 1.6;
+                }
+            }
+        }
+
+        // Account details: the password block is its own card
+        .woocommerce-EditAccountForm {
+            .form-row label {
+                margin-bottom: 4px;
+                font-size: 0.9rem;
+                font-weight: 600;
+            }
+
+            fieldset {
+                @include card-style;
+                margin: 28px 0 20px;
+                padding: 20px;
+
+                // A title inside the card (a legend normally sits on the border and cuts it)
+                legend {
+                    float: left;
+                    width: 100%;
+                    margin: 0 0 16px;
+                    padding: 0;
+                    font-family: $heading-font;
+                    font-size: 1.2rem;
+                    color: $header-color;
+
+                    + * { clear: both; }
+                }
+            }
+        }
+
+        // Orders and a single order's lines: quiet header, soft row lines
+        .woocommerce-orders-table,
+        .woocommerce-table--order-details {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            @include card-style;
+            overflow: hidden;
+
+            th {
+                padding: 12px 16px;
+                font-size: 0.75rem;
+                font-weight: 700;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                color: $body-text-color-light;
+                background: rgba(0, 0, 0, 0.03);
+            }
+
+            td,
+            th {
+                border: 0;
+                border-bottom: 1px solid var(--ms-card-border, #ddd);
+            }
+
+            td { padding: 14px 16px; vertical-align: middle; }
+            // A row's own heading cell (the order number; "Subtotal:" in the footer) is a label, not a column header
+            tbody th,
+            tfoot th {
+                background: none;
+                font-size: inherit;
+                font-weight: 600;
+                letter-spacing: 0;
+                text-transform: none;
+                color: inherit;
+                text-align: left;
+            }
+
+            tfoot td,
+            .product-total { text-align: right; white-space: nowrap; }
+            tfoot tr:last-child { th, td { border-bottom: 0; } }
+            .product-name a { font-weight: 600; }
+            .wc-item-meta,
+            dl.variation { margin: 6px 0 0; font-size: 0.85rem; color: $body-text-color-light; }
+            tbody tr:last-child { th, td { border-bottom: 0; } }
+            tbody tr:hover { background: rgba(0, 0, 0, 0.02); }
+        }
+
+        // Order Details (a single order): the sentence at the top is a box like the messages; the sections get air; the
+        // customer's addresses are cards like the Addresses tab; order updates are cards
+        > p:has(> mark.order-number) {
+            @include card-style;
+            margin: 0 0 28px;
+            padding: 18px 20px;
+            line-height: 1.6;
+        }
+
+        mark {
+            padding: 0;
+            background: none;
+            color: inherit;
+            font-weight: 700;
+        }
+
+        .woocommerce-order-details,
+        .woocommerce-customer-details,
+        .woocommerce-OrderUpdates { margin-bottom: 32px; }
+
+        .woocommerce-OrderUpdates {
+            margin-left: 0;
+            padding: 0;
+            list-style: none;
+
+            .woocommerce-OrderUpdate {
+                @include card-style;
+                margin: 0 0 12px;
+                padding: 14px 20px;
+                list-style: none;
+
+                .comment-text { margin: 0; padding: 0; border: 0; }
+                .meta { margin: 0 0 4px; font-size: 0.85rem; color: $body-text-color-light; }
+                .description p { margin: 0; }
+            }
+        }
+
+        .woocommerce-columns--addresses {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+
+            &::before,
+            &::after { display: none; }
+
+            .woocommerce-column {
+                @include inset-panel;
+                float: none;
+                width: auto;
+                max-width: none;
+                padding: 20px;
+
+                h2 { margin: 0 0 12px; font-size: 1.2rem; }
+                address { padding: 0; border: 0; background: none; box-shadow: none; font-style: normal; line-height: 1.6; }
+                p { margin: 6px 0 0; }
+            }
+        }
+    }
+
+    // Order status chips (account-page.php): a neutral chip, colored by status
+    .ms-acct-status {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 999px;
+        font-family: $component-font;
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.6;
+        white-space: nowrap;
+        color: $body-text-color-light;
+        background: rgba(0, 0, 0, 0.06);
+
+        &.is-completed  { color: #1e7b34; background: rgba(30, 123, 52, 0.12); }
+        &.is-processing { color: #1a5fb4; background: rgba(26, 95, 180, 0.12); }
+        &.is-on-hold,
+        &.is-pending    { color: #94610a; background: rgba(214, 140, 10, 0.16); }
+        &.is-cancelled,
+        &.is-failed     { color: #b3261e; background: rgba(179, 38, 30, 0.12); }
+    }
+
+    // --- Login / Register (logged out) -------------------------------------
+    // Two cards side by side (one centered card when registration is off), stacked on a phone. The same field look
+    // is used by the lost-password form and Account details.
+    .woocommerce:not(:has(.woocommerce-MyAccount-navigation)) {
+        flex-direction: column;
+        align-items: center;
+
+        > h2,
+        > form.woocommerce-form,
+        > form.lost_reset_password {
+            width: 100%;
+            max-width: 440px;
+            box-sizing: border-box;
+        }
+
+        // A single login form: its heading sits outside the form in WooCommerce's markup
+        > h2 { margin: 0 0 14px; }
+
+        > form.woocommerce-form,
+        > form.lost_reset_password {
+            @include card-style;
+            margin: 0 0 24px;
+            padding: 24px;
+        }
+    }
+
+    #customer_login {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 24px;
+        align-items: start;
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto 24px;
+
+        &::before,
+        &::after { display: none; }
+
+        .u-column1,
+        .u-column2 {
+            @include card-style;
+            float: none;
+            width: auto;
+            box-sizing: border-box;
+            padding: 24px;
+        }
+
+        h2 {
+            margin: 0 0 18px;
+            font-family: $heading-font;
+            color: $header-color;
+        }
+
+        form.woocommerce-form {
+            margin: 0;
+            padding: 0;
+            border: 0;
+        }
+
+        @media (max-width: 700px) { grid-template-columns: 1fr; max-width: 440px; }
+    }
+
+    .woocommerce-form-login,
+    .woocommerce-form-register,
+    .lost_reset_password {
+        font-family: $component-font;
+
+        .form-row {
+            float: none;
+            width: 100%;
+            margin: 0 0 16px;
+            padding: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        // Remember me + the button on one line: the button first
+        .form-row:has(.woocommerce-form-login__submit) {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 18px;
+
+            .woocommerce-form-login__submit { order: -1; margin: 0; }
+
+            .woocommerce-form-login__rememberme {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                margin: 0;
+                font-weight: 400;
+            }
+        }
+
+        .woocommerce-LostPassword {
+            margin: 4px 0 0;
+            font-size: 0.9rem;
+        }
+
+        .woocommerce-privacy-policy-text,
+        .woocommerce-privacy-policy-text p,
+        > p:not(.form-row) {
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: $body-text-color-light;
+        }
+    }
+
+    // Text fields on the account screens: one look
+    .woocommerce-form-login,
+    .woocommerce-form-register,
+    .lost_reset_password,
+    .woocommerce-EditAccountForm {
+        .input-text,
+        select {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            @include card-style; // same outline and corners as the cards
+            border-radius: calc(var(--ms-card-radius, var(--ms-radius, 8px)) - 2px) !important;
+            box-shadow: none;
+            font-family: $component-font;
+            font-size: 1rem;
+        }
+
+        .input-text:focus {
+            outline: 2px solid var(--btn-color, #{$button-base-color});
+            outline-offset: 1px;
+        }
+    }
+
+    // --- Dashboard tiles ----------------------------------------------------
+    .ms-acct-tiles {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 16px;
+    }
+
+    .ms-acct-tile {
+        @include card-style;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 18px 20px;
+        font-family: $component-font;
+        color: $body-text-color;
+        text-decoration: none;
+        // hover / press: the site's Rollover effect, place "home" (_hover-effects.scss)
+
+        @include account-icon(26px);
+
+        &::before {
+            margin-bottom: 8px;
+            color: var(--btn-color, #{$button-base-color});
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--btn-color, #{$button-base-color});
+            outline-offset: 2px;
+        }
+    }
+
+    .ms-acct-tile__title {
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .ms-acct-tile__text {
+        font-size: 0.88rem;
+        line-height: 1.45;
+        color: $body-text-color-light;
+    }
+}
+
+// Below the desktop breakpoint the login / register columns (logged out) stack as before
+@include desktop {
+    .woocommerce-account {
+        .woocommerce {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .woocommerce-MyAccount-content {
+            width: 100%;
+        }
+    }
+}
+
+// Phones: orders become one card per order (WooCommerce's responsive table: label, then value, per line)
+@include mobile {
+    .woocommerce-account {
+        .woocommerce-MyAccount-content .woocommerce-orders-table {
+            border: 0 !important;
+            background: none !important;
+            overflow: visible;
+
+            tbody tr {
+                @include card-style;
+                display: block;
+                margin-bottom: 14px;
+                overflow: hidden;
+            }
+
+            td,
+            th {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                text-align: right !important;
+            }
+        }
+
+        .woocommerce-MyAccount-content {
+            .woocommerce-info .button,
+            .woocommerce-message .button,
+            .woocommerce-error .button { margin-left: 0 !important; }
+        }
+    }
+}
+
+
+
+
+/* ---------------------------------------------------------------------------
+   WooCommerce full-width layout
+--------------------------------------------------------------------------- */
+
+body.wc-fullwidth {
+    .sidebar,
+    .site-sidebar,
+    #secondary {
+        display: none;
+    }
+
+    .content-area,
+    #primary,
+    .site-content {
+        width: 100%;
+        max-width: 100%;
+
+        > * {
+            max-width: 100%;
+        }
+    }
+}
+
+/* ==========================================================================
+   [cart_contents] (Core's cart-contents-shortcode.php, 2026-10-21): the visitor's cart anywhere - a card with the items,
+   the subtotal and View cart / Checkout; "count" and "total" are plain text
+   ========================================================================== */
+
+.ms-cart-contents.ms-cart-list {
+    @include card-style;
+    padding: calc(#{$global-padding} / 2);
+    font-family: $component-font;
+    font-size: 0.9rem;
+
+    &:empty {
+        min-height: 3rem;
+    }
+}
+
+.ms-cart-items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ms-cart-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    gap: 0 12px;
+    align-items: center;
+    padding: 8px 0;
+
+    & + & {
+        border-top: 1px solid var(--ms-card-border, #ccc);
+    }
+}
+
+.ms-cart-thumb img {
+    display: block;
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: var(--ms-img-radius, var(--ms-radius, 5px));
+}
+
+.ms-cart-name a {
+    color: inherit;
+}
+
+.ms-cart-vars {
+    display: block;
+    font-size: 0.85em;
+    color: $body-text-color-light;
+}
+
+.ms-cart-qty {
+    color: $body-text-color-light;
+    white-space: nowrap;
+}
+
+.ms-cart-price,
+.ms-cart-subtotal strong {
+    font-family: $mono-font;
+    white-space: nowrap;
+}
+
+.ms-cart-subtotal {
+    display: flex;
+    justify-content: space-between;
+    margin: 10px 0 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--ms-card-border, #ccc);
+}
+
+.ms-cart-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    margin: 12px 0 0;
+}
+
+.ms-cart-empty {
+    margin: 0;
+    color: $body-text-color-light;
+}
+
+// No focus outline on WooCommerce pages (cart, checkout, My account, shop) for mouse and touch clicks; keyboard focus
+// (:focus-visible) keeps its outline for accessibility - owner, 2026-10-27
+// - also in the boxes (price cards, home page boxes) when adding to cart (2026-10-27)
+.woocommerce-page,
+.woocommerce,
+.painting-buy-row,
+.pc-standalone,
+.pc-badge-card,
+.box {
+    :focus:not(:focus-visible) {
+        outline: none !important;
+    }
+}
+
+// The "has been added to your cart" notice: WooCommerce focuses it on page load (tabindex="-1", a script moves focus
+// there), so :focus-visible matched at once. It can't be tabbed to, so it never needs an outline (2026-10-27)
+.woocommerce-message,
+.woocommerce-error,
+.woocommerce-info,
+.woocommerce-notices-wrapper [tabindex="-1"],
+.wc-block-components-notice-banner {
+    &,
+    &:focus,
+    &:focus-visible {
+        outline: none !important;
+    }
+}
+
+/* Custom order details in the cart and checkout (Medium, Size, Surface ... ): one label/value pair per line, left-aligned,
+   no stray paragraph gaps, long requests wrap (2026-10-28) */
+dl.variation {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 2px 8px;
+    margin: 6px 0 0;
+    font-size: 0.85em;
+    text-align: left;
+
+    dt,
+    dd {
+        float: none;
+        clear: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    dt {
+        font-weight: 600;
+    }
+
+    dd p {
+        margin: 0;
+        white-space: pre-line;
+    }
+
+    dd {
+        overflow-wrap: anywhere;
+    }
+}
+
+// An order's addresses (order received, View order, emails' web view): WooCommerce draws a thin gray frame around
+// each address - an inset panel instead (2026-11-18; in My Account's two columns the whole column is the panel).
+// body: one step stronger than WooCommerce's own rule, whichever stylesheet loads last
+body .woocommerce .woocommerce-customer-details address {
+    @include inset-panel;
+    padding: 14px 20px;
+}

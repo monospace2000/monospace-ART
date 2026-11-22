@@ -1,0 +1,407 @@
+@import 'variables';
+@import 'mixins';
+
+/* -----------------------------------------------------------
+   GRID LAYOUT
+----------------------------------------------------------- */
+.container {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 auto;
+    align-items: stretch;
+    max-width: $global-width;
+    row-gap: calc($global-padding / 2);
+    column-gap: $global-padding;
+}
+
+.flex-break {
+    flex-basis: 100%;
+    height: 0;
+}
+
+// Row label above a row of link boxes (Layout Manager > Home Page) - a full-width line, so it
+// also starts the row
+.home-row-label {
+    flex-basis: 100%;
+    margin: calc($global-padding / 2) 0 0;
+    font-family: $heading-font;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $header-color;
+    opacity: 0.75;
+}
+
+// Anchors (#prints, #shop - home-boxes.php): land just below the fixed menu bar. (With Elastic scroll
+// on, rubber-scroll.js does the scrolling and leaves the same room.) Logged in, WordPress adds the admin bar's
+// height itself (html { scroll-padding-top }, admin-bar.css) - no extra room here, it was counted twice.
+.container > .box,
+.container > .home-row-label,
+.container > .flex-break,
+.container > .home-banner {
+    scroll-margin-top: calc(#{$menu-bar-height} + 16px);
+}
+
+// The home page's banner between the rows of boxes (home-boxes.php): a full-width line, like a row label
+.container > .home-banner {
+    flex: 0 0 100%;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 20px; // standard air above it (owner, 2026-11-13)
+
+    // The row gap spaces it; its own bottom margin (.top-content-area) would double up below it
+    .top-content-area {
+        margin-bottom: 0;
+    }
+}
+
+// Up to 782px WordPress's own 46px of scroll padding is wrong: the theme hides its toolbar there (_menu.scss) -
+// or the phone toolbar is on, as tall as --ms-ab-h (Admin tools plugin). Anchors land below whichever is there.
+:root {
+    @media screen and (max-width: 782px) {
+        scroll-padding-top: var(--ms-ab-h, 0px);
+    }
+}
+
+// Badge before a box title (e.g. "NEW!")
+.box-badge {
+    color: #ffcc00;
+    font-weight: bold;
+}
+
+/* Mobile adjustments */
+@include mobile {
+    .container {
+        flex-direction: column;
+        row-gap: $global-padding; // twice the desktop space between stacked boxes (2026-10-16)
+    }
+
+    // ...but row labels keep their old spacing: 40px above (the gap alone, no extra margin) and
+    // 20px to their first box (the negative margin takes back half the gap)
+    .home-row-label {
+        margin: 0 0 calc(#{$global-padding} / -2);
+    }
+
+    .box {
+        margin: 0;
+    }
+
+    .flex-break {
+        display: none;
+    }
+
+    // Phone order and hide-on-phones (Layout Manager > Home Page > Phone; home-boxes.php)
+    .container > .box,
+    .container > .home-row-label,
+    .container > .home-banner {
+        order: var(--m-order, 0);
+    }
+
+    .container > .m-hide {
+        display: none !important;
+    }
+
+    body {
+        font-size: 1em;
+    }
+
+    #news .box-content,
+    .box-boxed .box-content {
+        min-height: 260px !important;
+    }
+}
+
+/* -----------------------------------------------------------
+   BOXES (PSEUDO-BACKGROUND SYSTEM)
+----------------------------------------------------------- */
+.box {
+    position: relative;
+    // Clip the background to the rounded corners. 'clip', not just 'hidden': a 'hidden' box is a scroll
+    // container, and browsers then ignore its scroll-margin-top - #prints / #miniatures… landed under the
+    // menu bar (2026-10-19). 'hidden' stays as the fallback for browsers without 'clip' (Safari < 16).
+    overflow: hidden;
+    overflow: clip;
+    flex: 1;
+    // The rounding: the box's own (home-box-style.php), else site-wide (rounding.php), else 10px
+    --hb-r: var(--hb-radius, var(--ms-radius, 10px));
+    border-radius: var(--hb-r);
+    margin: 0;
+    @include box-shadow;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+
+    /* The magic: stretch background to match content height */
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        z-index: 0;
+        background-image: var(--bg);
+        // A text box's background blur (--bg-blur / --bg-scale, home-boxes.php); enlarged so the blur doesn't fade at the edges
+        filter: blur(var(--bg-blur, 0px));
+        transform: scale(var(--bg-scale, 1));
+    }
+
+    > * {
+        position: relative;
+        z-index: 1;
+    }
+}
+
+// The link boxes are <a> (start_template.php) - none of the site's link color / underline
+a.box,
+a.box:hover {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* -----------------------------------------------------------
+   BOX CONTENT
+----------------------------------------------------------- */
+
+.box-title {
+    display: block;
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: var(--hb-r, 10px) var(--hb-r, 10px) 0 0;
+    background: rgba(0,0,0,0.75);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    // --hb-*: the box style (design/home-box-style.php); unset = the theme's own
+    font-family: var(--hb-font, #{$heading-font});
+    font-size: var(--hb-size, 1.3rem);
+    line-height: 1.2;
+    color: var(--hb-text, white);
+    font-weight: 700;
+    padding: 3px 20px 9px 20px;
+
+    &:not(#welcome .box-title):not(.box-plain .box-title)::before {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 240px;
+        height: 40px;
+        border-top-left-radius: max(0px, calc(var(--hb-r, 10px) - 2px));
+
+        background: linear-gradient(
+            160deg,
+            rgba(255,255,255,0.8) 0%,
+            rgba(255,255,255,0) 25%
+        );
+
+        pointer-events: none;
+    }
+}
+
+.box-content {
+    padding: 10px 20px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 0 0 var(--hb-r, 10px) var(--hb-r, 10px);
+    min-height: 260px;
+    font-size: 0.9rem;
+    line-height: 1.2;
+}
+
+// Film grain, baked into a small tiling image - drawn once and cached. (Was a live SVG
+// filter on every box, re-rendered on each repaint: the cause of flicker while loading,
+// scrolling and during the hover animation.)
+$box-grain: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E";
+
+.bottom-align {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    color: white;
+    font-family: var(--hb-font, inherit);
+    font-size: var(--hb-desc, 0.9rem);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    background:
+        url($box-grain),
+        linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.75) 80%);
+}
+
+/* -----------------------------------------------------------
+   BOX STYLES (design/home-box-style.php - Appearance > Look > Home page boxes; one box: Layout Manager >
+   Home Page). Black gloss is the theme's own above; the colors come in as --hb-bar / --hb-line.
+----------------------------------------------------------- */
+
+// One look's rules: $c = the class prefix (hb / hbd), $v = the variables' (--hb / --hbd). Dark mode (dark-mode.php)
+// gives each box its dark style too, as hbd-* / --hbd-*: the light rules then apply only while the page isn't dark.
+@mixin box-styles($c, $v) {
+    .box.#{$c}-color-gloss .box-title,
+    .box.#{$c}-solid .box-title,
+    .box.#{$c}-solid-outline .box-title {
+        background: var(#{$v}-bar);
+    }
+
+    // No highlight (!important: the gloss rule's :not(#welcome …) counts as an id)
+    .box.#{$c}-solid .box-title::before,
+    .box.#{$c}-solid-outline .box-title::before,
+    .box.#{$c}-outline .box-title::before {
+        display: none !important;
+    }
+
+    // The line is 3px: the corners inside it are 3px tighter, so the bar and the text panel use that radius - with the
+    // box's full radius their corners pulled away from the line and left a small gap (2026-10-26)
+    .box.#{$c}-solid-outline,
+    .box.#{$c}-outline {
+        border: 3px solid var(#{$v}-line);
+
+        .box-title {
+            border-radius: 0; /* the box clips to its inner curve - an own radius leaves a hairline gap */
+        }
+
+        .box-content {
+            border-radius: 0;
+        }
+    }
+
+    .box.#{$c}-outline {
+
+        .box-title {
+            background: none;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+    }
+
+    // !important: also over the Rollover effect's lift shadow (_hover-effects.scss)
+    .container > .box.#{$c}-noshadow {
+        box-shadow: none !important;
+    }
+}
+
+html:not(.ms-dark) {
+    @include box-styles(hb, --hb);
+}
+
+html.ms-dark {
+    @include box-styles(hbd, --hbd);
+
+    // The dark look's font, size, title color and rounding (the light ones are in the rules above)
+    .box {
+        --hb-r: var(--hbd-radius, var(--ms-radius, 10px));
+    }
+
+    .box:not(.box-plain) .box-title {
+        font-family: var(--hbd-font, #{$heading-font});
+        font-size: var(--hbd-size, 1.3rem);
+        color: var(--hbd-text, white);
+    }
+
+    .bottom-align {
+        font-family: var(--hbd-font, inherit);
+        font-size: var(--hbd-desc, 0.9rem);
+    }
+}
+
+/* -----------------------------------------------------------
+   SPECIAL CASES
+----------------------------------------------------------- */
+
+// Text boxes (Layout Manager > Home Page): "box" look = like News (title bar, background, the text
+// scrolls), "plain" look = like Welcome (text on the page). #news / #welcome kept for the originals.
+#news,
+.box-boxed {
+    .box-content {
+        font-size: 1em;
+        line-height: 1.2;
+        flex: 1 1 0;
+        min-height: 0;
+        overflow-y: auto;
+
+        // Always-visible scrollbar (also on touch devices, where it would otherwise be hidden), so it is clear the text scrolls
+        &::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        &::-webkit-scrollbar-track {
+            background: rgba(128, 128, 128, 0.15);
+            border-radius: 4px;
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background: rgba(128, 128, 128, 0.6);
+            border-radius: 4px;
+        }
+
+        @supports not selector(::-webkit-scrollbar) {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(128, 128, 128, 0.6) rgba(128, 128, 128, 0.15);
+        }
+
+        h2 {
+            margin-bottom: 2px !important;
+            font-size: 1.2rem;
+        }
+
+        p {
+            margin-top: 0.2rem !important;
+        }
+    }
+}
+
+#welcome,
+.box-plain {
+    &.box {
+        box-shadow: none;
+    }
+
+    .box-title,
+    .box-content {
+        background: none;
+        color: black;
+        padding: 0;
+    }
+
+    .box-title {
+        font-size: 1.3rem;
+        line-height: 1.4;
+    }
+
+    .box-content {
+        font-size: 1.1rem;
+        line-height: 1.4;
+        padding-top: 0.5em;
+    }
+}
+
+/* -----------------------------------------------------------
+   INTERACTION: make all boxes unselectable except News + Welcome
+   (no hover effects - the scroll slide-in is the only motion)
+----------------------------------------------------------- */
+
+.box {
+    -webkit-user-select: none;   // Safari still needs the prefix
+    user-select: none;
+    cursor: pointer;
+}
+
+#welcome,
+#news,
+.box-text {
+    -webkit-user-select: text;   // Safari still needs the prefix
+    user-select: text;
+    cursor: default;
+}
+
+// Text box with a link (home-boxes.php): only the title bar is the link; everything else in the box scrolls
+.box-linked .box-title .box-cover {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+// "Phones only" boxes (Layout Manager > Home Page, box panel > Show on; home-boxes.php): hidden on
+// computers and tablets - the counterpart of .m-hide above
+@media (min-width: $breakpoint-mobile + 1) {
+    .container > .d-hide {
+        display: none !important;
+    }
+}

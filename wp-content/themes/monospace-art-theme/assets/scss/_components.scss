@@ -1,0 +1,1678 @@
+@import 'variables';
+@import 'mixins';
+@import 'button-styles';
+
+
+
+// Buttons: style and color from the Appearance (Layout Manager > Effects; appearance.php puts the
+// classes on <body>): btn-glass | btn-flat | btn-outline, and btn-color-* for --btn-color / --btn-text
+body.btn-color-blue  { --btn-color: rgba(4, 107, 210, 0.9); --btn-text: #fff; }
+body.btn-color-black { --btn-color: rgba(0, 0, 0, 0.9);     --btn-text: #fff; }
+body.btn-color-grey  { --btn-color: #aaa;                   --btn-text: #fff; }
+
+@include buttons {
+    &:not(.show-password-input):not(.spoken-word *):not(.scroll-to-top):not(.related-blog-button):not(.simcal-nav-button):not(.archive-view-toggle *):not(.gbtn):not(.menu-header):not(.ms-theme-toggle):not(.ms-bar-search-btn):not(.ms-kofi-close):not(.mobile-menu-close){
+        body.btn-glass &   { @include button-glass-var; }
+        body.btn-flat &    { @include button-flat-var; }
+        body.btn-outline & { @include button-outline-var; }
+
+        // Shared states
+        // Keyboard focus only (a click no longer leaves a ring), in the text color so it shows in dark mode too
+        &:focus-visible {
+            outline: 2px solid $body-text-color !important;
+            outline-offset: 2px !important;
+        }
+
+        &:disabled, &.disabled {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+        }
+    }
+}
+
+
+
+// scroll to top button
+.scroll-to-top{
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    color: white;
+    border: 0;
+    &:hover{
+        background-color: rgba(0, 0, 0, 0.7) !important;
+    }
+}
+
+
+
+// sidebar menu
+.widget_nav_menu {
+    ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    li {
+        padding: 0;
+        margin: 0;
+    }
+}
+
+.post-nav-buttons a,
+.widget_nav_menu a,
+.related-blog-button,
+.simcal-nav-button
+ {
+    @include button-flat-nav;
+    margin-bottom: 10px;
+}
+
+.widget_nav_menu li:has(a[href*="/category/format/miniature"]),
+.widget_nav_menu li:has(a[href*="/services/custom-work"]) {
+  margin-bottom: 20px;
+}
+
+
+
+/* ==========================================================================
+   FORM INPUTS
+   ========================================================================== */
+
+@include inputs {
+
+    @include input-base;
+
+    &:focus {
+        outline: none !important;
+        border-color: #666 !important;
+    }
+
+    &:disabled {
+        background-color: #f6f6f6 !important;
+        color: #666 !important;
+        cursor: not-allowed !important;
+    }
+}
+
+/* Every other form control follows the same look (2026-11-17, owner: "form elements / input fields should follow the site's
+   design everywhere"): the card's fill, outline and corners (Look > Cards / Rounding), the text color for ticks, dots and
+   arrows (a tick color for one place: --ms-tick, the Art filter's red), so dark mode and the Look settings carry over. Plain CSS, kept flat so the compiled style.css is the same text. */
+input[type="checkbox"]:not(.adminbar-input),
+input[type="radio"]:not(.adminbar-input) {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+  margin: 0 0.4em 0 0;
+  padding: 0;
+  vertical-align: -0.2em;
+  color: inherit;
+  background-color: var(--ms-card-bg, #fff);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  border: solid var(--ms-card-border-width, 1px) var(--ms-card-border, #ccc);
+  border-radius: calc(var(--ms-card-radius, var(--ms-radius, 8px)) / 3);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+input[type="radio"]:not(.adminbar-input) {
+  border-radius: 50%;
+}
+/* WooCommerce's `.woocommerce form .form-row .input-checkbox` makes the box display:inline, and an inline box ignores its width
+   (the checkout's terms checkbox collapsed to a 2px bar, 2026-11-22): keep it a block-sized box and its own margin */
+html .woocommerce form .form-row input.input-checkbox,
+html .woocommerce-page form .form-row input.input-checkbox {
+  display: inline-block;
+  margin: 0 0.4em 0 0;
+  vertical-align: -0.2em;
+}
+input[type="checkbox"]:not(.adminbar-input):hover,
+input[type="radio"]:not(.adminbar-input):hover {
+  border-color: currentColor;
+}
+input[type="checkbox"]:not(.adminbar-input):checked {
+  background-color: var(--ms-tick, currentColor);
+  border-color: var(--ms-tick, currentColor);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-6.5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+html.ms-dark-ui input[type="checkbox"]:not(.adminbar-input):checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-6.5' fill='none' stroke='%231c1b19' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+input[type="radio"]:not(.adminbar-input):checked {
+  border-color: var(--ms-tick, currentColor);
+  background-image: radial-gradient(circle, var(--ms-tick, currentColor) 0 36%, transparent 40%);
+}
+input[type="checkbox"]:not(.adminbar-input):focus-visible,
+input[type="radio"]:not(.adminbar-input):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Dropdowns: one arrow, drawn in the text color (the browsers' own arrows differ); the longer selector keeps it where a
+   rule sets `background:` on a select (the Art filter's) */
+select:not([multiple]):not([size]):not(.adminbar-input) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 2rem;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+select[multiple] {
+  padding: 4px;
+}
+
+/* File choosers: the Choose files button is a pill like the site's buttons */
+input[type="file"] {
+  max-width: 100%;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+input[type="file"]::file-selector-button {
+  margin-right: 0.8em;
+  padding: 0.3rem 0.9rem;
+  font: inherit;
+  color: inherit;
+  background-color: var(--ms-card-bg, #fff);
+  border: solid var(--ms-card-border-width, 1px) var(--ms-card-border, #ccc);
+  border-radius: var(--ms-btn-radius, 999px);
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+input[type="file"]:hover::file-selector-button {
+  border-color: currentColor;
+}
+
+/* Sliders and the rest: the text color; one placeholder color */
+input[type="range"] {
+  accent-color: currentColor;
+}
+input::placeholder,
+textarea::placeholder {
+  color: inherit;
+  opacity: 0.5;
+}
+
+/* WooCommerce's own rules make its fields (login, lost password, checkout) shorter than the rest: the same padding and height */
+html .woocommerce form .form-row input.input-text,
+html .woocommerce form .form-row textarea,
+html .woocommerce form .form-row select,
+html .woocommerce-page form .form-row input.input-text,
+html .woocommerce-page form .form-row textarea {
+  padding: 8px 12px;
+  line-height: 1.5;
+}
+html .woocommerce form .form-row select {
+  padding-right: 2rem;
+}
+
+/* Dark look: the date and time fields and the disabled fields (dark-mode.scss lists the text fields and selects only) */
+html.ms-dark-ui input[type="date"],
+html.ms-dark-ui input[type="month"],
+html.ms-dark-ui input[type="week"],
+html.ms-dark-ui input[type="time"],
+html.ms-dark-ui input[type="datetime-local"] {
+  color: var(--ms-text, #333);
+  background-color: var(--ms-card-bg, #2b2926);
+  border-color: var(--ms-card-border, #48443f);
+}
+html.ms-dark-ui input:disabled:not([type="checkbox"]):not([type="radio"]),
+html.ms-dark-ui textarea:disabled,
+html.ms-dark-ui select:disabled {
+  color: color-mix(in srgb, var(--ms-text, #333) 55%, transparent) !important;
+  background-color: color-mix(in srgb, var(--ms-card-bg, #2b2926) 75%, black) !important;
+}
+
+// The toolbar's search: WordPress hides its Search button itself (Enter searches); the field stays - hiding it left a
+// lone magnifying glass over the next item (2026-10-21; the Admin tools plugin's toolbar layout styles the field)
+.adminbar-button {
+    display: none !important;
+}
+
+.wpcf7-form{
+    input{
+        max-width: $column-sidebar-width;
+    }
+    textarea{
+        width: 100%;
+        max-width: $column-center-width;
+    }
+}
+
+
+/* (Ko-fi's own button - a.kofi-button - is no longer drawn: includes/modules/frontend/content/kofi.php, _kofi.scss) */
+
+
+/* -----------------------------
+   ANNOUNCEMENTS
+-------------------------------- */
+.announcement{
+       @include card-style;
+       border-radius: 8px;
+       border: solid 1px rgba(0, 0, 0, 0.2) !important;
+       background: rgba(0, 0, 0, 0.1);
+       padding: 20px;;
+}
+
+
+
+
+
+
+
+/* -------------------------------------
+   RELATED POSTS
+----------------------------------------------- */
+.monospace-related-posts {
+    margin: 50px 0;
+    padding: 20px;
+    @include card-style;
+
+}
+
+.monospace-related-heading {
+    margin: 0 0 20px 0;
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--ms-heading, #333); // "See also:" - follows Look > Site colors > Headings once set
+}
+
+// Columns from the editor (Look > Related posts): --rel-cols, and --rel-cols-t on tablets and phones (at most 3)
+.monospace-related-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--rel-cols, 4), 1fr);
+    gap: 20px;
+
+    @include tablet {
+        grid-template-columns: repeat(var(--rel-cols-t, 3), 1fr);
+    }
+}
+
+// In the sidebar (narrow): one column, unless the shortcode says columns="" (--rel-cols-s); less space around the card
+.sidebar .monospace-related-grid {
+    grid-template-columns: repeat(var(--rel-cols-s, 1), 1fr);
+}
+
+.sidebar .monospace-related-posts {
+    margin: 0 0 1.5rem;
+}
+
+// Each item is the [artwork] shortcode: its title in the size the old caption had, no extra space under it
+.monospace-related-posts {
+    .ms-artwork {
+        margin: 0;
+
+        .ms-artwork-title {
+            margin-top: 0.75em;
+            font-size: 0.8em;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+    }
+
+    // Stack: each item has its picture on the left and its text (title, info) on the right; without text it is just the picture
+    &.is-stack .ms-artwork:has(> .ms-artwork-title, > .ms-info) {
+        display: grid;
+        grid-template-columns: minmax(0, 42%) 1fr;
+        column-gap: 12px;
+        align-items: start;
+
+        > .ms-artwork-link {
+            grid-column: 1;
+            grid-row: 1 / span 3;
+        }
+
+        > .ms-artwork-title,
+        > .ms-info {
+            grid-column: 2;
+            margin-top: 0;
+        }
+    }
+}
+
+.monospace-related-item {
+    width: 100%;
+}
+
+.monospace-related-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.monospace-related-thumb {
+    position: relative;
+    width: 100%;
+    padding-bottom: 100%;
+    overflow: hidden;
+    border-radius: var(--ms-img-radius, var(--ms-radius, 5px));
+    @include box-shadow(0px 0px 8px ms-shadow(0.3));
+    transition: all 0.2s ease;
+    background: #e0e0e0;
+}
+
+.monospace-related-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.monospace-related-title {
+    display: block;
+    margin-top: 0.75em;
+    font-size: 0.7em;
+    font-weight: 500;
+    color: #333;
+    line-height: 1.4;
+}
+
+
+
+
+
+
+/*=========================================================
+ARTIST CARD
+=======================================================================*/
+.artist-card {
+    @include card-style;
+    padding: calc($global-padding);
+    font-size: 1rem;
+    padding-top: 0 !important;
+    margin-bottom: $global-margin;
+}
+.artist-card .learn-more{
+     @include button-flat;
+     a{
+         text-decoration: none !important;
+     }
+}
+/* Artist card figcaption reset */
+.artist-card figcaption {
+    all: unset !important;
+    display: block;
+    padding-top: 1em !important;
+    text-align: left !important;
+    font-size: 0.7em;
+}
+.artist-card figure img {
+    margin-bottom: 1em;
+}
+
+
+
+/* WP block with background color */
+.has-background{
+    border-radius: 6px !important;
+}
+
+
+
+/*=========================================================
+PRICE CARD
+=======================================================================*/
+
+.painting-buy-row {
+    @include card-style;
+    padding: calc($global-padding/2);
+    margin: $global-margin 0;
+
+    .painting-attrs {
+        display: flex;
+        flex-direction: column;
+        font-size: 0.8em;
+    }
+
+    .status-label {
+        font-size: 0.9em;
+    }
+    .painting-sku{
+        font-family: $component-font;
+        font-size:0.7em;
+        color: $body-text-color-light;
+    }
+    .painting-gallery-qr-note {
+        font-style: italic;
+    }
+}
+
+// Availability status (price card and feed info line): one text style, only the color varies
+.status-label {
+    color: $body-text-color;
+    text-decoration: none;
+}
+a.status-label:hover {
+    text-decoration: underline;
+}
+.status-label.status-available {
+    color: #2a9a2a;
+}
+.status-label.status-sold,
+.status-label.status-private,
+.status-label.status-reserved {
+    color: rgb(150, 8, 8);
+}
+// The "opens elsewhere" arrow after a link (the gallery status): drawn, in the text color - a typed arrow (U+2197) becomes a grey emoji on phones
+.ms-ext-arrow {
+    display: inline-block;
+    width: 0.85em;
+    height: 0.85em;
+    margin-left: 0.2em;
+    vertical-align: -0.1em;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.status-label.status-gallery,
+.status-label.status-gallery-reserved {
+    color: $button-base-color; // same blue as the Add to cart button
+}
+.status-label.status-coming-soon {
+    color: $body-text-color-light;
+}
+
+// Price card message strip (colors/box: Sales Dashboard > Messages) uses the component font
+.card-message {
+    font-family: $component-font;
+}
+
+// Card body: details left, options right, button under the options,
+// special offer / sales details across the bottom
+.card-panel {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    // Spare height (a shorter pane in a tabbed card) goes to the top row,
+    // keeping the button and offer at the bottom in every pane
+    grid-template-rows: 1fr auto auto;
+    grid-template-areas:
+        "info  variants"
+        "sku   buy"
+        "offer offer";
+    column-gap: 2rem;
+
+    > .painting-attrs { grid-area: info; }
+
+    > .card-variants {
+        grid-area: variants;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 12px;
+        min-width: 180px;
+        text-align: right;
+    }
+
+    // SKU on the button's row, left-aligned
+    > .painting-sku {
+        grid-area: sku;
+        align-self: center;
+        white-space: nowrap;
+        margin-top: 12px;
+    }
+
+    // Status label and/or Add to cart, on the SKU's row
+    > .card-buy {
+        grid-area: buy;
+        justify-self: end;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    > .card-offer {
+        grid-area: offer;
+        text-align: right;
+        margin-top: 12px;
+    }
+
+    > :empty {
+        margin-top: 0;
+    }
+
+    // Narrow: details, options, then SKU + button side by side, offer
+    @include mobile {
+        grid-template-rows: auto 1fr auto auto;
+        grid-template-areas:
+            "info     info"
+            "variants variants"
+            "sku      buy"
+            "offer    offer";
+
+        > .card-variants {
+            margin-top: 1rem;
+        }
+    }
+}
+
+
+
+
+
+
+
+/* -----------------------------------------------------------
+   MailPoet – Manage Subscription Form
+----------------------------------------------------------- */
+.mailpoet-manage-subscription {
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 24px;
+    box-sizing: border-box;
+
+    .mailpoet_paragraph {
+        margin-bottom: 18px;
+    }
+
+    label,
+    legend {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+    }
+
+    input[type="text"],
+    select {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+
+    input[disabled] {
+        background: #f6f6f6;
+        color: #666;
+    }
+
+    fieldset {
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 12px;
+
+        legend {
+            padding: 0 6px;
+            font-size: 0.9em;
+        }
+    }
+
+    .mailpoet_checkbox_label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: normal;
+    }
+
+    .mailpoet-change-email-info {
+        font-size: 0.9em;
+        color: #666;
+    }
+
+    .mailpoet_form_loading {
+        margin-left: 10px;
+    }
+}
+
+@include mobile {
+    .mailpoet-manage-subscription {
+        padding: 16px;
+        max-width: 100%;
+
+        .mailpoet_paragraph {
+            margin-bottom: 20px;
+        }
+
+        label,
+        legend {
+            font-size: 0.95em;
+        }
+
+        input[type="text"],
+        select {
+            padding: 10px 12px;
+            font-size: 1rem;
+        }
+
+        fieldset {
+            padding: 14px;
+        }
+
+        .mailpoet_checkbox_label {
+            align-items: flex-start;
+        }
+
+        .mailpoet_submit {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+        }
+    }
+}
+
+
+
+
+
+/* ART FILTER */
+.ms-product-filter-form,
+#ms-price-range-container {
+    @include card-style;
+    padding: 8px;
+}
+.ms-product-grid{
+    @include card-style;
+}
+
+#ms-price-range-container {
+    margin-top: 10px !important;
+}
+
+
+
+
+
+
+
+.search-form{
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: right;
+    // The field and the button together: half the content column, on the right (2026-10-22, owner: "half the width of
+    // the center container for both the field and the button together"); phones: the full width (owner: "Phones can
+    // use full width"). The home page: the News box's width below it (_start_template.scss' row: half less half the 40px
+    // gap); the sidebar beside the content: its own width.
+    width: 50%;
+    max-width: 100%;
+    margin-left: auto;
+    box-sizing: border-box;
+
+    .search-bar & {
+        width: calc(50% - #{$global-padding} / 2);
+    }
+
+    @media (min-width: $breakpoint-tablet + 1px) {
+        .sidebar & {
+            width: 100%;
+        }
+    }
+
+    @include mobile {
+        &,
+        .search-bar & {
+            width: 100%;
+        }
+    }
+
+    .search-submit{
+        flex: 0 0 auto;
+        margin-left: 10px !important;
+    }
+
+    // The field takes the room the button leaves (it stuck out 12px past the sidebar's edge before, 2026-10-22)
+    label {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .search-field {
+        width: 100%;
+        box-sizing: border-box;
+    }
+}
+
+/* The sidebar's calendar (Simple Calendar) within the sidebar's width - it ran 73px past its right edge (2026-10-22) */
+.sidebar .simcal-calendar-grid {
+    width: 100%;
+    max-width: 100%;
+    table-layout: fixed;
+}
+
+
+/* SEARCH WIDGET */
+.wp-block-search__inside-wrapper {
+    max-width: $column-sidebar-width !important;
+    margin-left: auto;
+}
+
+#mailpoet_form_3 {
+    max-width: $column-sidebar-width !important;
+}
+
+
+
+
+/* Reset default gallery spacing */
+.wp-block-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    margin: 0;
+}
+
+/* Ensure gallery items align properly */
+.wp-block-gallery figure {
+    box-sizing: border-box;
+}
+
+/* The gaps between gallery pictures: 20px across and down, 12px on phones - as the grid view of category pages and the
+   Art Filter's grid (2026-10-21, owner). WordPress sizes the pictures from --wp--style--unstable-gallery-gap, so both are
+   set; !important: WordPress sets both again per gallery (.wp-block-gallery-1 …), after this */
+.wp-block-gallery.has-nested-images {
+    --wp--style--unstable-gallery-gap: 20px !important;
+    gap: 20px !important;
+
+    @include mobile {
+        --wp--style--unstable-gallery-gap: 12px !important;
+        gap: 12px !important;
+    }
+}
+
+/* Gallery images fill their tile: no margin of their own - the gallery's gap spaces them. (A 20px margin here pushed
+   each picture out of its cropped tile: uneven rows, the last column over the edge of a card / group - 2026-10-21) */
+.wp-block-gallery img {
+    margin: 0 !important;
+}
+
+
+/* Hide title when meta option is set */
+body.hide-title .entry-title {
+    display: none;
+}
+
+/*=========================================================
+PRINT ORDER PANEL
+=======================================================================*/
+
+.print-order-row {
+    // Switch on top; panes stacked in one cell, so the card is always as tall as
+    // the taller pane and the button doesn't move when switching
+    display: grid;
+    grid-template-columns: 100%;
+}
+
+// "See a preview" (print panes, print-order-shortcode.php): a text link at the bottom of the options
+// column, right above Add to cart - the SKU / button row below stays as it is
+.print-preview-link {
+    font-family: $component-font;
+    font-size: 0.85em;
+    color: $body-text-color;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: zoom-in;
+
+    &:hover {
+        text-decoration-thickness: 2px;
+    }
+
+    &[hidden] {
+        display: none;
+    }
+}
+
+// One pane per tab (original / framed / unframed), laid out by .card-panel
+.print-order-pane {
+    grid-area: 2 / 1;
+
+    // Hidden but still sized, so all panes share the same height
+    &[hidden] {
+        visibility: hidden;
+    }
+
+    // SKU / status / button row is always a button's height (button-base: line-height 1.4,
+    // 7px padding), so it sits at the same place on tabs with and without a button
+    > .card-buy {
+        min-height: calc(#{$base-font-size} * 0.85 * 1.4 + 14px);
+    }
+}
+
+// When another tab of the card has an offer, an empty offer still takes a line (sized like a
+// one-line offer), so the button doesn't move when switching tabs. With no offers on any tab
+// it takes no space - same bottom spacing as a card without prints.
+.print-order-row:has(.card-offer:not(:empty)) .print-order-pane > .card-offer:empty {
+    margin-top: 12px;
+    font-size: 0.85em;
+
+    &::before {
+        content: "\00a0";
+    }
+}
+
+// Standalone price card ([price_card_standalone] - Core's price-card-standalone.php, 2026-10-21): one card - the
+// artwork's picture inside the price card's own box (owner: "integrated in the price card area itself"): the tabs
+// across the whole card, then the picture beside the card's details (side) or above them (stacked, and side on
+// phones), then the link. The card's own wrappers step aside for the layout (display: contents - same elements, so
+// its scripts and status classes still apply): its tab switch and panes become this grid's items; a card without
+// tabs is one item. The box is the card's (card-style, Look > Cards). On a print tab the picture is the print's
+// mockup (.is-mockup: it brings its own frame / paper, so no shadow or rounding of its own).
+.pc-standalone {
+    @include card-style;
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-areas:
+        "title title"
+        "tabs  tabs"
+        "media body";
+    gap: 1rem $global-padding;
+    align-items: start;
+    padding: calc(#{$global-padding} / 2);
+    margin: $global-margin 0;
+
+    .pc-sa-body,
+    .pc-sa-body > .print-order-row {
+        display: contents;
+    }
+
+    .print-type-switch {
+        grid-area: tabs;
+        margin-bottom: 0;
+    }
+
+    // The panes share one cell and stretch to the tallest (the card's own rule: hidden panes keep their size), so the
+    // button stays put when switching tabs
+    .print-order-pane,
+    .pc-sa-body > .painting-buy-row:not(.print-order-row) {
+        grid-area: body;
+        align-self: stretch;
+    }
+
+    .pc-sa-media {
+        grid-area: media;
+    }
+
+    .pc-sa-title {
+        grid-area: title;
+        margin: 0;
+        font-size: 1.2rem;
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+    }
+
+    // A card without tabs: no box of its own (card-style's border is !important)
+    .painting-buy-row {
+        margin: 0;
+        padding: 0;
+        background: none;
+        border: 0 !important;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    &.pc-sa-no-image {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "title" "tabs" "body";
+    }
+
+    &.pc-sa-stacked {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "title" "tabs" "media" "body";
+    }
+
+    @include mobile {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "title" "tabs" "media" "body";
+        gap: 0.8rem;
+    }
+}
+
+// The box has the artwork's shape (inline aspect-ratio / max-width - price-card-standalone.php); the picture fills it,
+// a mockup fits inside it - nothing moves when the picture changes
+.pc-sa-media {
+    width: 100%;
+    margin: 0 auto;
+
+    a {
+        display: block;
+        height: 100%;
+        line-height: 0;
+    }
+}
+
+.pc-sa-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: var(--ms-img-radius, var(--ms-radius, 5px));
+    box-shadow: 0 0 0.5rem ms-shadow(0.5);
+
+    .is-mockup & {
+        border-radius: 0;
+        box-shadow: none;
+        // A print at its relative size (scale set by the card script - price-card-standalone.php), from the box's middle
+        transform-origin: 50% 50%;
+        transition: transform 0.25s ease;
+    }
+}
+
+.pc-sa-body > :first-child {
+    margin-top: 0;
+}
+
+// [custom_order_card] (commissions-card.php): the standalone card's look; the short description, then the details, the
+// price on the right with the upfront payment under it, and the button
+// Three rows, two columns: title / picture + description / details + price and button
+.ms-order-card {
+    grid-template-areas:
+        "title title"
+        "media desc"
+        "details price"
+        "buy buy";
+    row-gap: 1rem;
+
+    .pc-sa-media { grid-area: media; }
+
+    .ms-order-desc {
+        grid-area: desc;
+        margin: 0;
+
+        p {
+            margin: 0 0 0.4rem;
+        }
+    }
+
+    .ms-order-details {
+        grid-area: details;
+        display: flex;
+        flex-direction: column;
+        font-size: 0.8em;
+    }
+
+    .ms-order-price {
+        grid-area: price;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.2rem;
+        text-align: right;
+    }
+
+    .ms-order-buy {
+        grid-area: buy;
+        justify-self: end;
+    }
+
+    .ms-order-deposit {
+        font-size: 0.8em;
+        opacity: 0.85;
+    }
+
+    &.pc-sa-no-image {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "title" "desc" "details" "price" "buy";
+    }
+
+    &.pc-sa-stacked {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "title" "media" "desc" "details" "price" "buy";
+    }
+
+    @include mobile {
+        &,
+        &.pc-sa-no-image,
+        &.pc-sa-stacked {
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-areas: "title" "media" "desc" "details" "price" "buy";
+        }
+    }
+
+    .ms-order-offer {
+        grid-area: offer;
+        font-size: 0.8em;
+    }
+
+    // The bottom row for sales, announcements and notes - only when there is one
+    &.has-offer {
+        grid-template-areas:
+            "title title"
+            "media desc"
+            "details price"
+            "buy buy"
+            "offer offer";
+
+        &.pc-sa-no-image {
+            grid-template-areas: "title" "desc" "details" "price" "buy" "offer";
+        }
+
+        &.pc-sa-stacked {
+            grid-template-areas: "title" "media" "desc" "details" "price" "buy" "offer";
+        }
+
+        @include mobile {
+            &,
+            &.pc-sa-no-image,
+            &.pc-sa-stacked {
+                grid-template-areas: "title" "media" "desc" "details" "price" "buy" "offer";
+            }
+        }
+    }
+}
+
+// Tab switch (Original / Framed Print / Unframed Print)
+.print-type-switch {
+    grid-area: 1 / 1;
+    justify-self: start;
+    display: inline-flex;
+    margin-bottom: 1rem;
+    // Each tab its own rounded pill inside the bar, the chosen one filled (2026-10-22, owner: "rounded tab pills"); the
+    // roundness follows Look > Rounding > Buttons (--ms-btn-radius, a pill by default)
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--ms-card-border, #ccc);
+    border-radius: var(--ms-btn-radius, 999px);
+    font-family: $component-font;
+    font-size: 0.85em;
+
+    label {
+        position: relative;
+        cursor: pointer;
+    }
+
+    input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    span {
+        display: block;
+        padding: 0.25rem 0.95rem;
+        border-radius: var(--ms-btn-radius, 999px);
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    label:hover input:not(:checked) + span {
+        background: rgba(0, 0, 0, 0.06);
+    }
+
+    input:checked + span {
+        background: $body-text-color;
+        color: var(--ms-card-bg, white);
+    }
+
+    input:focus-visible + span {
+        outline: 2px solid $body-text-color;
+        outline-offset: 1px;
+    }
+
+    // Phones: full width, equal tabs, labels kept on one line
+    @include mobile {
+        display: flex;
+        justify-self: stretch;
+        font-size: 0.8em;
+
+        label {
+            flex: 1 1 auto;
+            text-align: center;
+        }
+
+        span {
+            padding: 0.3rem 0.4rem;
+            white-space: nowrap;
+        }
+    }
+}
+
+.print-frame-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-bottom: 12px;
+}
+
+.print-size-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.print-size-option {
+    font-family: $component-font;     // labels: the interface font (Customize > Fonts)
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+
+    input[type="radio"] {
+        margin: 0;
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+}
+
+.print-size-label {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+    line-height: 1.4;
+
+    .print-size-name {
+        font-weight: 600;
+        font-size: 0.9em;
+    }
+
+    .print-size-price {
+        font-size: 0.85em;
+        color: $body-text-color-light;
+
+        &::before {
+            content: '—';
+            margin-right: 6px;
+        }
+    }
+}
+
+
+// Size / frame radios read left-aligned inside the right-hand options column
+.print-order-form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+
+    > :last-child {
+        margin-bottom: 0;
+    }
+}
+
+
+/*=========================================================
+PRICE CARD PRESETS (Core price-card-presets.php, 2026-10-19)
+Full / Compact / One line / Badge - chosen in Layout Manager > Appearance & Effects > Price card
+=======================================================================*/
+
+// Desktop and phone presets differ: both cards are printed, one is shown
+.pc-phone {
+    display: none;
+}
+
+@include mobile {
+    .pc-desk {
+        display: none;
+    }
+
+    .pc-phone {
+        display: block;
+    }
+}
+
+// Compact: the full card, tighter - details on one line ("Painting · Acrylic · MDF board · 14″ × 11″ · 2026")
+.painting-buy-row.pc-compact {
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+
+    .painting-attrs {
+        display: block;
+        line-height: 1.5;
+    }
+
+    .painting-attr {
+        display: inline;
+
+        b,
+        .pa-sep {
+            display: none;
+        }
+    }
+
+    .painting-attr + .painting-attr::before {
+        content: " · ";
+    }
+
+    .print-type-switch {
+        margin-bottom: 0.6rem;
+        font-size: 0.8em;
+
+        span {
+            padding: 0.2rem 0.75rem;
+        }
+    }
+
+    &.card-panel,
+    .card-panel {
+        column-gap: 1rem;
+
+        > .card-variants {
+            gap: 6px;
+            min-width: 0;
+        }
+
+        > .painting-sku,
+        > .card-buy,
+        > .card-offer {
+            margin-top: 8px;
+        }
+
+        > :empty {
+            margin-top: 0;
+        }
+    }
+
+    // Sizes side by side
+    .print-size-options {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        margin-bottom: 6px;
+    }
+
+    .print-frame-options {
+        margin-bottom: 6px;
+    }
+
+    // Each tab its own height (the full card keeps them equal so the button never moves) - and no reserved
+    // empty offer line either
+    .print-order-pane[hidden] {
+        display: none;
+    }
+
+    .print-order-pane > .card-offer:empty {
+        margin-top: 0;
+
+        &::before {
+            content: none;
+        }
+    }
+}
+
+// One line: [ Original ▾ ]  price  [ Add to cart ]  - details, sizes, SKU and offer behind "Details"
+.painting-buy-row.pc-line {
+    padding: 0.6rem 1rem;
+    margin: 1rem 0;
+
+    > .print-order-pane {
+        grid-area: 1 / 1;
+    }
+}
+
+.pc-line-main {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+
+    // Price and status take the space between the dropdown and the button
+    .pc-line-price {
+        margin-right: auto;
+    }
+
+    .pc-line-price:only-of-type,
+    > .card-buy:first-child {
+        margin-left: 0;
+    }
+
+    > .card-buy {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-left: auto;
+    }
+
+    .status-label {
+        font-size: 0.9em;
+    }
+
+    // Phones: dropdown, price and button still on one row (284px wide on a 390px phone; a four-figure price
+    // wraps the button to the next line)
+    @include mobile {
+        gap: 8px;
+
+        .pc-line-price .woocommerce-Price-amount {
+            font-size: 95%;
+        }
+    }
+}
+
+// The tab dropdown: a pill like the tab switch
+.pc-line .pc-switch {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+    font-size: 0.85em;
+
+    select {
+        font: inherit;
+        color: $body-text-color;
+        padding: 0.3rem 0.9rem;
+        border: 1px solid var(--ms-card-border, #ccc);
+        border-radius: var(--ms-btn-radius, 999px);
+        background-color: var(--ms-card-bg, white);
+        cursor: pointer;
+    }
+
+    @include mobile {
+        display: block;
+        flex: 0 0 auto;
+        font-size: 0.8em;
+
+        select {
+            padding: 0.3rem 0.4rem;
+        }
+    }
+}
+
+.pc-details {
+    margin-top: 0.4rem;
+
+    > summary {
+        display: inline-block;
+        font-family: $component-font;
+        font-size: 0.8em;
+        color: $body-text-color-light;
+        cursor: pointer;
+        list-style: none;
+
+        &::-webkit-details-marker {
+            display: none;
+        }
+
+        &::after {
+            content: " ▸";
+        }
+    }
+
+    &[open] > summary::after {
+        content: " ▾";
+    }
+
+    > .card-panel {
+        margin-top: 0.75rem;
+    }
+}
+
+// Badge: $450 · Available · Prints from $20
+.pc-badge {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.5rem;
+    padding: 0.3rem 0.95rem;
+    border: 1px solid var(--ms-card-border, #ccc);
+    border-radius: 999px;
+    background: var(--ms-card-bg, white);
+    font-family: $component-font;
+    font-size: 0.85em;
+    line-height: 1.4;
+    color: $body-text-color;
+
+    .woocommerce-Price-amount {
+        font-size: 1.15em;
+    }
+
+    .status-label {
+        font-size: inherit;
+    }
+}
+
+.pc-badge-sep {
+    color: var(--ms-text-light, #aaa);
+}
+
+// The badge sits on the right, lined up with the picture's right edge, with the caption row's spacing above and below
+// (2026-10-22, owner: "badge needs to be right aligned and observe margins") - shrink-wrapped (display: table) so only
+// the badge itself is the link / the button
+.pc-badge-link {
+    display: table;
+    margin: 0.5rem 0 1.5rem auto;
+    text-decoration: none;
+
+    &:hover .pc-badge {
+        border-color: $body-text-color;
+    }
+}
+
+// On the artwork's own page the badge opens the full card (the card full width under it, as before)
+.pc-badge-card {
+    margin: 0.5rem 0 1.5rem;
+
+    // The row's full width (a summary won't shrink to its content), the badge on its right; only the badge takes clicks
+    > summary {
+        display: block;
+        text-align: right;
+        pointer-events: none;
+        cursor: pointer;
+        // No tap highlight / focus ring over the whole row (iPad, 2026-10-22, owner: "clicking the badge highlights the
+        // whole row") - the badge shows its own
+        -webkit-tap-highlight-color: transparent;
+        outline: none;
+
+        &:focus-visible .pc-badge {
+            outline: 2px solid $body-text-color;
+            outline-offset: 2px;
+        }
+
+        &:active .pc-badge {
+            border-color: $body-text-color;
+        }
+        list-style: none;
+
+        .pc-badge {
+            pointer-events: auto;
+            text-align: left;
+        }
+
+        &::-webkit-details-marker {
+            display: none;
+        }
+
+        &:hover .pc-badge {
+            border-color: $body-text-color;
+        }
+    }
+
+    &[open] > summary .pc-badge {
+        background: color-mix(in srgb, #{$body-text-color} 6%, var(--ms-card-bg, white));
+    }
+
+    // Opens and closes like the category header's description (_layout.scss .feed-description-wrap, 2026-11-14): the card
+    // folds by its row's height. Only once pc-badge-card.js has taken over (.is-anim); without it the details just open.
+    > .pc-badge-body {
+        display: grid;
+        grid-template-rows: 1fr;
+
+        > .pc-badge-inner {
+            min-height: 0;
+            overflow: hidden;
+        }
+    }
+
+    &.is-anim {
+        transition: margin-bottom 0.25s ease;
+
+        > .pc-badge-body {
+            transition: grid-template-rows 0.25s ease;
+        }
+
+        &:not(.is-open) {
+            margin-bottom: 0.5rem;
+
+            > .pc-badge-body {
+                grid-template-rows: 0fr;
+            }
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        &.is-anim, &.is-anim > .pc-badge-body {
+            transition: none;
+        }
+    }
+}
+
+// The WP Details block folds the same way (2026-11-16, details-fold.php + details-fold.js): its content sits in .ms-fold-body and
+// folds by its height; only once the script has taken over (.is-anim), without it the details just open
+details.wp-block-details {
+    > .ms-fold-body {
+        display: grid;
+        grid-template-rows: 1fr;
+
+        > .ms-fold-inner {
+            min-height: 0;
+            overflow: hidden;
+        }
+    }
+
+    &.is-anim > .ms-fold-body {
+        transition: grid-template-rows 0.25s ease;
+    }
+
+    &.is-anim:not(.is-open) > .ms-fold-body {
+        grid-template-rows: 0fr;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        &.is-anim > .ms-fold-body {
+            transition: none;
+        }
+    }
+}
+
+// Look > Price card > Badge position: left or center instead (2026-10-22)
+.pc-badge-link.pc-badge-left { margin-left: 0; margin-right: auto; }
+.pc-badge-link.pc-badge-center { margin-left: auto; margin-right: auto; }
+.pc-badge-card.pc-badge-left > summary { text-align: left; }
+.pc-badge-card.pc-badge-center > summary { text-align: center; }
+
+// Archive & feed: under the artwork's caption and info line; list view only
+.pc-feed {
+    margin-top: 0.5rem;
+
+    .painting-buy-row {
+        margin: 0.5rem 0 0;
+    }
+}
+
+html.archive-view-grid .pc-feed {
+    display: none;
+}
+
+/* Custom order cards (Custom Work page: editor blocks - a picture, a heading, text, the size, [product_price], a button
+   to the custom-order product) look like the standalone price card for now (2026-10-22, owner: "make the Custom Order
+   price cards adhere to the look and design of actual Price Cards, for now. We'll address the functionality later").
+   The box itself is a card already (_layout.scss); here its spacing, title, text and picture take .pc-standalone's. */
+.wp-block-columns.has-white-background-color:has(a[href*="/custom-order/"]) {
+    padding: calc(#{$global-padding} / 2) !important;   // .pc-standalone
+    column-gap: $global-padding !important;
+    align-items: flex-start !important;
+
+    h2,
+    h3 {
+        margin: 0 0 0.75rem;
+        font-size: 1.2rem;                                // .pc-sa-title
+    }
+
+    .wp-block-column > .wp-block-paragraph {
+        margin: 0 0 0.6rem;
+        font-size: 0.8em;                                 // .painting-attrs
+        line-height: 1.6;
+    }
+
+    // "Size: 10″ × 8″": a detail line like the card's, not small print on the right
+    .wp-block-column > .wp-block-paragraph.has-small-font-size {
+        font-size: 0.8em !important;
+        text-align: left !important;
+    }
+
+    // The price on the right, as the card's (the price font: .ms-product-price, _global.scss)
+    .ms-product-price {
+        display: block;
+        margin: 0.4rem 0 0.8rem;
+        text-align: right;
+    }
+
+    // The picture as the card's: no outline (Look > Shadows & outlines leaves the price card's alone)
+    .wp-block-image img {
+        outline: none !important;
+    }
+
+    .wp-block-buttons {
+        margin: 0;
+    }
+
+    @include mobile {
+        padding: calc(#{$global-padding} / 2) !important;
+        row-gap: 1rem !important;
+    }
+}
+
+/* [artwork sku="234"] (price-card-standalone.php): the artwork's picture alone - its longest edge fills the container
+   (the link's width is set inline), the picture look comes from .ms-archive-image-link (shadow, outline, rounding,
+   rollover). Title and info lines under it - the same lines and type as the list and detail views (.ms-info). */
+.ms-artwork {
+    margin: 0 0 1.5rem;
+
+    .ms-artwork-link {
+        display: block;
+    }
+
+    // figure.: beats the sidebar's 200px picture cap (_global.scss)
+    @at-root figure#{&} img {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-width: 100%;   // the sidebar's 200px picture cap (_global.scss) doesn't apply
+    }
+
+    // badges="yes": the grid view's green dot (bottom left) and "M" (bottom right) on the picture
+    .ms-artwork-badged {
+        position: relative;
+
+        .ms-availability-badge:not(.ms-available, .ms-gallery, .ms-reserved, .ms-sold, .ms-private) {
+            display: none;
+        }
+
+        .ms-availability-badge.ms-available,
+        .ms-availability-badge.ms-gallery,
+        .ms-availability-badge.ms-reserved,
+        .ms-availability-badge.ms-sold,
+        .ms-availability-badge.ms-private {
+            display: block;
+            @include ms-dot-badge;
+        }
+
+        .ms-miniature-mark {
+            display: block;
+        }
+    }
+
+    .ms-artwork-title {
+        margin: 0.75rem 0 0;
+        font-size: 1.2rem;
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+    }
+
+    // Square thumbnail (square="yes"): cropped to the middle, as in the detail list
+    @at-root figure#{&}.ms-artwork-square img {
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+    }
+
+    // The info lines - the list and detail views' (_archives.scss .ms-info)
+    .ms-info {
+        margin: 0.5rem 0 0;
+    }
+}

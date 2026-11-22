@@ -1,0 +1,198 @@
+/* ============================================================
+   SHARING ICONS (design/share-button.php, assets/scripts/share.js) - right-aligned on the row of a post's first caption,
+   of a page's title and of a category / tag / Art Feed header's title; its menu is a small card (Look > Cards' colors, so dark mode follows)
+============================================================ */
+
+// The row: the caption (or title) on the left, the button on the right; everything else in the figure / header spans it
+figure:has(> .ms-share),
+.feed-header:has(> .ms-share) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 1rem;
+
+    > * {
+        grid-column: 1 / -1;
+    }
+
+    > figcaption,
+    > .feed-title {
+        grid-column: 1;
+    }
+
+    > .ms-share {
+        grid-column: 2;
+    }
+}
+
+// The archive title's own space below it (1rem, _layout.scss) becomes the gap to the description, so the button sits level
+// with the title
+.feed-header:has(> .ms-share) {
+    row-gap: 1rem;
+
+    > .feed-title {
+        margin-bottom: 0;
+    }
+}
+
+// A page's title row (index.php): the title on the left, the sharing icons on the right
+.entry-title-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 1rem;
+}
+
+.ms-share {
+    position: relative;
+    justify-self: end;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+}
+
+// Computers (a mouse): Facebook / Instagram / Bluesky buttons, the footer's icons in the text color (a mask, as there);
+// phones and tablets use the share sheet instead
+.ms-share-sites {
+    display: none;
+
+    @media (hover: hover) and (pointer: fine) {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+    }
+}
+
+.ms-share-site {
+    display: inline-block;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background-color: $body-text-color;
+    -webkit-mask: var(--ms-icon) center / 20px 20px no-repeat;
+    mask: var(--ms-icon) center / 20px 20px no-repeat;
+    opacity: 0.55;
+    transition: opacity 0.15s ease;
+
+    &:hover,
+    &:focus-visible {
+        opacity: 1;
+        background-color: $link-color; // the theme's link color: dark/light follow Look
+    }
+}
+
+// "Link copied - paste it in Instagram"
+.ms-share-note {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 50;
+    margin-top: 4px;
+    padding: 0.4rem 0.8rem;
+    white-space: nowrap;
+    font-family: $component-font;
+    font-size: 0.85rem;
+    font-style: normal;
+    color: $body-text-color;
+    background: var(--ms-card-bg, #fff);
+    border: solid var(--ms-card-border-width, 1px) var(--ms-card-border, #ccc);
+    border-radius: var(--ms-card-radius, var(--ms-radius, 8px));
+    box-shadow: 0 6px 20px ms-shadow(0.18);
+
+    &[hidden] {
+        display: none;
+    }
+}
+
+.ms-share-btn {
+    display: inline-flex;
+    padding: 0.4rem;
+    border-radius: 50%;
+    color: $body-text-color;
+    opacity: 0.55;
+    line-height: 0;
+    transition: opacity 0.15s ease;
+
+    &:hover,
+    &[aria-expanded="true"] {
+        opacity: 1;
+        color: $link-color;
+    }
+
+    &:focus-visible {
+        outline: 2px solid $body-text-color;
+        outline-offset: 2px;
+    }
+}
+
+.ms-share-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 50;
+    min-width: 170px;
+    margin-top: 4px;
+    padding: 0.35rem 0;
+    background: var(--ms-card-bg, #fff);
+    border: solid var(--ms-card-border-width, 1px) var(--ms-card-border, #ccc);
+    border-radius: var(--ms-card-radius, var(--ms-radius, 8px));
+    box-shadow: 0 6px 20px ms-shadow(0.18);
+    text-align: left;       // not the image block's centered text
+
+    &[hidden] {
+        display: none;
+    }
+
+    a {
+        display: block;
+        padding: 0.45rem 1rem;
+        font-family: $component-font;
+        font-size: 0.9rem;
+        font-style: normal;
+        font-weight: 400;
+        color: $body-text-color;
+        text-decoration: none;
+        white-space: nowrap;
+
+        &:hover,
+        &:focus-visible {
+            background: rgba(128, 128, 128, 0.14);
+            outline: none;
+        }
+    }
+}
+
+/* ============================================================
+   COPY LINK (includes/modules/frontend/content/copy-text.php, assets/scripts/copy.js) - [copy_text]: an icon and a word, quiet
+   until hovered, like the share icon (a link with role="button", so the site's button style leaves it alone)
+============================================================ */
+.ms-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: $component-font;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    color: $body-text-color;
+    text-decoration: none;
+    opacity: 0.6;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+
+    svg {
+        flex: none;
+    }
+
+    &:hover,
+    &:focus-visible,
+    &.is-copied {
+        opacity: 1;
+        text-decoration: none;
+    }
+
+    &:focus-visible {
+        outline: 2px solid $body-text-color;
+        outline-offset: 3px;
+        border-radius: 3px;
+    }
+}

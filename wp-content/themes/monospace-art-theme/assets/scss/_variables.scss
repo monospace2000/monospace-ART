@@ -1,0 +1,54 @@
+// Colors and fonts that Appearance > Customize can change (includes/modules/design/customizer.php, 2026-10-20):
+// each a CSS variable with today's value as its default - nothing changes until a value is set there.
+// Colors
+$menulink-color: var(--ms-menu-link, #CCC);
+$menulink-hover: var(--ms-menu-link-hover, #FFF);
+$body-text-color: var(--ms-text, #333);
+$body-text-color-light: var(--ms-text-light, #666);
+$header-color: var(--ms-heading, #444);
+$link-color: var(--ms-link, #000);
+$tag-cloud-color: rgba(0, 0, 0, 0.4);
+$menu-background-base: rgba(0, 0, 0, 0.85);    // a real color, for the submenu shades (scale-color, _menu.scss)
+$menu-background: var(--ms-menu-bg, #{$menu-background-base});
+$menu-background-hover: rgba(255, 255, 255, 0.2);
+$button-base-color: rgba(4, 107, 210, 0.9);
+
+
+// Typography
+$base-font-size: var(--ms-font-size, 1.1rem);
+$sidebar-font-size: 0.9rem;
+$base-line-height: var(--ms-line-height, 1.6);
+$base-font-weight: 400;
+$component-font: var(--ms-font-ui, 'Open Sans', sans-serif);         // menus, buttons, labels
+$body-font: var(--ms-font-body, 'Merriweather', serif);
+$heading-font: var(--ms-font-heading, 'Oswald', serif);
+$mono-font: var(--ms-font-mono, 'Courier Prime', monospace);          // prices, numbers
+
+// Layout
+$menu-bar-height: 54px;
+$column-center-width: 700px;
+$column-sidebar-width: 300px;
+$global-width: 1000px;
+$global-padding: 2.5rem;  // 40px ÷ 16
+$global-margin: 2.5rem;  // 40px ÷ 16
+
+// Effects
+// A drop shadow's color: Look > Shadows (design/shadows.php) - its color (--ms-shadow-rgb, "r g b") and strength
+// (--ms-shadow-k: 0 = off, 1 = as drawn, 2 = twice as strong), so all shadows follow one setting, and the dark look can
+// glow. ms-shadow(0.5) = the color at 50% (times the strength). Glass buttons keep their own shading.
+@function ms-shadow($alpha) {
+    @return rgb(var(--ms-shadow-rgb, 0 0 0) / calc(#{$alpha} * var(--ms-shadow-k, 1)));
+}
+
+$global-box-shadow: 0 0 0.5rem ms-shadow(0.5);  // 8px ÷ 16
+$global-box-shadow-hover: 0 0.2rem 1.2rem ms-shadow(0.4);
+
+// Gradients
+$gradient-foreground: rgba(255, 255, 255, 0.8);
+$gradient-background: rgba(83, 37, 0, 0.2);
+$body-background: white;
+
+// Breakpoints (keep in px for media queries)
+$breakpoint-mobile: 640px;
+$breakpoint-tablet: 920px;
+$breakpoint-desktop: 1024px;

@@ -1,0 +1,357 @@
+/**
+ * Layout Styles
+ *
+ * Two-column layout system with responsive sidebar positioning.
+ * Includes responsive content system for desktop/mobile variants.
+ *
+ * Responsive Content System:
+ * .content-desktop - Visible on desktop, hidden below $breakpoint-tablet
+ * .content-mobile - Hidden on desktop, visible below $breakpoint-tablet
+ *
+ * These classes are added by PHP when "mirror" checkbox is unchecked in:
+ * - Layout Manager (feed/search/post type sidebars)
+ * - Category edit screens (category-specific content)
+ * - Sidebar Override meta box (per-post content)
+ *
+ * Related Files:
+ * - layout-manager.php - Admin interface with mirror checkboxes
+ * - feed-headers.php - Wraps content in .content-desktop/.content-mobile divs
+ * - sidebar-override.php - Wraps content in .content-desktop/.content-mobile divs
+ * - sidebar.php - Template that displays the sidebar content
+ */
+
+@import 'variables';
+@import 'mixins';
+
+/* ============================================================
+   TWO COLUMN LAYOUT
+============================================================ */
+
+/* Full-width area above the main column and sidebar (Layout Manager > Top content) */
+.top-content-area {
+    max-width: $global-width;
+    margin: 0 auto $global-padding;
+    box-sizing: border-box;
+
+    > :first-child { margin-top: 0; }
+    > :last-child { margin-bottom: 0; }
+}
+
+.two-column-layout {
+    display: flex;
+    justify-content: center;
+    max-width: $global-width;
+    margin: 0 auto;
+    gap: $global-padding;
+    align-items: flex-start;
+    box-sizing: border-box;
+}
+
+#main-content {
+    flex: 1 1 0;
+    max-width: $column-center-width !important;
+    box-sizing: border-box;
+}
+
+.sidebar {
+    flex: 0 0 $column-sidebar-width;
+    max-width: $column-sidebar-width;
+    box-sizing: border-box;
+    font-size: $sidebar-font-size !important;
+}
+
+/* Look > Sidebar (design/sidebar-position.php): on the left on computers (wider screens only - it would outrank the
+   phones' stacking) */
+@media (min-width: $breakpoint-tablet + 1px) {
+    body.sidebar-left .two-column-layout {
+        flex-direction: row-reverse;
+    }
+}
+
+// The sidebar's section headings (Completed Commissions, Random Artwork, Your Cart ...): more room above them, so each
+// starts a clear new section - about twice the browser's 1.33em; the space below stays (2026-10-22, owner: "I need a
+// bigger top margin for all h4's inside the sidebar"). Not a heading at the very top of its block.
+.sidebar h4:not(:first-child) {
+    margin-top: 2.5em;
+    margin-bottom: 0.5em;
+}
+
+.page .sidebar {
+    padding-top: 30px;
+}
+
+.custom-sidebar-content {
+    margin-top: $global-margin;
+}
+
+/* ============================================================
+   LAYOUT OVERRIDES
+============================================================ */
+
+/* Hide Sidebar (Full Width) */
+body.hide-sidebar {
+    .sidebar {
+        display: none;
+    }
+
+    #main-content {
+        flex: 1 1 auto;
+        max-width: $global-width !important;
+    }
+}
+
+/* Hide Site Header */
+body.hide-header {
+    .site-logo-wrapper {
+        display: none;
+    }
+}
+
+/* ============================================================
+   RESPONSIVE CONTENT SYSTEM
+   Controls visibility of desktop vs mobile content variants
+============================================================ */
+
+/* Desktop: show desktop content, hide mobile content */
+.content-desktop {
+    display: block !important;
+}
+
+.content-mobile {
+    display: none !important;
+}
+
+/* Mobile/Tablet: hide desktop content, show mobile content */
+@media (max-width: 768px) {
+    .content-desktop {
+        display: none !important;
+    }
+
+    .content-mobile {
+        display: block !important;
+    }
+}
+
+/* Safety net using theme breakpoint variable */
+@media (max-width: $breakpoint-tablet) {
+    .content-desktop {
+        display: none !important;
+    }
+
+    .content-mobile {
+        display: block !important;
+    }
+}
+
+/* ============================================================
+   RESPONSIVE LAYOUT (Mobile/Tablet)
+============================================================ */
+
+@include tablet {
+    /* Stack layout - the sidebar above the content, or below it with Look > Sidebar > Phones: below (2026-10-22, owner:
+       "above or below content on mobile (default above)") */
+    .two-column-layout {
+        display: flex;
+        flex-direction: column-reverse;
+        max-width: 100%;
+        gap: $global-padding;
+        box-sizing: border-box;
+    }
+
+    .sidebar {
+        flex: 0 0 auto;
+        max-width: 100%;
+        max-width: $global-width;
+        width: 100%;
+    }
+
+    body.sidebar-phone-below .two-column-layout {
+        flex-direction: column;
+    }
+
+    // Below: pages that load more as you scroll (the Art Feed, categories, tags, places - #main-content[data-infinite-scroll],
+    // index.php) show no sidebar - after an endless list it would never be reached (2026-10-22, owner: "hide on infinite
+    // scroll"). A header set to show in the sidebar goes with it.
+    body.sidebar-phone-below .two-column-layout:has(> #main-content[data-infinite-scroll]) > .sidebar {
+        display: none;
+    }
+
+    #main-content {
+        flex: 0 0 auto;
+        width: 100%;            // the column's full width even with narrow contents (the cart ended 56px short on phones)
+        max-width: $global-width;
+        margin: 0;
+    }
+
+    /* Maintain hide-sidebar functionality on mobile */
+    body.hide-sidebar {
+        .sidebar {
+            display: none;
+        }
+
+        #main-content {
+            max-width: 100%;
+        }
+    }
+}
+
+/* ============================================================
+   FEED HEADERS
+   Blog feed, category archives, search results
+============================================================ */
+
+.feed-header {
+    @include card-style;
+    margin: 0 0 calc($global-margin*2) 0;
+    padding: calc($global-padding/2) calc($global-padding/2) !important;
+
+    .feed-title {
+        margin: 0 0 1rem 0;
+    }
+
+    // The archive's <h1> (feed-headers.php) - the size it had as an <h2>
+    h1.feed-title {
+        font-size: 1.5em;
+    }
+
+    .feed-description {
+        margin: 0;
+
+        p {
+            margin: 0;
+
+            + p {
+                margin-top: 1rem;
+            }
+        }
+    }
+}
+
+// Collapsible header (feed-headers.php, assets/scripts/header-collapse.js, 2026-10-23): a category / tag / place header with a title
+// and a description. The title is the toggle - a chevron next to it says so (it turns when folded) - and only the description folds;
+// the share / social icons beside the title stay.
+.feed-header.is-collapsible {
+    transition: row-gap 0.25s ease;
+
+    .feed-title {
+        transition: margin-bottom 0.25s ease;
+    }
+
+    .feed-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: inherit;
+        text-decoration: none;
+        cursor: pointer;
+
+        &:focus-visible {
+            outline: 2px solid $body-text-color;
+            outline-offset: 4px;
+            border-radius: 3px;
+        }
+    }
+
+    .feed-toggle-icon {
+        flex: none;
+        width: 0.6em;
+        height: 0.6em;
+        opacity: 0.55;
+        transition: transform 0.25s ease, opacity 0.15s ease;
+    }
+
+    .feed-toggle:hover .feed-toggle-icon,
+    .feed-toggle:focus-visible .feed-toggle-icon {
+        opacity: 1;
+    }
+
+    // The description folds by its row's height (no height to measure)
+    .feed-description-wrap {
+        display: grid;
+        grid-template-rows: 1fr;
+        transition: grid-template-rows 0.25s ease;
+
+        > .feed-description {
+            min-height: 0;
+            overflow: hidden;
+        }
+    }
+
+    // Folded: by this header's own state, or by the visitor's remembered choice (a class on <html>, set before the page paints)
+    &.is-collapsed,
+    html.ms-header-folded & {
+        row-gap: 0;
+
+        .feed-title {
+            margin-bottom: 0;
+        }
+
+        .feed-toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .feed-description-wrap {
+            grid-template-rows: 0fr;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        &, .feed-title, .feed-toggle-icon, .feed-description-wrap {
+            transition: none;
+        }
+    }
+}
+
+/* Infinite scroll appends each next page's whole #main-content, header included */
+#main-content > div:not(.infinite-scroll-loading) .feed-header {
+    display: none;
+}
+
+
+
+/* ============================================================
+   FOOTER
+============================================================ */
+
+.footer-inner {
+    text-align: center;
+    margin: $global-padding;
+    font-size: 0.8rem;
+}
+
+/* ============================================================
+   NAVIGATION
+============================================================ */
+
+.post-nav-buttons {
+    display: flex;
+    justify-content: space-between;
+}
+
+/* ============================================================
+   GUTENBERG BLOCKS
+============================================================ */
+
+/* Blocks given a white background in the editor (e.g. the option cards on Custom Artwork, the Exhibit cards) are cards:
+   the whole card look of Look > Cards - fill, outline color and width, corner rounding (own, else Look > Rounding's
+   site-wide) - so they match the site's other cards, light and dark (2026-10-22, owner: "cards on custom-work are not
+   proper design cards" - the editor had typed 8px corners and a 1px line into each block). !important: WordPress's
+   color classes use it, and the editor's border and rounding are inline */
+.wp-block-group.has-white-background-color.has-background,
+.wp-block-columns.has-white-background-color.has-background,
+.wp-block-column.has-white-background-color.has-background {
+    background-color: var(--ms-card-bg, #fff) !important;
+    border-radius: var(--ms-card-radius, var(--ms-radius, 8px)) !important;
+    // The cards' padding (.feed-header, the price card: half the page padding), so their contents line up the same in
+    // every card - the editor's own was 24px on some (2026-10-22)
+    padding: calc(#{$global-padding} / 2) !important;
+
+    &.has-border-color {
+        border-color: var(--ms-card-border, #ccc) !important;
+        border-width: var(--ms-card-border-width, 1px) !important;
+        border-style: solid !important;
+    }
+}
+
+/* (A 0.5rem side margin on groups holding groups - the artwork's Filed under / Tags block - was removed 2026-10-22: it
+   set that block 8px in from the picture, caption and badge above it) */

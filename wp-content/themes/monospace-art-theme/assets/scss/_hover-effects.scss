@@ -1,0 +1,234 @@
+/* ============================================================
+   ROLLOVER EFFECT (Layout Manager > Appearance & Effects > Rollover effect,
+   includes/modules/design/hover-effects.php)
+
+   Lift: the item grows a little and its shadow deepens; pressed, it shrinks a touch.
+   Uses `scale`, not `transform` - Elastic scroll / Slide-in move the same elements with inline
+   transforms, and `scale` combines with them instead of being overridden.
+   Body classes: hover-lift (the switch + variables; + hover-medium), places on Lift hover-home /
+   hover-feed / hover-related / hover-logo, places on Press only (2026-10-19: no hover-grow, just the
+   press) press-home / press-feed / press-related / press-post (the post page's artwork image, which
+   opens the lightbox) / press-logo. Touchscreens: press-touch = every place on Lift or Press only
+   presses while tapped (no hover there).
+============================================================ */
+
+body.hover-lift {
+    --hover-scale: 1.02;
+    --press-scale: 0.985;
+    --lift-shadow: 0 0.6rem 1.4rem #{ms-shadow(0.35)};
+    --lift-speed: 0.25s;
+
+    &.hover-medium {
+        --hover-scale: 1.04;
+        --press-scale: 0.97;
+        --lift-shadow: 0 0.9rem 2rem #{ms-shadow(0.4)};
+    }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+
+    // Home page link boxes (start_template.php) and the My Account tiles (woocommerce/myaccount/dashboard.php) - one place, "home"
+    body.hover-lift.hover-home :is(.container > .box.link, .ms-acct-tile) {
+        transition: scale var(--lift-speed) ease, box-shadow var(--lift-speed) ease;
+
+        &:hover,
+        &:focus-visible {
+            scale: var(--hover-scale);
+            box-shadow: var(--lift-shadow);
+            z-index: 2;
+        }
+
+        &:active {
+            scale: var(--press-scale);
+            transition-duration: 0.08s;
+        }
+    }
+
+    // Artwork images in feeds and on category / tag pages - list view: the image link grows, its
+    // image (or a miniature's cover) carries the deeper shadow
+    body.hover-lift.hover-feed a.ms-archive-image-link {
+        transition: scale var(--lift-speed) ease;
+
+        img,
+        .ms-miniature-background {
+            transition: box-shadow var(--lift-speed) ease;
+        }
+
+        &:hover,
+        &:focus-visible {
+            scale: var(--hover-scale);
+            position: relative;
+            z-index: 2;
+
+            img,
+            .ms-miniature-background {
+                box-shadow: var(--lift-shadow);
+            }
+        }
+
+        &:active {
+            scale: var(--press-scale);
+            transition-duration: 0.08s;
+        }
+    }
+
+    // "See also" (related posts, related-posts-shortcode.php): the thumbnail lifts, the title stays
+    body.hover-lift.hover-related .monospace-related-link {
+        .monospace-related-thumb {
+            transition: scale var(--lift-speed) ease, box-shadow var(--lift-speed) ease;
+        }
+
+        &:hover .monospace-related-thumb,
+        &:focus-visible .monospace-related-thumb {
+            scale: var(--hover-scale);
+            box-shadow: var(--lift-shadow);
+        }
+
+        &:active .monospace-related-thumb {
+            scale: var(--press-scale);
+            transition-duration: 0.08s;
+        }
+    }
+
+    // Site logo + tagline (header.php), lifted while the pointer is over the logo's link. Each lifts on
+    // its own, not their wrapper: a scaled wrapper would isolate the logo's mix-blend-mode: multiply
+    // from the spotlight behind it. The logo grows from its bottom edge, the tagline from its top, so
+    // the gap between them stays. drop-shadow follows the letters (a box-shadow would be a rectangle).
+    body.hover-lift.hover-logo .site-logo-wrapper {
+        --lift-letters: drop-shadow(0 0.25rem 0.4rem #{ms-shadow(0.25)});
+
+        img.custom-logo,
+        .site-tagline {
+            transition: scale var(--lift-speed) ease, filter var(--lift-speed) ease;
+        }
+
+        img.custom-logo { transform-origin: var(--logo-origin, 50% 100%); } // the two-part logo: each part's own (_header.scss)
+        .site-tagline   { transform-origin: 50% 0; }
+
+        &:has(.site-logo a:hover),
+        &:has(.site-logo a:focus-visible) {
+            img.custom-logo,
+            .site-tagline {
+                scale: var(--hover-scale);
+                filter: var(--logo-invert,) var(--lift-letters); // dark mode keeps the logo inverted (_dark-mode.scss)
+            }
+        }
+
+        &:has(.site-logo a:active) {
+            img.custom-logo,
+            .site-tagline {
+                scale: var(--press-scale);
+                transition-duration: 0.08s;
+            }
+        }
+    }
+
+    // Grid view (archive-view-toggle): the square tile itself lifts, the link inside stays put
+    html.archive-view-grid body.hover-lift.hover-feed {
+        a.ms-archive-image-link:hover,
+        a.ms-archive-image-link:active {
+            scale: none;
+        }
+
+        .archive-item > figure:first-of-type {
+            transition: scale var(--lift-speed) ease, box-shadow var(--lift-speed) ease;
+
+            &:hover {
+                scale: var(--hover-scale);
+                box-shadow: var(--lift-shadow);
+                z-index: 2;
+            }
+
+            &:active {
+                scale: var(--press-scale);
+                transition-duration: 0.08s;
+            }
+        }
+    }
+
+    // Press only: no hover-grow - the item shrinks a touch while clicked, and springs back
+    body.hover-lift {
+        &.press-home :is(.container > .box.link, .ms-acct-tile),
+        &.press-feed a.ms-archive-image-link,
+        &.press-related .monospace-related-link .monospace-related-thumb,
+        &.press-post a.ms-lightbox-link img,
+        &.press-logo .site-logo-wrapper img.custom-logo,
+        &.press-logo .site-logo-wrapper .site-tagline {
+            transition: scale var(--lift-speed) ease;
+        }
+
+        &.press-logo .site-logo-wrapper img.custom-logo { transform-origin: var(--logo-origin, 50% 100%); }
+        &.press-logo .site-logo-wrapper .site-tagline   { transform-origin: 50% 0; }
+
+        &.press-home :is(.container > .box.link, .ms-acct-tile):active,
+        &.press-feed a.ms-archive-image-link:active,
+        &.press-related .monospace-related-link:active .monospace-related-thumb,
+        &.press-post a.ms-lightbox-link:active img,
+        &.press-logo .site-logo-wrapper:has(.site-logo a:active) img.custom-logo,
+        &.press-logo .site-logo-wrapper:has(.site-logo a:active) .site-tagline {
+            scale: var(--press-scale);
+            transition-duration: 0.08s;
+        }
+    }
+
+    // Grid view, Press only: the square tile presses, the link inside stays put
+    html.archive-view-grid body.hover-lift.press-feed {
+        a.ms-archive-image-link:active {
+            scale: none;
+        }
+
+        .archive-item > figure:first-of-type {
+            transition: scale var(--lift-speed) ease;
+
+            &:active {
+                scale: var(--press-scale);
+                transition-duration: 0.08s;
+            }
+        }
+    }
+}
+
+// Touchscreens: Press on tap (press-touch) - every place on Lift or Press only shrinks a touch while
+// tapped. No hover on these devices, so no lift. The tapped item gets .is-pressed from a footer script
+// (hover-effects.php) - phones apply :active late or not at all.
+@media (hover: none) and (prefers-reduced-motion: no-preference) {
+    body.hover-lift.press-touch {
+        &:is(.hover-home, .press-home) :is(.container > .box.link, .ms-acct-tile),
+        &:is(.hover-feed, .press-feed) a.ms-archive-image-link,
+        &:is(.hover-related, .press-related) .monospace-related-link .monospace-related-thumb,
+        &.press-post a.ms-lightbox-link img,
+        &:is(.hover-logo, .press-logo) .site-logo-wrapper img.custom-logo,
+        &:is(.hover-logo, .press-logo) .site-logo-wrapper .site-tagline {
+            transition: scale var(--lift-speed) ease;
+        }
+
+        &:is(.hover-logo, .press-logo) .site-logo-wrapper img.custom-logo { transform-origin: var(--logo-origin, 50% 100%); }
+        &:is(.hover-logo, .press-logo) .site-logo-wrapper .site-tagline   { transform-origin: 50% 0; }
+
+        &:is(.hover-home, .press-home) :is(.container > .box.link, .ms-acct-tile).is-pressed,
+        &:is(.hover-feed, .press-feed) a.ms-archive-image-link.is-pressed,
+        &:is(.hover-related, .press-related) .monospace-related-link.is-pressed .monospace-related-thumb,
+        &.press-post a.ms-lightbox-link.is-pressed img,
+        &:is(.hover-logo, .press-logo) .site-logo-wrapper:has(.site-logo a.is-pressed) img.custom-logo,
+        &:is(.hover-logo, .press-logo) .site-logo-wrapper:has(.site-logo a.is-pressed) .site-tagline {
+            scale: var(--press-scale);
+            transition-duration: 0.08s;
+        }
+    }
+
+    // Grid view: the square tile presses, the link inside stays put
+    html.archive-view-grid body.hover-lift.press-touch:is(.hover-feed, .press-feed) {
+        a.ms-archive-image-link.is-pressed {
+            scale: none;
+        }
+
+        .archive-item > figure:first-of-type {
+            transition: scale var(--lift-speed) ease;
+
+            &:has(a.is-pressed) {
+                scale: var(--press-scale);
+                transition-duration: 0.08s;
+            }
+        }
+    }
+}
