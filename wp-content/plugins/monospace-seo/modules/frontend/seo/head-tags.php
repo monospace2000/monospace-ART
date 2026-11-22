@@ -39,7 +39,7 @@ function monospace_seo_plain( $html ) {
     return trim( preg_replace( '/\s+/u', ' ', $text ) );
 }
 
-/** Decoded text - term names and titles come with entities ("Ink &amp; Wash", "&#8217;"). */
+/** Decoded text - term names and titles come with entities ("Line &amp; wash","&#8217;"). */
 function monospace_seo_decode( $text ) {
     return html_entity_decode( wp_strip_all_tags( (string) $text ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 }
@@ -117,7 +117,7 @@ function monospace_seo_artwork( $post_id ) {
     ];
 }
 
-/** "Acrylic painting" / "Ink & Wash drawing" / "Painting" - '' when unknown. */
+/** "Acrylic painting" / "Line & wash drawing" / "Painting" - '' when unknown. */
 function monospace_seo_artwork_kind( $art ) {
     if ( ! $art ) return '';
     if ( $art['medium'] && $art['format'] ) return $art['medium'] . ' ' . mb_strtolower( $art['format'] );
@@ -337,9 +337,12 @@ function monospace_seo_image() {
     } elseif ( is_singular() ) {
         $image = monospace_seo_post_image( get_queried_object_id() );
     } elseif ( is_category() || is_tag() || is_tax() ) {
-        // An archive shares its newest artwork
+        // The share image chosen for this category / tag / place (term meta _monospace_share_image - its edit screen and Layout
+        // Manager > Categories, 2026-10-23), else its newest artwork
+        $term = get_queried_object();
+        if ( $term && ! empty( $term->term_id ) ) $image = monospace_seo_attachment_image( (int) get_term_meta( $term->term_id, '_monospace_share_image', true ), monospace_seo_decode( $term->name ) );
         global $wp_query;
-        if ( ! empty( $wp_query->posts[0] ) ) $image = monospace_seo_post_image( $wp_query->posts[0]->ID );
+        if ( ! $image && ! empty( $wp_query->posts[0] ) ) $image = monospace_seo_post_image( $wp_query->posts[0]->ID );
     }
     return $image ?: [
         'url'    => MONOSPACE_SEO_URL . 'assets/site-preview.png',
@@ -360,6 +363,28 @@ function monospace_seo_dimensions( $size ) {
     return null;
 }
 
+/**
+ * The artist's other profiles (JSON-LD sameAs): the links under "Elsewhere" in the footer menu (Appearance > Menus >
+ * Footer - owner, 2026-10-21: edit them in one place). Only full outside addresses count; with no such column, the
+ * links as they were.
+ */
+function monospace_seo_same_as() {
+    $fallback  = [ 'https://www.instagram.com/hens.breet/', 'https://bsky.app/profile/monospace.com', 'https://www.facebook.com/hens.breet', 'https://monospace.com' ];
+    $locations = get_nav_menu_locations();
+    $items     = ! empty( $locations['footer'] ) ? wp_get_nav_menu_items( $locations['footer'] ) : [];
+    if ( ! $items ) return $fallback;
+    $column = 0;
+    foreach ( $items as $item ) {
+        if ( ! $item->menu_item_parent && strcasecmp( trim( $item->title ), 'Elsewhere' ) === 0 ) $column = (int) $item->ID;
+    }
+    if ( ! $column ) return $fallback;
+    $urls = [];
+    foreach ( $items as $item ) {
+        if ( (int) $item->menu_item_parent === $column && preg_match( '~^https?://~i', $item->url ) ) $urls[] = esc_url_raw( $item->url );
+    }
+    return $urls ? array_values( array_unique( $urls ) ) : $fallback;
+}
+
 function monospace_seo_json_ld( $description, $image, $canonical ) {
     $home   = home_url( '/' );
     $person = [
@@ -369,12 +394,7 @@ function monospace_seo_json_ld( $description, $image, $canonical ) {
         'url'          => home_url( '/about/about-me/' ),
         'jobTitle'     => 'Artist',
         'homeLocation' => [ '@type' => 'Place', 'name' => 'Hudson County, New Jersey' ],
-        'sameAs'       => [ // the footer's Elsewhere column
-            'https://www.instagram.com/hens.breet/',
-            'https://bsky.app/profile/monospace.com',
-            'https://www.facebook.com/hens.breet',
-            'https://monospace.com',
-        ],
+        'sameAs'       => monospace_seo_same_as(),
     ];
     $graph = [
         [
