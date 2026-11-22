@@ -7,7 +7,8 @@
  *   Needs attention the Artwork Editor's list - no price where one is needed, missing details, no image, title
  *                   differs from the post - plus Original products whose artwork is gone
  *   Orders          waiting to be sent, the last 30 days (count, total), the latest order
- *   Prints          (Prints plugin) artworks with prints, hidden, jobs running / stopped, watermarked files
+ *   Prints          (Prints plugin) artworks with prints, hidden, jobs running / stopped, watermarked files,
+ *                   prints whose artwork is on a Canvas panel (flagged for review, 2026-11-08)
  *   Sales           (Sales Dashboard) its global settings in a few words
  *   Newest          the five newest artworks
  *   Site            feature plugins switched off, price card presets, scroll / open-at-content settings
@@ -82,18 +83,19 @@ function monospace_site_status_data( $fresh = false ) {
     // Prints
     $prints = null;
     if ( function_exists( 'monospace_feature' ) && monospace_feature( 'prints' ) ) {
-        $with = $hidden = $running = $stopped = [];
+        $with = $hidden = $running = $stopped = $canvas = [];
         foreach ( $rows as $r ) {
             $p = $r['prints'];
             if ( $p['framed'] || $p['unframed'] ) {
                 $with[] = $r['product_id'];
+                if ( ( $r['attributes']['pa_surface'] ?? '' ) === 'canvas-panel' ) $canvas[] = $r['product_id'];
                 if ( ( ! $p['framed'] || $p['hidden']['framed'] ) && ( ! $p['unframed'] || $p['hidden']['unframed'] ) ) $hidden[] = $r['product_id'];
             }
             if ( $p['job'] && $p['job']['state'] === 'error' ) $stopped[] = $r['product_id'];
             elseif ( $p['job'] ) $running[] = $r['product_id'];
         }
         $marks = function_exists( 'monospace_prints_watermark_review' ) ? monospace_prints_watermark_review() : null;
-        $prints = [ 'with' => $with, 'hidden' => $hidden, 'running' => $running, 'stopped' => $stopped,
+        $prints = [ 'with' => $with, 'hidden' => $hidden, 'running' => $running, 'stopped' => $stopped, 'canvas' => $canvas,
                     'watermarked' => $marks ? count( $marks['print'] ) : null ];
     }
 
@@ -176,6 +178,7 @@ function monospace_site_status_widget() {
                 if ( $p['hidden'] ) echo $n( count( $p['hidden'] ), $sel( $p['hidden'] ), 'hidden', 'is-draft' );
                 if ( $p['running'] ) echo $n( count( $p['running'] ), $all, 'being made' );
                 if ( $p['stopped'] ) echo $n( count( $p['stopped'] ), $all, 'stopped - see the error', 'is-warn' );
+                if ( ! empty( $p['canvas'] ) ) echo $n( count( $p['canvas'] ), $sel( $p['canvas'] ), count( $p['canvas'] ) === 1 ? 'print from a Canvas panel - review' : 'prints from Canvas panels - review', 'is-warn' );
                 if ( $p['watermarked'] ) echo $n( $p['watermarked'], admin_url( 'admin.php?page=monospace-prints-watermarks' ), 'print files still watermarked', 'is-warn' ); ?>
             </p>
         </section>
@@ -214,14 +217,15 @@ function monospace_site_status_widget() {
         $features = [ 'prints' => 'Prints', 'sales' => 'Sales Dashboard', 'commissions' => 'Commissions', 'sheets' => 'Artwork Sheets',
                       'terminal' => 'Market terminal', 'art-filter' => 'Art Filter', 'seo' => 'SEO', 'privacy' => 'Privacy' ];
         $off = function_exists( 'monospace_feature' ) ? array_values( array_filter( $features, fn( $k ) => ! monospace_feature( $k ), ARRAY_FILTER_USE_KEY ) ) : [];
-        $lm  = admin_url( 'admin.php?page=monospace-layout-manager&tab=effects' );
+        $lm  = admin_url( 'themes.php?page=monospace-look' ); // the look's settings (Layout Manager's Appearance & Effects tab until 2026-10-22)
+        $pc  = admin_url( 'themes.php?page=monospace-price-card' );
         $card = function_exists( 'monospace_design_modules' ) && isset( monospace_design_modules()['price-card'] ) ? monospace_design_modules()['price-card']['summary']() : '';
         ?>
         <section>
             <h3>Site</h3>
             <ul class="ms-st-list">
                 <li><a href="<?php echo esc_url( admin_url( 'plugins.php' ) ); ?>"><?php echo $off ? 'Switched off: ' . esc_html( implode( ', ', $off ) ) : 'All feature plugins on'; ?></a></li>
-                <?php if ( $card ) : ?><li><a href="<?php echo esc_url( $lm ); ?>">Price card: <?php echo esc_html( $card ); ?></a></li><?php endif; ?>
+                <?php if ( $card ) : ?><li><a href="<?php echo esc_url( $pc ); ?>">Price card: <?php echo esc_html( $card ); ?></a></li><?php endif; ?>
                 <?php if ( function_exists( 'monospace_scroll_effect' ) ) : ?><li><a href="<?php echo esc_url( $lm ); ?>">Scroll effect: <?php echo esc_html( ucfirst( monospace_scroll_effect() ) ); ?></a></li><?php endif; ?>
             </ul>
         </section>
@@ -269,4 +273,9 @@ function monospace_site_status_widget() {
 // The counts change when artworks or orders do: count again next time
 foreach ( [ 'save_post_post', 'save_post_product', 'woocommerce_new_order', 'woocommerce_order_status_changed' ] as $hook ) {
     add_action( $hook, function () { delete_transient( 'ms_site_status' ); } );
+}
+
+// A featured image set or changed after the save (the editor's second step, Quick Artwork Editor) changes the thumbnails too
+foreach ( [ 'added_post_meta', 'updated_post_meta', 'deleted_post_meta' ] as $hook ) {
+    add_action( $hook, function ( $meta_id, $object_id, $meta_key ) { if ( $meta_key === '_thumbnail_id' ) delete_transient( 'ms_site_status' ); }, 10, 3 );
 }

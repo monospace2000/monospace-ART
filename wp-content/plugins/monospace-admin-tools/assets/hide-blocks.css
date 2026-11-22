@@ -1,0 +1,25 @@
+/* Hidden blocks (hide-blocks.js): greyed out in the editor */
+.ms-block-hidden {
+    opacity: .35;
+    filter: grayscale(1);
+    outline: 1px dashed #8c8f94;
+    outline-offset: 2px;
+    position: relative;
+}
+.ms-block-hidden::before {
+    content: "Hidden on the site";
+    position: absolute;
+    top: -9px;
+    left: 8px;
+    z-index: 2;
+    padding: 0 6px;
+    font: 11px/16px -apple-system, "Segoe UI", sans-serif;
+    color: #fff;
+    background: #646970;
+    border-radius: 3px;
+    opacity: 1;
+    filter: none;
+    pointer-events: none;
+}
+.ms-block-hidden.is-selected,
+.ms-block-hidden:hover { opacity: .6; }

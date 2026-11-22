@@ -11,7 +11,7 @@
  *   - the SKU's number (how the owner identifies a piece; hover = the full SKU)
  *   - Price: saved on Enter or when the field is left
  *   - Availability: saved when picked (colored per status, as in the editors)
- *   - Publish / Unpublish (owner's words): Unpublish = the post becomes a Draft, off the site for visitors (asks
+ *   - Publish / Unpublish (owner's words): Unpublish = Core's Hide artwork (post + product Drafts, prints hidden; asks
  *     first; the bar turns brown and says "Unpublished"), Publish = back on the site
  * Each change saves at once through Core's own saving (monospace_artwork_editor_save_row() - the same path as
  * the Quick Artwork Editor and the Artwork Editor), then clears that page from the cache; a ✓ / the error shows
@@ -63,7 +63,7 @@ add_action( 'admin_bar_menu', function ( $bar ) {
     $bar->add_node( [ 'id' => 'ms-artwork-toolbar', 'title' => $html, 'meta' => [ 'class' => 'ms-atb-node' . ( $published ? '' : ' is-unpublished' ) ] ] );
     // Publish / Unpublish: a toolbar item of its own, like "Edit Post"
     $bar->add_node( [ 'id' => 'ms-artwork-publish', 'title' => $published ? 'Unpublish' : 'Publish', 'href' => '#',
-                      'meta' => [ 'class' => 'ms-atb-pub-node' . ( $published ? '' : ' is-unpublished' ), 'title' => $published ? 'Unpublish: the post becomes a Draft - off the site for visitors' : 'Publish: back on the site' ] ] );
+                      'meta' => [ 'class' => 'ms-atb-pub-node' . ( $published ? '' : ' is-unpublished' ), 'title' => $published ? 'Unpublish: hides the artwork - the post, the product and the prints come off the site' : 'Publish: the post, the product and the prints are back on the site' ] ] );
 }, 85 );
 
 add_action( 'wp_footer', function () {
@@ -111,7 +111,7 @@ add_action( 'wp_footer', function () {
             published = on;
             node.classList.toggle('is-unpublished', !on); pubNode.classList.toggle('is-unpublished', !on);
             pub.textContent = on ? 'Unpublish' : 'Publish';
-            pub.title = on ? 'Unpublish: the post becomes a Draft - off the site for visitors' : 'Publish: back on the site';
+            pub.title = on ? 'Unpublish: hides the artwork - the post, the product and the prints come off the site' : 'Publish: the post, the product and the prints are back on the site';
             state.textContent = on ? '' : 'Unpublished';
         }
         function save(field, value, el, undo) {
@@ -154,7 +154,7 @@ add_action( 'wp_footer', function () {
         pub.addEventListener('click', function (e) {
             e.preventDefault();
             var was = published, to = !was;
-            if (!confirm(to ? 'Publish this artwork? It goes back on the site.' : 'Unpublish this artwork? The post becomes a Draft - visitors can no longer see this page.')) return;
+            if (!confirm(to ? 'Publish this artwork? The post, the product and the prints go back on the site.' : 'Unpublish this artwork? The post and the product become Drafts and the prints are hidden - visitors can no longer see it. Nothing is deleted.')) return;
             pubLook(to);
             save('published', to ? '1' : '', {}, function () { pubLook(was); });
         });
@@ -177,11 +177,18 @@ add_action( 'wp_ajax_monospace_artwork_toolbar', function () {
     if ( get_post_status( $post_id ) !== 'publish' ) { $p = get_post( $post_id ); $p->post_status = 'publish'; $url = get_permalink( $p ); }
 
     if ( $field === 'published' ) {
-        $status = $value ? 'publish' : 'draft';
-        if ( $status === 'publish' && ! current_user_can( 'publish_post', $post_id ) ) wp_send_json_error( 'Not allowed to publish.' );
-        $r = wp_update_post( [ 'ID' => $post_id, 'post_status' => $status ], true );
-        if ( is_wp_error( $r ) ) wp_send_json_error( $r->get_error_message() );
-        $done = $value ? 'Published' : 'Unpublished (Draft)';
+        // Core's Hide artwork / Show artwork: the Art Post, the product and the prints together (artwork-hide.php)
+        if ( function_exists( 'monospace_artwork_hide' ) ) {
+            if ( $value && ! current_user_can( 'publish_post', $post_id ) ) wp_send_json_error( 'Not allowed to publish.' );
+            $r = $value ? monospace_artwork_show( $post_id ) : monospace_artwork_hide( $post_id );
+            if ( $r !== true ) wp_send_json_error( $r );
+        } else {
+            $status = $value ? 'publish' : 'draft';
+            if ( $status === 'publish' && ! current_user_can( 'publish_post', $post_id ) ) wp_send_json_error( 'Not allowed to publish.' );
+            $r = wp_update_post( [ 'ID' => $post_id, 'post_status' => $status ], true );
+            if ( is_wp_error( $r ) ) wp_send_json_error( $r->get_error_message() );
+        }
+        $done = $value ? 'Published' : 'Unpublished (hidden)';
     } elseif ( $field === 'price' || $field === 'availability' ) {
         $r = monospace_artwork_editor_save_row( $post_id, [ $field => $value ] );
         if ( $r !== true ) wp_send_json_error( $r );
