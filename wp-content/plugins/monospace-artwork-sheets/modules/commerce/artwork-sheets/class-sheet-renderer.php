@@ -191,6 +191,18 @@ class Monospace_Sheet_Renderer {
                 color: #999;
                 font-style: italic;
             }
+            .sheet-qr {
+                margin-top: 16px;
+                display: inline-block;
+                text-align: center;
+                font-size: 9pt;
+                color: #444;
+            }
+            .sheet-qr svg {
+                display: block;
+                width: 1.25in;
+                height: 1.25in;
+            }
         </style>
         <?php
     }
@@ -256,6 +268,10 @@ if ($show_price):
                             <span class="detail-label">Product ID:</span>
                             <span class="detail-value"><?php echo esc_html($data['wc_product_id']); ?></span>
                         </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($data['qr'])): ?>
+                        <div class="sheet-qr"><?php echo $data['qr']; // built by Core's QR helper ?><?php echo esc_html($data['qr_caption']); ?></div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -361,6 +377,18 @@ if ($show_price):
             .multi-item .detail {
                 margin-bottom: 4px;
             }
+            .multi-qr {
+                margin-top: 8px;
+                text-align: center;
+                font-size: 8pt;
+                color: #444;
+                width: 0.95in;
+            }
+            .multi-qr svg {
+                display: block;
+                width: 0.95in;
+                height: 0.95in;
+            }
         </style>
         <div class="multi-grid">
             <?php foreach ($product_ids as $product_id): ?>
@@ -394,6 +422,10 @@ if ($show_price):
                         <?php if ($options['include_availability']): ?>
                             <?php echo $this->render_status_badge_inline($data); ?>
                         <?php endif; ?>
+
+                        <?php if (!empty($data['qr'])): ?>
+                            <div class="multi-qr"><?php echo $data['qr']; // built by Core's QR helper ?><?php echo esc_html($data['qr_caption']); ?></div>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             <?php endforeach; ?>
@@ -423,6 +455,11 @@ if ($show_price):
                 border: 1px solid #ddd;
                 font-size: 10pt;
             }
+            .list-qr svg {
+                display: block;
+                width: 0.7in;
+                height: 0.7in;
+            }
         </style>
         <h1>Artwork List</h1>
         <table class="list-table">
@@ -439,6 +476,9 @@ if ($show_price):
                     <?php endif; ?>
                     <?php if ($options['include_availability']): ?>
                         <th>Status</th>
+                    <?php endif; ?>
+                    <?php if (!empty($options['qr_mode'])): ?>
+                        <th>QR</th>
                     <?php endif; ?>
                 </tr>
             </thead>
@@ -462,6 +502,9 @@ if ($show_price):
                             <?php endif; ?>
                             <?php if ($options['include_availability']): ?>
                                 <td><?php echo esc_html(ucfirst($data['availability_status'] ?: 'available')); ?></td>
+                            <?php endif; ?>
+                            <?php if (!empty($options['qr_mode'])): ?>
+                                <td class="list-qr"><?php echo $data['qr'] ?? ''; // built by Core's QR helper ?></td>
                             <?php endif; ?>
                         </tr>
                     <?php endif; ?>

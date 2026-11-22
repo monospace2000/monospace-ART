@@ -34,6 +34,7 @@ class Monospace_Sheet_Exporter {
             'include_loan_section' => isset($_POST['include_loan_section']),
             'include_footer' => isset($_POST['include_footer']),
             'include_generated_date' => isset($_POST['include_generated_date']),
+            'qr_mode' => Monospace_Product_Data::qr_mode($_POST['qr_mode'] ?? ''),
             'layout' => isset($_POST['layout']) ? sanitize_text_field($_POST['layout']) : 'single'
         ];
 

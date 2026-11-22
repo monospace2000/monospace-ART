@@ -87,6 +87,7 @@ class Monospace_Sheet_Public_Links {
             'include_loan_section' => isset($_POST['include_loan_section']) && $_POST['include_loan_section'] === 'true',
             'include_footer' => isset($_POST['include_footer']) && $_POST['include_footer'] === 'true',
             'include_generated_date' => isset($_POST['include_generated_date']) && $_POST['include_generated_date'] === 'true',
+            'qr_mode' => Monospace_Product_Data::qr_mode($_POST['qr_mode'] ?? ''),
             'layout' => isset($_POST['layout']) ? sanitize_text_field($_POST['layout']) : 'single'
         ];
 

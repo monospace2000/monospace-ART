@@ -248,6 +248,17 @@ class Monospace_Sheet_Generator {
                                     <label><input type="checkbox" name="include_generated_date" value="1" checked> Generated date</label>
                                 </td>
                             </tr>
+                            <tr>
+                                <th scope="row"><label for="qr_mode">QR code</label></th>
+                                <td>
+                                    <select name="qr_mode" id="qr_mode">
+                                        <option value="">None</option>
+                                        <option value="page">Link to the artwork</option>
+                                        <option value="buy">Scan to buy (reserved pieces: the purchase link)</option>
+                                    </select>
+                                    <p class="description">Scan to buy puts the reserved purchase link into the code of Reserved and Gallery QR pieces - fine for a printed gallery label, but anyone who opens a public link could use it.</p>
+                                </td>
+                            </tr>
                         </table>
                     </div>
                 </div>
@@ -320,6 +331,17 @@ class Monospace_Sheet_Generator {
                                     <label><input type="checkbox" name="show_shuffle" value="1"> Shuffle (random order, new each round)</label><br>
                                     <label><input type="checkbox" name="show_captions" value="1"> Artwork titles</label><br>
                                     <label><input type="checkbox" name="show_loop" value="1" checked> Start over at the end</label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="show_qr">QR code</label></th>
+                                <td>
+                                    <select name="show_qr" id="show_qr">
+                                        <option value="">None</option>
+                                        <option value="page">Link to the artwork</option>
+                                        <option value="buy">Scan to buy (reserved pieces: the purchase link)</option>
+                                    </select>
+                                    <p class="description">In the corner of each artwork's slide. Scan to buy puts the reserved purchase link into the code of Reserved and Gallery QR pieces - fine for a printed gallery label, but anyone who opens a public link could use it.</p>
                                 </td>
                             </tr>
                             <tr>
@@ -726,6 +748,7 @@ class Monospace_Sheet_Generator {
                     ['include_image', 'include_availability', 'include_price', 'include_loan_section', 'include_footer',
                      'include_generated_date']
                         .forEach(name => data.append(name, form.querySelector(`[name="${name}"]`).checked));
+                    data.append('qr_mode', form.querySelector('[name="qr_mode"]').value);
                     getLink(data, $('#sheet-link'), $('#public-link-status'));
                 });
 

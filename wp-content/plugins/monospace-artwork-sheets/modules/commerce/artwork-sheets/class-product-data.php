@@ -15,6 +15,12 @@ class Monospace_Product_Data {
         return self::$instance;
     }
 
+    /** The QR option from a request or saved settings: '' (none), 'page' (the artwork's page) or 'buy' (scan to buy) */
+    public static function qr_mode($value) {
+        $value = is_string($value) ? sanitize_key($value) : '';
+        return in_array($value, ['page', 'buy'], true) ? $value : '';
+    }
+
     public function gather_data($product_id, $options = []) {
         $product = wc_get_product($product_id);
         if (!$product) return null;
@@ -25,6 +31,7 @@ class Monospace_Product_Data {
             'include_availability' => true,
             'include_wc_id' => false,
             'include_post_id' => false,
+            'qr_mode' => '',
         ];
         $options = wp_parse_args($options, $defaults);
 
@@ -47,6 +54,12 @@ class Monospace_Product_Data {
             'price' => $adjusted_price,
             'price_formatted' => $price_formatted,
         ];
+
+        // QR code (2026-10-30): Core's helper; 'buy' = the reserved purchase link for Reserved / Gallery QR pieces
+        if (!empty($options['qr_mode']) && function_exists('monospace_artwork_qr_svg')) {
+            $data['qr'] = monospace_artwork_qr_svg($product_id, $options['qr_mode']);
+            $data['qr_caption'] = monospace_artwork_qr_caption($product_id, $options['qr_mode']);
+        }
 
         if ($options['include_wc_id']) {
             $data['wc_product_id'] = $product_id;

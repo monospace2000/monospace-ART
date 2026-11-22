@@ -28,6 +28,7 @@ class Monospace_Artwork_Sheets {
         require_once __DIR__ . '/class-sheet-renderer.php';
         require_once __DIR__ . '/class-sheet-exporter.php';
         require_once __DIR__ . '/class-public-links.php';
+        require_once __DIR__ . '/class-slideshow.php';
     }
 
     private function init_hooks() {
@@ -67,6 +68,10 @@ class Monospace_Artwork_Sheets {
 
         if (!current_user_can('manage_woocommerce')) {
             wp_die('Insufficient permissions');
+        }
+
+        if ($_POST['action'] === 'slideshow') {
+            Monospace_Slideshow::instance()->handle_play();
         }
 
         Monospace_Sheet_Exporter::instance()->handle_request();
