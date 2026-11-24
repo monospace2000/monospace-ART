@@ -239,7 +239,10 @@ function ms_commission_thread($order) {
     foreach (wc_get_order_notes(['order_id' => $order->get_id(), 'order_by' => 'date_created', 'order' => 'ASC']) as $note) {
         $text = (string) $note->content;
         $time = $note->date_created ? $note->date_created->getTimestamp() : 0;
-        if (strpos($text, 'Customer comment: ') === 0) {
+        if (!empty($note->customer_note)) {
+            // a "Note to customer" from the Order notes box = your message (commissions-message.php, 2026-11-23)
+            $thread[] = ['who' => 'owner', 'time' => $time, 'text' => wp_strip_all_tags($text)];
+        } elseif (strpos($text, 'Customer comment: ') === 0) {
             $thread[] = ['who' => 'customer', 'time' => $time, 'text' => substr($text, 18)];
         } elseif ($text === 'Customer: approved so far.') {
             $thread[] = ['who' => 'customer', 'time' => $time, 'text' => 'Approved so far.'];
@@ -305,10 +308,22 @@ function ms_commission_render_respond($order, $part = 'reply') {
     $id = esc_attr($order->get_id());
 
     if ($part === 'reply') {
+        $final = ms_commission_final_shared($order) > 0;
         echo '<div class="ms-commission-respond" data-order="' . $id . '" style="margin-top:1em;padding-top:1em;border-top:1px solid var(--ms-card-border, #ccc)">';
-        echo '<p style="margin:0 0 .6em"><strong>Your thoughts on the work so far</strong></p>';
+        if ($final) {
+            // The finished artwork is shared: the approval request comes first, and "Approved so far" is left out, so it can't be
+            // taken for the approval (owner, 2026-11-23: a customer wrote "Looks great" and never pressed the button)
+            echo '<div class="ms-approve-needed" style="border:2px solid currentColor;border-radius:var(--ms-card-radius, 8px);padding:1em 1.1em;margin:0 0 1em;color:var(--ms-text)">';
+            echo '<p style="margin:0 0 .4em;font-size:1.15em"><strong>Your artwork is finished and waiting for your approval</strong></p>';
+            echo '<p style="margin:0 0 .4em">Before I can prepare it for shipping, please press <strong>Approve final artwork</strong> at the bottom of this order. A comment such as "Looks great" does not count as approval.</p>';
+            echo '<p style="margin:0"><a href="#approve-' . $id . '"><strong>Go to the Approve final artwork button</strong></a></p>';
+            echo '</div>';
+            echo '<p style="margin:0 0 .6em"><strong>Would you like something changed first?</strong></p>';
+        } else {
+            echo '<p style="margin:0 0 .6em"><strong>Your thoughts on the work so far</strong></p>';
+        }
         echo '<p class="ms-respond-buttons" style="margin:0">';
-        echo '<button type="button" class="button ms-respond-ack">Approved so far</button> ';
+        if (!$final) echo '<button type="button" class="button ms-respond-ack">Approved so far</button> ';
         echo '<button type="button" class="button ms-respond-comment">Add a comment</button>';
         echo '</p>';
         echo '<div class="ms-respond-form" style="display:none;margin-top:.8em">';
@@ -320,9 +335,11 @@ function ms_commission_render_respond($order, $part = 'reply') {
         return;
     }
 
-    echo '<div class="ms-commission-respond ms-commission-approve" data-order="' . $id . '" style="margin-top:1.5em;text-align:right">';
+    // id = where the finished-artwork email's button lands (scroll-margin clears the fixed toolbar and menu bar)
+    echo '<div id="approve-' . $id . '" class="ms-commission-respond ms-commission-approve" data-order="' . $id . '" style="margin-top:1.5em;text-align:right;scroll-margin-top:140px">';
     echo '<hr style="margin:0 0 1.2em;height:3px;background-color:currentColor;opacity:.6">';
     $ready = ms_commission_final_shared($order) > 0;
+    if ($ready) echo '<p style="margin:0 0 .6em"><strong>Happy with the finished artwork? Approve it here so I can prepare it for shipping.</strong></p>';
     echo '<button type="button" class="button ms-respond-approve"' . ($ready ? '' : ' disabled') . '>Approve final artwork</button>';
     if (!$ready) echo '<p class="ms-respond-approve-hint">Available once the finished artwork has been shared.</p>';
     echo '<p class="ms-respond-result" role="status" style="margin:.8em 0 0"></p>';
@@ -618,13 +635,17 @@ add_filter('manage_woocommerce_page_wc-orders_columns', function($columns) {
 
 add_action('manage_woocommerce_page_wc-orders_custom_column', function($column, $order) {
     if ($column !== 'ms_commission') return;
-    if (!ms_commission_order_items($order)) { echo '<span aria-hidden="true">&ndash;</span>'; return; }
+    if (!ms_commission_order_items($order)) {
+        if (function_exists('ms_commission_list_balance_cell') && ms_commission_list_balance_cell($order)) return; // the balance order: see commissions-orders-list.php
+        echo '<span aria-hidden="true">&ndash;</span>'; return;
+    }
 
     $stage = ms_commission_stage($order);
     $late = ms_commission_is_late($order);
     echo '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;border:1px solid ' . ($late ? '#b32d2e' : '#c3c4c7') . ';color:' . ($late ? '#b32d2e' : '#1d2327') . '">' . esc_html(ms_commission_stages()[$stage]) . '</span>';
     $due = ms_commission_due($order);
     if ($due) echo '<br><small style="color:' . ($late ? '#b32d2e' : '#646970') . '">due ' . esc_html(wp_date('M j', strtotime($due . ' 12:00:00'))) . '</small>';
+    if (function_exists('ms_commission_list_deposit_tag')) ms_commission_list_deposit_tag($order);
 }, 10, 2);
 
 add_action('woocommerce_order_list_table_restrict_manage_orders', function($order_type, $which) {

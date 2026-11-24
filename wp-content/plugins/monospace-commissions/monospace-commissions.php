@@ -41,6 +41,7 @@ add_filter( 'woocommerce_email_classes', function ( $emails ) {
         $emails['MS_Email_Commission_Received'] = new MS_Email_Commission_Received();
         $emails['MS_Email_New_Commission']      = new MS_Email_New_Commission();
         $emails['MS_Email_Commission_Preview']  = new MS_Email_Commission_Preview();
+        $emails['MS_Email_Commission_Message']  = new MS_Email_Commission_Message();
         $emails['MS_Email_Commission_Response'] = new MS_Email_Commission_Response();
         $emails['MS_Email_Commission_Reminder'] = new MS_Email_Commission_Reminder();
         $emails['MS_Email_Commission_Digest']   = new MS_Email_Commission_Digest();

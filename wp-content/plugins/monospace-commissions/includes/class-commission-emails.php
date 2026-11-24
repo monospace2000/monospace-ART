@@ -37,6 +37,36 @@ abstract class MS_Commission_Email extends WC_Email {
 
     public function get_default_additional_content() { return ''; }
 
+    /**
+     * The approval request, in the same words in every email that carries it (the finished-artwork update and a message sent while the
+     * finished artwork waits for approval; owner, 2026-11-23). The button lands on the order's Approve final artwork button
+     * (#approve-<id>, commissions-workflow.php). @return array [html, text]
+     */
+    protected function approve_block($order) {
+        $approve = wc_get_account_endpoint_url('my-commissions') . '#approve-' . $order->get_id();
+        $html = '<div style="border:3px solid #0c0519;border-radius:8px;padding:20px 22px;margin:24px 0;background:#f4f1ea">'
+            . '<p style="margin:0 0 10px;font-size:1.25em;font-weight:bold;color:#0c0519">One step left: please approve your artwork</p>'
+            . '<p style="margin:0 0 12px">Before I can prepare your artwork for shipping, I need your approval <strong>on the site</strong>. Please open your commission page and press the <strong>Approve final artwork</strong> button.</p>'
+            . '<p style="margin:0 0 18px"><strong>A reply to this email, or a comment such as "Looks great", does not count as approval.</strong> Only the button does.</p>'
+            . '<p style="margin:0 0 18px;text-align:center"><a href="' . esc_url($approve) . '" style="background:#0c0519;color:#ffffff;text-decoration:none;padding:16px 32px;border-radius:6px;display:inline-block;font-weight:bold;font-size:1.15em">Approve final artwork</a></p>'
+            . '<p style="margin:0;font-size:.95em">What happens next: you approve, I send your final payment invoice, and once it is paid your artwork is prepared and shipped.</p>'
+            . '</div>'
+            . '<p>Would you like something changed instead? Reply to this email or add a comment on your commission page, and we will talk it through before you approve.</p>';
+        $text = "\n==============================\nONE STEP LEFT: PLEASE APPROVE YOUR ARTWORK\n==============================\n"
+            . "Before I can prepare your artwork for shipping, I need your approval ON THE SITE. Please open your commission page and press the Approve final artwork button.\n\n"
+            . "A reply to this email, or a comment such as \"Looks great\", does not count as approval. Only the button does.\n\n"
+            . "Approve final artwork: " . $approve . "\n\n"
+            . "What happens next: you approve, I send your final payment invoice, and once it is paid your artwork is prepared and shipped.\n\n"
+            . "Would you like something changed instead? Reply to this email or add a comment on your commission page, and we will talk it through before you approve.\n";
+        return [$html, $text];
+    }
+
+    /** No second greeting when the owner's message already opens with one ("Hi Frances," + "Hi,", 2026-11-22) */
+    protected function greeting($order, $message) {
+        if (preg_match('/^\s*(hi|hello|hey|dear|good (morning|afternoon|evening))\b/i', $message)) return '';
+        return sprintf('Hi %s,', $order->get_billing_first_name() ?: 'there');
+    }
+
     public function get_headers() {
         $headers = parent::get_headers();
         if ($this->customer_email) $headers .= 'Bcc: ' . ms_commission_admin_email() . "\r\n";
@@ -217,28 +247,46 @@ class MS_Email_Commission_Preview extends MS_Commission_Email {
     public function get_default_subject() { return 'An update on your commission'; }
     public function get_default_heading() { return 'An update on your {item_name}'; }
 
-    public function trigger($order, $item, $preview_urls, $custom_message = '') {
+    /** The finished artwork has its own subject and heading, so the approval request is the first thing read (owner, 2026-11-23) */
+    public $is_final = false;
+    public function get_subject() {
+        return $this->is_final ? $this->format_string('Action needed: please approve your finished {item_name}') : parent::get_subject();
+    }
+    public function get_heading() {
+        return $this->is_final ? $this->format_string('Your artwork is finished: please approve it') : parent::get_heading();
+    }
+
+    public function trigger($order, $item, $preview_urls, $custom_message = '', $is_final = false) {
         $this->setup_locale();
         $this->object = $order;
+        $this->is_final = (bool) $is_final;
         $this->recipient = $order->get_billing_email();
         $this->placeholders['{order_number}'] = $order->get_order_number();
         $this->placeholders['{item_name}'] = ms_commission_friendly_name($item->get_name());
 
-        $first = $order->get_billing_first_name() ?: 'there';
-        $intro = $custom_message !== '' ? $custom_message : 'Here is the current state of your commission. This may include sketches, composition studies, or value and color tests.';
-        $html = '<p>' . sprintf('Hi %s,', esc_html($first)) . '</p><p>' . nl2br(esc_html($intro)) . '</p><div style="margin:20px 0">';
-        $text = sprintf('Hi %s,', $first) . "\n\n" . $intro . "\n\n";
+        $intro = $custom_message !== '' ? $custom_message : ($this->is_final ? 'Your artwork is finished. Here it is.' : 'Here is the current state of your commission. This may include sketches, composition studies, or value and color tests.');
+        $hello = $this->greeting($order, $intro);
+        $html = ($hello ? '<p>' . esc_html($hello) . '</p>' : '') . '<p>' . nl2br(esc_html($intro)) . '</p><div style="margin:20px 0">';
+        $text = ($hello ? $hello . "\n\n" : '') . $intro . "\n\n";
 
         foreach ($preview_urls as $url) {
-            $html .= '<img src="' . esc_url(ms_commission_email_image_url($url)) . '" style="max-width:100%;height:auto;border:1px solid #ddd;padding:2px;margin-bottom:10px" alt="Commission work in progress">';
+            $html .= '<img src="' . esc_url(ms_commission_email_image_url($url)) . '" style="max-width:100%;height:auto;border:1px solid #ddd;padding:2px;margin-bottom:10px" alt="' . ($this->is_final ? 'Your finished artwork' : 'Commission work in progress') . '">';
             $text .= 'Image: ' . $url . "\n";
         }
 
         $account = wc_get_account_endpoint_url('my-commissions');
-        $html .= '</div><p>You are welcome to respond by replying to this email or through your account.</p>'
-            . '<p><a href="' . esc_url($account) . '" style="background:#0c0519;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:4px;display:inline-block;font-weight:bold">View all commissions</a></p>'
-            . '<p style="color:#666;font-size:.9em">Order #' . esc_html($order->get_order_number()) . '</p>';
-        $text .= "\nYou are welcome to respond by replying to this email or through your account.\nYour commissions: " . $account . "\n";
+        $button = 'background:#0c0519;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:4px;display:inline-block;font-weight:bold';
+        $html .= '</div>';
+        if ($this->is_final) {
+            list($bh, $bt) = $this->approve_block($order);
+            $html .= $bh;
+            $text .= $bt;
+        } else {
+            $html .= '<p>You are welcome to respond by replying to this email or through your account.</p>'
+                . '<p><a href="' . esc_url($account) . '" style="' . $button . '">View all commissions</a></p>';
+            $text .= "\nYou are welcome to respond by replying to this email or through your account.\nYour commissions: " . $account . "\n";
+        }
+        $html .= '<p style="color:#666;font-size:.9em">Order #' . esc_html($order->get_order_number()) . '</p>';
 
         $this->body_html = $html;
         $this->body_text = $text;
@@ -248,6 +296,62 @@ class MS_Email_Commission_Preview extends MS_Commission_Email {
             $sent = $this->send($this->get_recipient(), $this->get_subject(), $this->get_content(), $this->get_headers(), $this->get_attachments());
         }
         $order->add_order_note($sent ? 'Update email sent to ' . $order->get_billing_email() . '.' : 'Update email FAILED to send to ' . $order->get_billing_email() . ' - tell the customer another way.');
+        $this->restore_locale();
+        return $sent;
+    }
+}
+
+/**
+ * To the customer: a message from you, written as WooCommerce's own "Note to customer" in the Order notes box (owner, 2026-11-23: one way to
+ * message a commission customer, no second message box). On a commission order it replaces WooCommerce's "A note has been added to your
+ * order" email (commissions-message.php): the message, a link to the commission page, and - while the finished artwork waits for approval -
+ * the same Approve block as the finished-artwork email. The stage does not change. The note shows in the customer's Conversation.
+ */
+class MS_Email_Commission_Message extends MS_Commission_Email {
+    public function __construct() {
+        $this->id = 'ms_commission_message';
+        $this->customer_email = true;
+        $this->title = 'Commission message (customer)';
+        $this->description = 'Sent to the customer when you add a "Note to customer" to a commission order (Order notes box). Replaces WooCommerce\'s Customer note email on commission orders.';
+        $this->placeholders = ['{order_number}' => '', '{item_name}' => ''];
+        parent::__construct();
+    }
+    public function get_default_subject() { return 'A message about your {item_name}'; }
+    public function get_default_heading() { return 'A message about your {item_name}'; }
+
+    public function trigger($order, $message) {
+        $items = ms_commission_order_items($order);
+        if (!$items) return false;
+        $this->setup_locale();
+        $this->object = $order;
+        $this->recipient = $order->get_billing_email();
+        $this->placeholders['{order_number}'] = $order->get_order_number();
+        $this->placeholders['{item_name}'] = ms_commission_friendly_name(reset($items)->get_name());
+
+        $hello = $this->greeting($order, $message);
+        $html = ($hello ? '<p>' . esc_html($hello) . '</p>' : '') . '<p>' . nl2br(esc_html($message)) . '</p>';
+        $text = ($hello ? $hello . "\n\n" : '') . $message . "\n\n";
+
+        $awaiting = ms_commission_final_shared($order) > 0 && in_array(ms_commission_stage($order), ['preview_sent', 'changes_requested'], true);
+        if ($awaiting) {
+            list($bh, $bt) = $this->approve_block($order);
+            $html .= $bh;
+            $text .= $bt;
+        } else {
+            $page = wc_get_account_endpoint_url('my-commissions') . '#commission-' . $order->get_id();
+            $html .= '<p>You are welcome to respond by replying to this email or on your commission page.</p>'
+                . '<p><a href="' . esc_url($page) . '" style="background:#0c0519;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:4px;display:inline-block;font-weight:bold">View your commission</a></p>';
+            $text .= "You are welcome to respond by replying to this email or on your commission page.\nYour commission: " . $page . "\n";
+        }
+        $html .= '<p style="color:#666;font-size:.9em">Order #' . esc_html($order->get_order_number()) . '</p>';
+        $this->body_html = $html;
+        $this->body_text = $text;
+
+        $sent = false;
+        if ($this->is_enabled() && $this->get_recipient()) {
+            $sent = $this->send($this->get_recipient(), $this->get_subject(), $this->get_content(), $this->get_headers(), $this->get_attachments());
+        }
+        $order->add_order_note($sent ? 'Message emailed to ' . $order->get_billing_email() . ($awaiting ? ' (with the Approve final artwork button).' : '.') : 'Message email FAILED to send to ' . $order->get_billing_email() . ' - tell the customer another way.');
         $this->restore_locale();
         return $sent;
     }
@@ -426,6 +530,8 @@ class MS_Email_Commission_Shipped extends MS_Commission_Email {
             $name = $item->get_name();
             break;
         }
+        // line & wash pieces ship on 9x12 paper with a faint pencil outline at 8x10 (owner, 2026-11-23)
+        $line_wash = (bool) preg_match('/\b(line|ink)\s*(&|&amp;|and)\s*wash\b/i', html_entity_decode($name, ENT_QUOTES, 'UTF-8'));
         $name = ms_commission_friendly_name($name);
         $this->placeholders['{order_number}'] = $final->get_order_number();
         $this->placeholders['{item_name}'] = $name;
@@ -444,6 +550,11 @@ class MS_Email_Commission_Shipped extends MS_Commission_Email {
             $line = trim($t['carrier'] . ' ' . $t['number']);
             $html .= '<p><strong>Tracking:</strong> ' . esc_html($line) . ($t['url'] ? ' - <a href="' . esc_url($t['url']) . '">Track your package</a>' : '') . '</p>';
             $text .= 'Tracking: ' . $line . ($t['url'] ? ' - ' . $t['url'] : '') . "\n\n";
+        }
+        if ($line_wash) {
+            $frame = 'For framing: your artwork is on 9×12 paper, and a faint pencil line marks the 8×10 area. Use it as your guide for an 8×10 mat or frame opening.';
+            $html .= '<p>' . esc_html($frame) . '</p>';
+            $text .= $frame . "\n\n";
         }
 
         $this->body_html = $html;

@@ -132,6 +132,7 @@ function monospace_seo_is_shop() {
 
 /** The feed header title of a term (term edit screen), else its name. */
 function monospace_seo_term_title( $term ) {
+    if ( ! $term || empty( $term->term_id ) ) return '';   // an archive whose term no longer exists (old links)
     $title = get_term_meta( $term->term_id, '_monospace_header_title', true );
     return monospace_seo_decode( $title ?: ucfirst( $term->name ) );
 }

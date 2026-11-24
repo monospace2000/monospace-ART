@@ -50,7 +50,9 @@ add_action('manage_woocommerce_page_wc-orders_custom_column', function($column, 
 
         $items = $order->get_items();
         if(empty($items)) {
-            echo '—';
+            // extension point: a feature can say what an item-less order is about (a commission's balance order)
+            $alt = apply_filters('monospace_order_list_empty_product', '', $order);
+            echo $alt !== '' ? $alt : '—'; // the filter returns escaped HTML
             return;
         }
 

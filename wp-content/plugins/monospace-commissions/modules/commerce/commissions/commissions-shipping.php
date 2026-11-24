@@ -24,6 +24,9 @@ function ms_commission_carriers() {
 function ms_commission_tracking($final) {
     $carrier = (string) $final->get_meta('_ms_commission_carrier');
     $number = (string) $final->get_meta('_ms_commission_tracking');
+    if ($number === '' && function_exists('ms_commission_label_tracking') && ($l = ms_commission_label_tracking($final))) { // the bought label
+        $carrier = $l['carrier']; $number = $l['number'];
+    }
     if ($number === '') return null;
 
     $templates = ms_commission_carriers();
@@ -41,6 +44,9 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
 
     $carrier = (string) $order->get_meta('_ms_commission_carrier');
     $number = (string) $order->get_meta('_ms_commission_tracking');
+    if ($number === '' && function_exists('ms_commission_label_tracking') && ($l = ms_commission_label_tracking($order))) { // filled in from the bought label
+        $carrier = $l['carrier']; $number = $l['number'];
+    }
     $photo = (string) $order->get_meta('_ms_commission_finished_photo');
     $sent = $order->get_meta('_ms_commission_shipped_sent');
 

@@ -33,6 +33,12 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+// Command-line runs (WP-CLI, server cron) have no HTTP_HOST; WordPress (admin bar, list tables) and plugins read it
+// anyway and filled the error log with "Undefined array key HTTP_HOST" (2026-11-22, lean logs).
+if ( PHP_SAPI === 'cli' && empty( $_SERVER['HTTP_HOST'] ) ) {
+    $_SERVER['HTTP_HOST'] = (string) parse_url( get_option( 'home' ), PHP_URL_HOST );
+}
+
 define( 'MONOSPACE_CORE_DIR', __DIR__ . '/monospace-art-core' );
 define( 'MONOSPACE_CORE_URL', content_url( 'mu-plugins/monospace-art-core' ) );
 

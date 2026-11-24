@@ -12,6 +12,18 @@ add_filter( 'ms_order_labels', function ( $labels ) {
     return $labels;
 } );
 
+// Core's item sources (item-sources.php): a "From: Sightings" line under the item in the cart, checkout, order pages and emails
+add_filter( 'monospace_item_sources', function ( $sources ) {
+    $sources['sightings'] = [
+        'label' => 'Sightings',
+        'url'   => 'https://sightings.monospace.com/?ref=art',
+        'match' => function ( $product_id ) {
+            return function_exists( 'monospace_sp_is_product' ) && monospace_sp_is_product( $product_id );
+        },
+    ];
+    return $sources;
+} );
+
 /** The drawing's page on Sightings for a Sightings print product, or '' */
 function monospace_sp_product_link( $product_id ) {
     if ( ! $product_id || ! function_exists( 'monospace_sp_is_product' ) || ! monospace_sp_is_product( $product_id ) ) return '';

@@ -417,24 +417,16 @@ class MSD_Volume_Discounts {
         if (!empty($cart_item['volume_discount_label'])) {
             $label = $cart_item['volume_discount_label'];
 
-            // DEBUG: Log what we have
-            error_log('Original label: ' . $label);
-            error_log('Rule key: ' . ($cart_item['_volume_rule_key'] ?? 'NOT SET'));
-
             // Make messages product-specific
             if (!empty($cart_item['_volume_rule_key'])) {
                 $rule_key = $cart_item['_volume_rule_key'];
                 $product_names = self::get_product_type_names($rule_key);
-
-                error_log('Product names: ' . print_r($product_names, true));
 
                 if ($product_names) {
                     // Replace plural "items" first
                     $label = str_replace(' items ', ' ' . $product_names['plural'] . ' ', $label);
                     // Then singular "item"
                     $label = str_replace(' item ', ' ' . $product_names['singular'] . ' ', $label);
-
-                    error_log('After replacement: ' . $label);
                 }
             }
 

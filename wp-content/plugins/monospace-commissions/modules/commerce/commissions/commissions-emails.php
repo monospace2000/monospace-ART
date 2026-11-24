@@ -295,8 +295,12 @@ function ms_commission_final_invoice_body($order) {
     $html .= '<p style="margin:20px 0;"><a href="' . esc_url($order->get_checkout_payment_url()) . '" style="background:#0c0519;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:4px;display:inline-block;font-weight:bold;">Pay ' . wc_price($order->get_total()) . ' now</a></p>';
 
     $addr = $order->get_formatted_shipping_address();
-    if ($addr) $html .= '<p><strong>Shipping to</strong><br>' . wp_kses_post($addr) . '</p>';
-    $html .= '<p>Just reply to this email if anything looks wrong.</p>';
+    if ($addr) {
+        $html .= '<p><strong>Shipping to</strong><br>' . wp_kses_post($addr) . '</p>';
+        // owner, 2026-11-23: the invoice is the moment to update the address (plain wording, no "last chance")
+        $html .= '<p>If you need to update your shipping address, now is the time: just reply to this email with the new address before you pay.</p>';
+    }
+    $html .= '<p>Just reply to this email if anything else looks wrong.</p>';
     return $html;
 }
 
@@ -352,7 +356,7 @@ add_filter('woocommerce_email_enabled_customer_new_account', function($enabled) 
 /**
  * The preview email (kept name: the upload handler in commissions-preview.php calls it)
  */
-function ms_send_commission_preview_email($order, $item, $preview_urls, $custom_message = '') {
+function ms_send_commission_preview_email($order, $item, $preview_urls, $custom_message = '', $is_final = false) {
     if (!$order || !$item || empty($preview_urls)) return;
 
     // light copies for the email and the tab
@@ -363,7 +367,7 @@ function ms_send_commission_preview_email($order, $item, $preview_urls, $custom_
 
     $emails = WC()->mailer()->get_emails();
     if (isset($emails['MS_Email_Commission_Preview'])) {
-        $emails['MS_Email_Commission_Preview']->trigger($order, $item, $preview_urls, $custom_message);
+        $emails['MS_Email_Commission_Preview']->trigger($order, $item, $preview_urls, $custom_message, $is_final);
     } else {
         $order->add_order_note('Update email could not be sent (email class missing).');
     }

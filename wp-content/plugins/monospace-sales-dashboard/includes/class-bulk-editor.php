@@ -228,12 +228,6 @@ class MSD_Bulk_Editor {
 
         $updated = 0;
 
-        // Debug: Log what we received
-        error_log('MSD Bulk Edit - POST data: ' . print_r([
-            'bulk_additional_percentage' => $_POST['bulk_additional_percentage'] ?? 'NOT SET',
-            'bulk_reset_additional_percentage' => $_POST['bulk_reset_additional_percentage'] ?? 'NOT SET',
-            'product_ids' => $product_ids,
-        ], true));
 
         foreach ($product_ids as $product_id) {
             // Sale override
@@ -262,14 +256,9 @@ class MSD_Bulk_Editor {
             // Additional percentage increase
             if (isset($_POST['bulk_reset_additional_percentage']) && $_POST['bulk_reset_additional_percentage'] == '1') {
                 delete_post_meta($product_id, '_msd_additional_percentage');
-                error_log("MSD: Deleted additional % for product $product_id");
             } elseif (isset($_POST['bulk_additional_percentage']) && $_POST['bulk_additional_percentage'] !== '') {
                 $additional_percentage = floatval($_POST['bulk_additional_percentage']);
-                error_log("MSD: Processing product $product_id - percentage value: {$_POST['bulk_additional_percentage']}, float: $additional_percentage");
-                $result = update_post_meta($product_id, '_msd_additional_percentage', $additional_percentage);
-                error_log("MSD: Saved additional % ($additional_percentage) for product $product_id - Result: " . ($result ? 'SUCCESS' : 'FAILED'));
-            } else {
-                error_log("MSD: Skipped product $product_id - field not set or empty");
+                update_post_meta($product_id, '_msd_additional_percentage', $additional_percentage);
             }
 
             // Volume exclusion

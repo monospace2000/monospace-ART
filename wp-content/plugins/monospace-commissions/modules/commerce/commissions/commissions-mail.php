@@ -35,9 +35,18 @@ if (!defined('ABSPATH')) exit;
  * SETTINGS AND SCHEDULE
  * ===========================
  */
+/**
+ * Gmail only, and only its labels (owner, 2026-11-23): the info@, sales@ and commissions@ mailboxes are gone - mail to them now arrives in
+ * Gmail through filters that label it. A SiteGround entry still in wp-config.php is skipped. Gmail is read in the labels a commission
+ * conversation lands in, plus Sent Mail for your own replies from Gmail. Filter ms_commission_mail_gmail_folders to change them.
+ */
 function ms_commission_mail_mailboxes() {
     $list = defined('MS_COMMISSION_MAILBOXES') && is_array(MS_COMMISSION_MAILBOXES) ? MS_COMMISSION_MAILBOXES : [];
-    return array_values(array_filter($list, function($m) { return !empty($m['user']) && !empty($m['pass']); }));
+    $list = array_filter($list, function($m) { return !empty($m['user']) && !empty($m['pass']) && ($m['host'] ?? '') === 'imap.gmail.com'; });
+    $folders = apply_filters('ms_commission_mail_gmail_folders', ['Commissions', 'Website Inquiries', '[Gmail]/Sent Mail']);
+    foreach ($list as &$m) $m['folders'] = $folders;
+    unset($m);
+    return array_values($list);
 }
 
 function ms_commission_mail_configured() {
@@ -49,7 +58,10 @@ add_filter('cron_schedules', function($schedules) {
     return $schedules;
 });
 
-add_action('init', function() {
+// On shutdown, not init (2026-11-23): MS_COMMISSION_MAILBOXES sits below the wp-settings.php line in wp-config.php, so on a web request it
+// is defined only after init has run - checked on init, every page view cancelled the poll (it stopped on Nov 17). wp-cron.php runs the
+// events after wp-config.php has finished, so the poll itself sees the logins.
+add_action('shutdown', function() {
     $next = wp_next_scheduled('ms_commission_mail_poll');
     if (ms_commission_mail_configured()) {
         if (!$next) wp_schedule_event(time() + 120, 'ms_every_10_minutes', 'ms_commission_mail_poll');
@@ -263,6 +275,22 @@ function ms_commission_mail_store_images($order, $key, array $images) {
 }
 
 /** @return string what happened: added, would-add (dry run), duplicate or a reason it was left out */
+/**
+ * The original email into the commission's records folder too (commission-files/order-<id>/correspondence/, beside the emails the site
+ * sent), as an .eml that Mail opens - so scripts/pull-commissions.sh copies the whole correspondence off-line from one place
+ * (owner, 2026-11-23: the Mac's own mailbox reader read commissions@, which is gone).
+ */
+function ms_commission_mail_file($order, $m, $who) {
+    if (empty($m['raw']) || !function_exists('ms_commission_root_order') || !function_exists('ms_commission_record_dir')) return;
+    $root = ms_commission_root_order($order);
+    if (!$root) return;
+    $dir = ms_commission_record_dir($root->get_id()) . 'correspondence/';
+    if (!wp_mkdir_p($dir)) return;
+    $name = wp_date('Y-m-d_His', $m['date'] ?: time()) . '_email-from-' . ($who === 'customer' ? 'customer' : 'you') . '.eml';
+    if (!file_exists($dir . $name)) file_put_contents($dir . $name, $m['raw']);
+    if (function_exists('ms_commission_write_manifest')) ms_commission_write_manifest($root);
+}
+
 function ms_commission_mail_handle($m, $dry = false) {
     if ($m['auto']) return 'ignored';
     $owners = ms_commission_mail_owner_addresses();
@@ -304,6 +332,7 @@ function ms_commission_mail_handle($m, $dry = false) {
     }
     $order->update_meta_data('_ms_commission_mail', $all);
     $order->save();
+    ms_commission_mail_file($order, $m, $who);
     $first = strtok($text, "\n");
     $order->add_order_note(($who === 'customer' ? 'Email from the customer' : 'Email from you') . ' added to the conversation: ' . mb_substr((string) $first, 0, 120));
 
@@ -494,7 +523,7 @@ function ms_commission_mail_poll() {
                     if ($size > 0 && $size < 40 * MB_IN_BYTES) {
                         $raw = $imap->body($uid);
                         $fetches++;
-                        if ($raw !== '' && ms_commission_mail_handle(ms_commission_mail_parse($raw, true)) === 'added') $res['added']++;
+                        if ($raw !== '') { $m = ms_commission_mail_parse($raw, true); $m['raw'] = $raw; if (ms_commission_mail_handle($m) === 'added') $res['added']++; }
                     }
                     $seen[$skey] = 1;
                 }
@@ -534,7 +563,9 @@ function ms_commission_mail_import($email, $since = '-365 days', $dry = true) {
             foreach ($imap->search(ms_commission_mail_search($email, $since)) as $uid) {
                 list($mid, $size) = $imap->head($uid);
                 if ($size <= 0 || $size >= 40 * MB_IN_BYTES) { $report[] = '[' . $box['user'] . ' ' . $folder . '] skipped (size ' . $size . ')'; continue; }
-                $m = ms_commission_mail_parse($imap->body($uid), true);
+                $raw = $imap->body($uid);
+                $m = ms_commission_mail_parse($raw, true);
+                $m['raw'] = $raw;
                 $report[] = sprintf('[%s %s] %s | %s | %s | %s', $box['user'], $folder, wp_date('Y-m-d H:i', $m['date']), mb_substr($m['subject'], 0, 50), ms_commission_mail_handle($m, $dry), mb_substr(str_replace("\n", ' / ', $m['text']), 0, 70));
             }
         }
