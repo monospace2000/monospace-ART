@@ -2,8 +2,8 @@
 /**
  * The same two buttons on an artwork's edit screen, in the Quick Artwork Editor box (owner, 2026-11-15): a folding panel
  * "Alt text & tags". Alt text: the box starts from the featured image's alt text; Generate alt text / Regenerate alt text fill it
- * (Regenerate alt text asks first - extra API credit); Save alt text puts it into the Media Library and into the post's image
- * block (save the post to keep the block). Tags: Suggest tags adds the suggestions that already exist as tags to the post
+ * (Regenerate alt text asks first - extra API credit); any save (Save alt text, the editor's Save, Cmd-S - Core's
+ * artwork-save.php) puts it into the post's image block and the Media Library. Tags: Suggest tags adds the suggestions that already exist as tags to the post
  * (the block editor's Tags panel shows them; save the post to keep them); new ones are only listed, to add by hand.
  * Core's box offers the hook monospace_quick_editor_sections.
  *
@@ -67,26 +67,46 @@ add_action( 'admin_footer', function () {
             if (wrote && !window.confirm('Regenerate alt text asks Claude again and uses extra API credit (about a cent each time). The text in the box will be replaced. Continue?')) return;
             if (!wrote && $.trim($alt.val()) && !window.confirm('Replace the alt text in the box with a new one?')) return;
             run($aBtn, $aMsg, 'ms_ai_alt', 'Writing…', function (d) {
-                wrote = true; $alt.val(d.alt); $aBtn.text('Regenerate alt text');
-                say($aMsg, (d.uncertain ? 'Written - Claude was unsure about something, please read it.' : 'Written - edit it if you like, then Save alt text.') + ' Regenerate alt text uses extra credit.', d.uncertain ? 'warn' : '');
+                wrote = true; $alt.val(d.alt).trigger('change'); $aBtn.text('Regenerate alt text');
+                say($aMsg, (d.uncertain ? 'Written - Claude was unsure about something, please read it.' : 'Written - edit it if you like; any Save keeps it.') + ' Regenerate alt text uses extra credit.', d.uncertain ? 'warn' : '');
             });
         });
-        function setBlockAlt(blocks, id, alt) {
-            blocks.forEach(function (b) {
-                if (b.name === 'core/image' && b.attributes && b.attributes.id === id) wp.data.dispatch('core/block-editor').updateBlockAttributes(b.clientId, { alt: alt });
-                if (b.innerBlocks && b.innerBlocks.length) setBlockAlt(b.innerBlocks, id, alt);
-            });
+        // Its part of the one save (Core, artwork-save.php): the image block gets the words before the post is saved, the
+        // Media Library after
+        var savedAlt = $.trim($alt.val());
+        function altChanged() { return !!featured() && $.trim($alt.val()) !== savedAlt; }
+        function intoBlocks() {
+            if (!altChanged()) return null;
+            var img = featured(), text = $.trim($alt.val()), wrote = null;
+            (function walk(blocks) {
+                blocks.forEach(function (b) {
+                    if (b.name === 'core/image' && b.attributes && b.attributes.id === img && b.attributes.alt !== text) {
+                        wp.data.dispatch('core/block-editor').updateBlockAttributes(b.clientId, { alt: text });
+                        wrote = true;
+                    }
+                    if (b.innerBlocks && b.innerBlocks.length) walk(b.innerBlocks);
+                });
+            })(wp.data.select('core/block-editor').getBlocks());
+            return wrote;
         }
+        $alt.on('change', intoBlocks);
+        (window.msSaveParts = window.msSaveParts || []).push({
+            flush: intoBlocks,
+            dirty: altChanged,
+            save: function () {
+                if (!altChanged()) return null;
+                var text = $.trim($alt.val());
+                say($aMsg, 'Saving…');
+                return wp.apiFetch({ path: '/wp/v2/media/' + featured(), method: 'POST', data: { alt_text: text } }).then(function () {
+                    savedAlt = text;
+                    chip(text ? 'on' : 'warn', text ? 'Has alt text' : 'No alt text');
+                    say($aMsg, text ? 'Saved.' : 'Alt text cleared.');
+                }, function (e) { say($aMsg, 'Could not save the alt text.', 'error'); throw e; });
+            }
+        });
         $('#ms-ai-q-save-btn').on('click', function () {
-            var img = featured(), text = $.trim($alt.val());
-            if (!img) { say($aMsg, 'Set the featured image first.', 'warn'); return; }
-            var $b = $(this).prop('disabled', true); say($aMsg, 'Saving…');
-            wp.apiFetch({ path: '/wp/v2/media/' + img, method: 'POST', data: { alt_text: text } }).then(function () {
-                try { setBlockAlt(wp.data.select('core/block-editor').getBlocks(), img, text); } catch (e) {}
-                chip(text ? 'on' : 'warn', text ? 'Has alt text' : 'No alt text');
-                say($aMsg, text ? 'Saved to the image. The post\'s image block was updated too - save the post to keep it.' : 'Alt text cleared.');
-            }).catch(function () { say($aMsg, 'Could not save the alt text.', 'error'); })
-              .then(function () { $b.prop('disabled', false); });
+            if (!featured()) { say($aMsg, 'Set the featured image first.', 'warn'); return; }
+            if (window.msSave) window.msSave.save();
         });
 
         // Tags: the ones that exist are added to the post; new ones are only listed

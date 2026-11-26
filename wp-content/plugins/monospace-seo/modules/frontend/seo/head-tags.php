@@ -202,7 +202,8 @@ function monospace_seo_description() {
         $custom = get_post_meta( $post->ID, 'advanced_seo_description', true );
         if ( $custom ) return monospace_seo_trim( monospace_seo_plain( $custom ) );
 
-        $own = $post->post_excerpt ? monospace_seo_plain( $post->post_excerpt ) : monospace_seo_plain( $post->post_content );
+        // The post's text as the site shows it: a switched-off artwork story is left out (Core, artwork-story.php)
+        $own = $post->post_excerpt ? monospace_seo_plain( $post->post_excerpt ) : monospace_seo_plain( ( function_exists( 'monospace_story_public_content' ) ? monospace_story_public_content( $post ) : $post->post_content ) );
 
         $art = monospace_seo_artwork( $post->ID );
         if ( $art ) {

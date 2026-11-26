@@ -4,8 +4,7 @@
  *
  * One page, image first: title, caption, price, status, the product details, categories, tags, an
  * optional story and (off by default) prints. "Create draft" then does the setup by hand in one go:
- * - the post, in the owner's fixed shape: image (full size) + caption, More (blank text), story
- *   paragraphs, [price_card], the "meta" synced block (#428 - MONOSPACE_ARTWORK_META_BLOCK)
+ * - the post, in the owner's fixed shape: image (full size) + caption, More (blank text), story paragraphs, [price_card], the "meta" synced block (#428 - MONOSPACE_ARTWORK_META_BLOCK)
  * - categories: format + medium from the details (painting / drawing, acrylic / ink …), plus the look
  *   ticked here (color, black-and-white, sepia, miniature, favorite - line & wash was merged into the
  *   line & wash medium category 2026-10-19); tags; featured image
@@ -13,7 +12,7 @@
  *   shipping class by size), so it's identical to one made from the Quick Product box
  * - prints, when ticked: every size and frame (and the postcard) at the default prices, sizes under 100 dpi left out
  *   (monospace_prints_queue(), as Prints > New prints does)
- * and opens the draft in the block editor - the story and the rest are edited there as usual.
+ * and opens the draft in the block editor - the story (typed or dictated here, artwork-story.php) and the rest are edited there.
  *
  * The Artworks menu is meant to hold the all-artworks list later.
  */
@@ -257,7 +256,7 @@ function monospace_new_artwork_page() {
 
                     <details class="ms-na-card ms-na-fold">
                         <summary><h2>Story <span class="ms-na-state" data-state="story"></span></h2><span class="ms-na-sub">After the More break, before the price card</span></summary>
-                        <textarea id="ms-na-story" name="story" rows="5" placeholder="A blank line starts a new paragraph. You can also write it in the editor."></textarea>
+                        <?php monospace_story_fields( [ 'id' => 'ms-na-story', 'named' => true ] ); ?>
                     </details>
 
                     <section class="ms-na-card"<?php echo monospace_feature( 'prints' ) && empty( $prefill['no_prints'] ) ? '' : ' hidden'; // the Prints plugin is off, or the opening feature says no prints (a commission) ?>>
@@ -452,7 +451,8 @@ function monospace_new_artwork_page() {
                 tags = $('#ms-na-tags input[name="tags[]"]').length;
             chip('terms', cats + tags ? 'on' : 'empty', cats + ' ' + (cats === 1 ? 'category' : 'categories') + ' · ' + tags + ' ' + (tags === 1 ? 'tag' : 'tags'));
             var story = $.trim($('#ms-na-story').val());
-            chip('story', story ? 'on' : 'empty', story ? 'Written' : 'Optional');
+            var shown = $('.ms-na .ms-story-show-box').is(':checked');
+            chip('story', story ? (shown ? 'on' : 'empty') : 'empty', story ? (shown ? 'Written' : 'Written, not shown') : 'Optional');
             if (story) $('#ms-na-story').closest('details').prop('open', true);
         }
         $form.on('input change', states);
@@ -640,7 +640,7 @@ add_action( 'wp_ajax_monospace_heic_jpeg', function () {
     ] );
 } );
 
-/** The post body in the owner's shape: image + caption, More, story, [price_card], meta block */
+/** The post body in the owner's shape: image + caption, More, story paragraphs, [price_card], meta block */
 function monospace_new_artwork_content( $image_id, $caption, $story, $alt = '' ) {
     $url = wp_get_attachment_url( $image_id );
     $out  = '<!-- wp:image {"id":' . (int) $image_id . ',"sizeSlug":"full","linkDestination":"none"} -->' . "\n";
@@ -648,11 +648,7 @@ function monospace_new_artwork_content( $image_id, $caption, $story, $alt = '' )
     if ( $caption !== '' ) $out .= '<figcaption class="wp-element-caption">' . esc_html( $caption ) . '</figcaption>';
     $out .= "</figure>\n<!-- /wp:image -->\n\n";
     $out .= "<!-- wp:more {\"customText\":\" \"} -->\n<!--more  -->\n<!-- /wp:more -->\n\n";
-    foreach ( preg_split( '/\R\s*\R/', trim( $story ) ) as $paragraph ) {
-        $paragraph = trim( $paragraph );
-        if ( $paragraph === '' ) continue;
-        $out .= "<!-- wp:paragraph -->\n<p>" . nl2br( esc_html( $paragraph ), false ) . "</p>\n<!-- /wp:paragraph -->\n\n";
-    }
+    $out .= monospace_story_blocks( $story );
     $out .= "<!-- wp:shortcode -->\n[price_card]\n<!-- /wp:shortcode -->\n\n";
     $out .= '<!-- wp:block {"ref":' . MONOSPACE_ARTWORK_META_BLOCK . '} /-->';
     return $out;
@@ -720,6 +716,7 @@ add_action( 'wp_ajax_monospace_new_artwork', function () {
     ] ), true );
     if ( is_wp_error( $post_id ) ) wp_send_json_error( $post_id->get_error_message() );
 
+    monospace_story_set_show( $post_id, ( $in['story_show'] ?? '1' ) !== '0' );
     set_post_thumbnail( $post_id, $image_id );
     // The alt text goes into the Media Library too (the image block's own box holds the same words); empty = left as it is
     if ( $alt !== '' ) update_post_meta( $image_id, '_wp_attachment_image_alt', wp_slash( $alt ) );
@@ -771,10 +768,20 @@ add_action( 'wp_ajax_monospace_new_artwork', function () {
 
     do_action( 'monospace_new_artwork_created', $post_id, $product, $in );
 
+    // Listing by voice's Publish button (2026-11-26): published only once the post and product are complete
+    $published = false;
+    if ( ! empty( $in['publish'] ) && current_user_can( 'publish_posts' ) ) {
+        $done = wp_update_post( [ 'ID' => $post_id, 'post_status' => 'publish' ], true );
+        if ( is_wp_error( $done ) ) $notes[] = 'Not published (it is a draft): ' . $done->get_error_message();
+        else $published = true;
+    }
+
     wp_send_json_success( [
         'post_id'  => $post_id,
         'sku'      => $sku,
         'edit_url' => get_edit_post_link( $post_id, 'raw' ),
+        'view_url' => $published ? get_permalink( $post_id ) : get_preview_post_link( $post_id ),
+        'published' => $published,
         'notes'    => $notes,
     ] );
 } );

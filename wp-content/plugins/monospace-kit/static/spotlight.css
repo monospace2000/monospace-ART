@@ -1,0 +1,35 @@
+/* monospace spotlight - static drop-in for sites without WordPress (kilifax.net and the like), 2026-11-23.
+   The same light as the Kit part "spotlight" (modules/spotlight.php; source: the art site's Look). Link it in <head>:
+     <link rel="stylesheet" href="/assets/spotlight.css">
+   then tune it by overriding the variables below in the site's own CSS (no editing this file), e.g.
+     body { --ms-spot-x: 60vw; --ms-beam-angle: 270deg; --ms-spot-shade: rgba(0, 0, 0, .55); }
+   --ms-spot-x / -y      where the light lands (vw / vh)           --ms-spot-core   how much stays at full light (%)
+   --ms-spot-reach       where the edges reach the shade (vw)       --ms-beam-angle  where the beam comes from, clockwise from above (300deg = 10 o'clock)
+   --ms-beam-half        half the cone's width (0deg = no beam)     --ms-spot-light / --ms-spot-shade   colors (rgba)
+   Keep in step with modules/spotlight.php when either changes. */
+
+body {
+    position: relative;
+    z-index: 0;
+    --ms-spot-light: rgba(255, 255, 255, 0.8);
+    --ms-spot-shade: rgba(83, 37, 0, 0.2);
+    --ms-spot-x: 40vw;  --ms-spot-y: 40vh;  --ms-spot-core: 20%;  --ms-spot-reach: 50vw;
+    --ms-beam-angle: 300deg;  --ms-beam-half: 13deg;  --ms-beam-len: 110vmax;
+}
+@media (max-width: 920px) { body { --ms-spot-x: 50vw; --ms-spot-y: 40vh; --ms-spot-reach: 80vw; } }
+@media (max-width: 640px) { body { --ms-spot-x: 50vw; --ms-spot-y: 30vh; --ms-spot-reach: 100vw; } }
+
+body::before {
+    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(circle at var(--ms-spot-x) var(--ms-spot-y), var(--ms-spot-light) var(--ms-spot-core), var(--ms-spot-shade) var(--ms-spot-reach));
+}
+body::after {
+    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    --sx: calc(var(--ms-spot-x) + var(--ms-beam-len) * sin(var(--ms-beam-angle)));
+    --sy: calc(var(--ms-spot-y) - var(--ms-beam-len) * cos(var(--ms-beam-angle)));
+    background: var(--ms-spot-shade);
+    -webkit-mask-image: conic-gradient(from calc(var(--ms-beam-angle) + 180deg - var(--ms-beam-half)) at var(--sx) var(--sy), #000 0deg, rgba(0,0,0,.85) calc(var(--ms-beam-half) * .3), rgba(0,0,0,.1) calc(var(--ms-beam-half) * .8), transparent var(--ms-beam-half), rgba(0,0,0,.1) calc(var(--ms-beam-half) * 1.2), rgba(0,0,0,.85) calc(var(--ms-beam-half) * 1.7), #000 calc(var(--ms-beam-half) * 2)),
+                        radial-gradient(circle at var(--sx) var(--sy), transparent calc(var(--ms-beam-len) * .9), #000 calc(var(--ms-beam-len) + var(--ms-spot-reach) * 1.3));
+            mask-image: conic-gradient(from calc(var(--ms-beam-angle) + 180deg - var(--ms-beam-half)) at var(--sx) var(--sy), #000 0deg, rgba(0,0,0,.85) calc(var(--ms-beam-half) * .3), rgba(0,0,0,.1) calc(var(--ms-beam-half) * .8), transparent var(--ms-beam-half), rgba(0,0,0,.1) calc(var(--ms-beam-half) * 1.2), rgba(0,0,0,.85) calc(var(--ms-beam-half) * 1.7), #000 calc(var(--ms-beam-half) * 2)),
+                        radial-gradient(circle at var(--sx) var(--sy), transparent calc(var(--ms-beam-len) * .9), #000 calc(var(--ms-beam-len) + var(--ms-spot-reach) * 1.3));
+}

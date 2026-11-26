@@ -2,7 +2,7 @@
 /**
  * Plugin Name: monospace Kit
  * Description: The parts every monospace WordPress site shares. Switch each part on or off for this site under Settings > monospace Kit. SEO is its partner, the mu-plugin monospace-seo.
- * Version: 1.2.1
+ * Version: 1.4.0
  * Author: monospace
  * Update URI: false
  *
@@ -33,6 +33,8 @@ function monospace_kit_parts() {
 		'analytics'         => [ 'Analytics', 'The Google Analytics tag (the ID is in this site’s settings file). Your own visits while logged in are not counted.', 'Visitors' ],
 		'cookie-banner'     => [ 'Cookie banner', 'Asks visitors before Google counts them (opt-in). Needed with Analytics.', 'Visitors' ],
 		'contact'           => [ 'Contact form', 'The form on the Contact page (shortcode [monospace_contact]); messages go to the address in this site’s settings file.', 'Visitors' ],
+		'spotlight'         => [ 'Spotlight', 'The monospace light behind every page: position, size, angle and colors per device in Appearance > Spotlight, with a live preview.', 'Visitors' ],
+		'related-posts'     => [ 'Related posts', 'Under a post: a few other posts that share its tags, as pictures with their titles. Also [related_posts]. Takes over from Jetpack’s related posts while on.', 'Visitors' ],
 		'lightbox'          => [ 'Lightbox', 'Tap a picture in a post to see it full screen: swipe for the next, pinch to zoom, tap to close.', 'Visitors' ],
 		'video-poster'      => [ 'Video stills', 'An uploaded video gets a still frame, so iPhones and iPads show a picture instead of a black box.', 'Visitors' ],
 		'media-usage'       => [ 'Used in', 'Media Library column showing where each file is used, with a Used / Not used filter.', 'Media Library' ],

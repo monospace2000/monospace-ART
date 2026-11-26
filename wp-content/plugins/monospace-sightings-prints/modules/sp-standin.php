@@ -15,6 +15,13 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 const MONOSPACE_SP_SITE = 'https://sightings.monospace.com';
 
+/** Files a Sightings print file in the Real Media Library folder "sightings prints", apart from the art prints (2026-11-26). */
+function monospace_sp_file_in_folder( $att ) {
+    if ( ! $att || ! function_exists( 'wp_rml_move' ) || ! function_exists( 'wp_rml_create_or_return_existing_id' ) ) return;
+    $folder = (int) wp_rml_create_or_return_existing_id( 'sightings prints', -1, RML_TYPE_FOLDER, [], true );
+    if ( $folder ) wp_rml_move( $folder, [ (int) $att ], true );
+}
+
 /** Sightings' uploads folder on this account */
 function monospace_sp_uploads_dir() {
     return dirname( dirname( rtrim( ABSPATH, '/' ) ) ) . '/sightings.monospace.com/public_html/wp-content/uploads';
@@ -133,6 +140,7 @@ function monospace_sp_create_standin( $sightings_post_id, $layout, $canvas = '4x
     $att = wp_insert_attachment( [ 'post_mime_type' => 'image/jpeg', 'post_title' => "$title - print file", 'post_status' => 'inherit', 'post_parent' => $post_id ],
         $file, $post_id, true );
     if ( is_wp_error( $att ) ) { @unlink( $file ); wp_delete_post( $post_id, true ); throw new Exception( $att->get_error_message() ); }
+    monospace_sp_file_in_folder( $att );
     wp_update_attachment_metadata( $att, wp_generate_attachment_metadata( $att, $file ) );
     update_post_meta( $att, '_wp_attachment_image_alt', "Sightings No. {$d['number']}: " . $d['text'] );
     update_post_meta( $att, '_ms_print_file_clean', 1 );
@@ -178,6 +186,7 @@ function monospace_sp_regenerate( $sightings_post_id, $layout, $canvas = '4x5' )
     $att = wp_insert_attachment( [ 'post_mime_type' => 'image/jpeg', 'post_title' => "$title - print file", 'post_status' => 'inherit', 'post_parent' => $post_id ],
         $file, $post_id, true );
     if ( is_wp_error( $att ) ) { @unlink( $file ); throw new Exception( $att->get_error_message() ); }
+    monospace_sp_file_in_folder( $att );
     wp_update_attachment_metadata( $att, wp_generate_attachment_metadata( $att, $file ) );
     update_post_meta( $att, '_wp_attachment_image_alt', "Sightings No. {$d['number']}: " . $d['text'] );
     update_post_meta( $att, '_ms_print_file_clean', 1 );
@@ -223,6 +232,7 @@ function monospace_sp_register_upright( $file, $title, $post_id, $d ) {
     $att = wp_insert_attachment( [ 'post_mime_type' => 'image/jpeg', 'post_title' => "$title - postcard, upright", 'post_status' => 'inherit', 'post_parent' => $post_id ],
         $file, $post_id, true );
     if ( is_wp_error( $att ) ) throw new Exception( $att->get_error_message() );
+    monospace_sp_file_in_folder( $att );
     wp_update_attachment_metadata( $att, wp_generate_attachment_metadata( $att, $file ) );
     update_post_meta( $att, '_wp_attachment_image_alt', "Sightings No. {$d['number']}: " . $d['text'] );
     update_post_meta( $att, '_ms_print_file_clean', 1 );

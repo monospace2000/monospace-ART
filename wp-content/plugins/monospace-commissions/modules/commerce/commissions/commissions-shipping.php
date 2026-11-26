@@ -70,6 +70,7 @@ add_action('woocommerce_admin_order_data_after_order_details', function($order) 
     }
     echo ' <span id="ms-ship-status" style="margin-left:8px"></span></p>';
     echo '<p style="margin:10px 0 0;color:#646970">"Mark shipped" completes this order, which sends the customer the completed email.</p>';
+    do_action('ms_commission_ship_panel_end', $order);
     echo '</div>';
     ?>
     <script>

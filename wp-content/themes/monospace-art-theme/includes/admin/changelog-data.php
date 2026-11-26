@@ -16,6 +16,14 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 return [
+    [ '2026-11-26', 'Artwork tools', 'New: Listing by voice (the microphone in the toolbar, or Artworks > Listing by voice). Add the photo, say the title, price, size, categories, keywords and story, check what was filled in, then Publish or Save draft. Made for the iPhone.' ],
+    [ '2026-11-26', 'Commissions', 'A shipped commission can be watched for delivery: after you set up USPS email updates, Start delivery watch in the shipping box checks your Gmail every hour and emails you when the package is delivered.' ],
+    [ '2026-11-26', 'Prints', 'Sightings print files are kept in their own Media Library folder, "sightings prints", apart from the art prints, and new ones are filed there as they are made.' ],
+    [ '2026-11-24', 'Artwork tools', 'On an artwork’s edit screen, Save, Cmd-S, Update product and Save story now all save everything that changed, and only that.' ],
+    [ '2026-11-24', 'Artwork tools', 'The story box now starts with the text already in the post, dictation goes where the cursor is, and Save story writes it into the post in the block editor.' ],
+    [ '2026-11-24', 'Artwork tools', 'Artwork background stories can be dictated on New artwork and in the Quick Artwork Editor, and are shown before the price card unless you switch them off.' ],
+    [ '2026-11-24', 'AI writing', 'Clean up tidies a dictated story in your own words; Undo clean-up brings back what you said.' ],
+    [ '2026-11-24', 'Prints', 'The Posts, Products and Media lists no longer show the Sightings print records; a Sightings prints link above each list shows them (Media: list view).' ],
     [ '2026-11-23', 'Commissions', 'Buying the shipping label now fills in the tracking number for the shipping panel and the shipped email, so there is nothing to copy. The label screen uses the artwork\u2019s full price as its value and a default weight (0.2 lb on paper, 0.6 lb on a canvas panel).' ],
     [ '2026-11-23', 'Commissions', 'The Orders list shows a commission\u2019s deposit and balance orders as a pair: a blue edge on both rows, a Deposit or Balance tag linking to the other order, the artwork and stage on the balance row, and new Tracking and Paid columns. Shipping the balance order now completes the deposit order too, without another email.' ],
     [ '2026-11-23', 'Commissions', 'The shipping label is now bought on the final-payment order, where the commission ships, and the Shipping Label box is gone from the deposit order. The label screen lists the artwork as “Custom Order: Line and Wash”.' ],

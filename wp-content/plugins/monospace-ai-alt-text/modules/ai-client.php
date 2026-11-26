@@ -55,7 +55,7 @@ function ms_ai_request( $system, array $content, $max_tokens = 500 ) {
     foreach ( (array) ( $body['content'] ?? [] ) as $block ) if ( ( $block['type'] ?? '' ) === 'text' ) $text .= (string) $block['text'];
     if ( trim( $text ) !== '' ) return trim( $text );
     $why = is_array( $body ) ? (string) ( $body['stop_reason'] ?? '' ) : '';
-    return new WP_Error( 'ms_ai_empty', $why === 'refusal' ? 'Claude declined to describe this picture.' : 'Claude sent back nothing' . ( $why !== '' ? ' (' . $why . ')' : '' ) . '. Try again.' );
+    return new WP_Error( 'ms_ai_empty', $why === 'refusal' ? 'Claude declined this request.' : 'Claude sent back nothing' . ( $why !== '' ? ' (' . $why . ')' : '' ) . '. Try again.' );
 }
 
 /** The model's reply as an array (it is asked for JSON only; a code fence around it is tolerated) */

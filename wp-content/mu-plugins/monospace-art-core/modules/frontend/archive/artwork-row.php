@@ -143,7 +143,7 @@ function monospace_is_large_size( $product_id ) {
 function monospace_post_row_text( $post_id, $chars ) {
     $post = get_post( $post_id );
     if ( ! $post || $chars < 1 || post_password_required( $post ) ) return '';
-    $text = $post->post_excerpt !== '' ? $post->post_excerpt : $post->post_content;
+    $text = $post->post_excerpt !== '' ? $post->post_excerpt : ( function_exists( 'monospace_story_public_content' ) ? monospace_story_public_content( $post ) : $post->post_content );
     $text = trim( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( strip_shortcodes( excerpt_remove_blocks( $text ) ) ) ) );
     $text = html_entity_decode( $text, ENT_QUOTES, 'UTF-8' );
     if ( mb_strlen( $text ) <= $chars ) return esc_html( $text );

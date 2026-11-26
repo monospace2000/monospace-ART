@@ -955,6 +955,7 @@ class MetaBox
 				.qp-sec--details { grid-area: details; }
 				.qp-sec--prints { grid-area: prints; }
 				.qp-sec--message { grid-area: message; }
+				.qp-sec--story { grid-column: 1 / -1; }
 
 				.qp-dirty {
 					flex-basis: auto;
@@ -1080,9 +1081,8 @@ class MetaBox
 				?></span>
 				<a id="qp-edit-link" href="<?php echo $product_id ? esc_url(get_edit_post_link($product_id)) : '#'; ?>" target="_blank" <?php echo $product_id ? '' : 'hidden'; ?>><?php esc_html_e('Edit product ↗︎', 'quick-product'); ?></a>
 			</span>
-			<span class="qp-dirty" id="qp-dirty" hidden><?php esc_html_e('Changes not sent to the product yet', 'quick-product'); ?></span>
-			<span class="qp-dirty" id="qp-dirty-post" hidden><?php esc_html_e('The post has unsaved changes', 'quick-product'); ?></span>
-			<span class="qp-dirty qp-dirty--cats" id="qp-dirty-cats" hidden><?php esc_html_e('Categories changed - save the post and click Update product, so the post and the product both get them', 'quick-product'); ?></span>
+			<span class="qp-dirty" id="qp-dirty" hidden><?php esc_html_e('Not saved yet - any Save button or Cmd-S saves everything', 'quick-product'); ?></span>
+			<span class="qp-dirty qp-dirty--cats" id="qp-dirty-cats" hidden><?php esc_html_e('Categories or featured image changed - saving gives them to the product too', 'quick-product'); ?></span>
 		</div>
 	<?php
 	}
@@ -1779,53 +1779,54 @@ class MetaBox
 					var $dirty = $('#qp-dirty');
 
 					function hasProduct() { return !!$('#qp-product-id').val(); }
+					// Saving (2026-11-24): the editor's Save, Cmd-S, Update product and Save story are one save (artwork-save.php).
+					// This is the product's part of it: it is saved only when something the product gets has changed - its
+					// fields here, or the post's categories or featured image
 					var productDirty = false;
-					function setDirty(on) {
-						productDirty = !!on;
-						$dirty.prop('hidden', !on);
-					}
-
-					// Leaving the page with changes the product has not received: the browser asks first (the editor already asks
-					// about the post's own unsaved changes). Owner, 2026-11-01.
-					window.addEventListener('beforeunload', function(e) {
-						if (!productDirty && !catsPending) return;
-						e.preventDefault();
-						e.returnValue = '';
-					});
-
-					// The post's own unsaved changes (title, text, images): a second note here, so the two saves are not mixed up -
-					// Update saves the post, the product button saves the product
-					if (window.wp && wp.data && wp.data.subscribe) {
-						var $dirtyPost = $('#qp-dirty-post');
-						wp.data.subscribe(function() {
-							var ed = wp.data.select('core/editor');
-							if (ed && ed.isEditedPostDirty) $dirtyPost.prop('hidden', !ed.isEditedPostDirty());
-							checkCats();
+					function value(sel) { return String($(sel).val() || ''); }
+					function formState() {
+						var out = [];
+						$box.find('input[name^="qp_"], select[name^="qp_"], .qp-attribute-select').not('[name^="qp_card_message"]').each(function() {
+							if (this.id === 'qp-product-id') return;
+							out.push((this.name || this.dataset.taxonomy) + '=' + (this.type === 'checkbox' ? this.checked : this.value));
 						});
+						return out.join('&');
 					}
-
-					// Categories (owner, 2026-11-01: "essential not just for the post but also for the product"): the product's own category
-					// ticks are hidden in this box (they follow the post's), so the post's Categories panel in the editor is where they
-					// change - and Update product is what hands them to the product. A change there raises a red warning that stays until
-					// Update product succeeds - also after the post itself was saved. The starting point is the saved post once the editor
-					// has loaded it (before that the panel reads empty, which looked like a change).
-					var $dirtyCats = $('#qp-dirty-cats');
-					var catsPending = false, postCatBase = null;
-					function postCats(attr) {
-						var ed = window.wp && wp.data && wp.data.select('core/editor');
+					function cardState() {
+						return value('#qp-card-style') + '|' + $('.qp-cm [name^="qp_card_message["]').map(function() { return this.value; }).get().join('|');
+					}
+					function editorStore() { return window.wp && wp.data && wp.data.select('core/editor'); }
+					// "1,2|345": categories and featured image, as edited or as saved; null until the post has loaded
+					function postState(which) {
+						var ed = editorStore();
 						if (!ed || !ed.getCurrentPost || !ed.getEditedPostAttribute) return null;
 						var cur = ed.getCurrentPost();
-						if (!cur || +cur.id !== +qp.postId || !Array.isArray(cur.categories)) return null; // not loaded yet
-						return (attr === 'edited' ? (ed.getEditedPostAttribute('categories') || []) : cur.categories).slice().sort().join(',');
+						if (!cur || +cur.id !== +qp.postId || !Array.isArray(cur.categories)) return null;
+						var cats = which === 'edited' ? (ed.getEditedPostAttribute('categories') || []) : cur.categories;
+						var image = which === 'edited' ? ed.getEditedPostAttribute('featured_media') : cur.featured_media;
+						return cats.slice().sort().join(',') + '|' + (image || 0);
 					}
-					function checkCats() {
-						var saved = postCats('saved');
-						if (saved === null) return;
-						if (postCatBase === null) postCatBase = saved;
-						if (postCats('edited') !== postCatBase) catsPending = true;
-						$dirtyCats.prop('hidden', !catsPending);
+					var formBase = null, cardBase = null, postBase = null, fieldBase = {};
+					function remember() {
+						formBase = formState();
+						cardBase = cardState();
+						fieldBase = { availability: value('#qp-availability'), price: value('#qp-product-price'), sku: value('#qp-sku') };
 					}
-					checkCats();
+					function formChanged() { return formBase !== null && formState() !== formBase; }
+					function cardChanged() { return cardBase !== null && cardState() !== cardBase; }
+					function postChanged() { var now = postState('edited'); return postBase !== null && now !== null && now !== postBase; }
+					function setDirty() {
+						productDirty = formChanged() || cardChanged() || (hasProduct() && postChanged());
+						$dirty.prop('hidden', !productDirty);
+					}
+					function checkPost() {
+						if (postBase === null) postBase = postState('saved');
+						$('#qp-dirty-cats').prop('hidden', !(hasProduct() && postChanged()));
+						setDirty();
+					}
+					if (window.wp && wp.data && wp.data.subscribe) wp.data.subscribe(checkPost);
+					remember();
+					checkPost();
 					function showStatus(type, html) { $status.removeClass('success error').addClass(type).html(html).show(); }
 
 					// Price needed or not, by availability: the * shows only when it is; an empty price reads "--"
@@ -1851,8 +1852,9 @@ class MetaBox
 					// -------------------------
 					$box.on('input change', 'input, select', function() {
 						if (this.id === 'qp-prints-for-sale' || this.id === 'qp-reserved-url') return;
+						if ($(this).closest('.ms-story-box').length) return; // the story is saved on the post, not the product
 						$(this).closest('.qp-field').removeClass('is-invalid');
-						setDirty(true);
+						setDirty();
 					});
 
 					// Enter in a field would submit the editor's meta box form; send the product instead
@@ -1937,11 +1939,60 @@ class MetaBox
 					// -------------------------
 					// CREATE / UPDATE
 					// -------------------------
-					$button.on('click', function() {
+					function snack(text) { if (window.wp && wp.data) wp.data.dispatch('core/notices').createSuccessNotice(text, { type: 'snackbar', id: 'ms-save-product' }); }
+					function problem(html) {
+						showStatus('error', html);
+						if (window.wp && wp.data) wp.data.dispatch('core/notices').createErrorNotice('Product not saved - see the Quick Artwork Editor.', { type: 'snackbar', id: 'ms-save-product' });
+					}
+					function cardData(data) {
+						// Price card style (only when the field is there - Core's presets)
+						if ($('#qp-card-style').length) data.card_style = $('#qp-card-style').val();
+						// Price card message: qp_card_message[tab][field] -> card_message[tab][field]
+						data.card_message = {};
+						$('.qp-cm [name^="qp_card_message["]').each(function() {
+							var m = this.name.match(/^qp_card_message\[(\w+)\]\[(\w+)\]$/);
+							if (m) (data.card_message[m[1]] = data.card_message[m[1]] || {})[m[2]] = $(this).val();
+						});
+						return data;
+					}
+					function post(data) {
+						return new Promise(function(resolve, reject) {
+							$button.prop('disabled', true).text(qp.text.working);
+							$status.removeClass('success error').hide();
+							$.post(ajaxurl, data)
+								.done(function(response) {
+									if (response && response.success) resolve(response.data);
+									else { problem('<strong>' + qp.text.error + '</strong> ' + (response && response.data)); reject(); }
+								})
+								.fail(function() { problem(qp.text.failed); reject(); })
+								.always(function() { $button.prop('disabled', false).text(hasProduct() ? qp.text.update : qp.text.create); });
+						});
+					}
+					// The details may have set categories: fetch the saved post so the editor's panel is in step, without
+					// marking it as changed (which would ask for another save)
+					function refreshPost(categories) {
+						var ed = editorStore();
+						if (!categories || !ed || !ed.getCurrentPost) return Promise.resolve();
+						var has = (ed.getCurrentPost().categories || []).slice().sort().join(',');
+						if (categories.slice().sort().join(',') === has) return Promise.resolve();
+						return wp.apiFetch({ path: '/wp/v2/posts/' + qp.postId + '?context=edit' }).then(function(record) {
+							wp.data.dispatch('core').receiveEntityRecords('postType', 'post', record);
+						}).catch(function() {});
+					}
+
+					function sendCard() {
+						return post(cardData({ action: 'qp_create_update_product', nonce: $('#qp_nonce').val(), post_id: qp.postId, card_only: 1 }))
+							.then(function(data) {
+								showStatus('success', data.message);
+								cardBase = cardState();
+								setDirty();
+								snack('Price card saved.');
+							});
+					}
+					function sendProduct() {
 						// CLIENT-SIDE VALIDATION - the same required fields the server checks
 						var errors = [];
 						$box.find('.qp-field.is-invalid').removeClass('is-invalid');
-
 						$box.find('[data-qp-required]').each(function() {
 							// The price may be empty for some availabilities (sold, private, gallery)
 							var optional = String($(this).data('qp-optional-when') || '').split(' ');
@@ -1951,33 +2002,16 @@ class MetaBox
 								$(this).closest('.qp-field').addClass('is-invalid');
 							}
 						});
-
-						if ($('input[name="qp_categories[]"]:checked').length === 0) {
-							errors.push('At least one Category');
-						}
-
+						if ($('input[name="qp_categories[]"]:checked').length === 0) errors.push('At least one Category');
 						if (errors.length > 0) {
-							showStatus('error', '<strong>' + qp.text.missing + '</strong> ' + $('<div>').text(errors.join(', ')).html());
-							$box.find('.qp-field.is-invalid :input').first().trigger('focus');
-							return; // Stop here, don't send AJAX
+							problem('<strong>' + qp.text.missing + '</strong> ' + $('<div>').text(errors.join(', ')).html());
+							return Promise.reject();
 						}
 
-						// Collect attribute data
 						var attributes = {};
 						$('.qp-attribute-select').each(function() {
-							var $select = $(this);
-							var value = $select.val();
-							if (value) {
-								attributes[$select.data('taxonomy')] = value;
-							}
+							if ($(this).val()) attributes[$(this).data('taxonomy')] = $(this).val();
 						});
-
-						// Collect category data
-						var categories = [];
-						$('input[name="qp_categories[]"]:checked').each(function() {
-							categories.push($(this).val());
-						});
-
 						var data = {
 							action: 'qp_create_update_product',
 							nonce: $('#qp_nonce').val(),
@@ -1987,67 +2021,58 @@ class MetaBox
 							product_price: $('#qp-product-price').val(),
 							sku: $('#qp-sku').val(),
 							attributes: attributes,
-							categories: categories,
+							categories: $('input[name="qp_categories[]"]:checked').map(function() { return this.value; }).get(),
 							availability: $('#qp-availability').val(),
 							gallery_name: $('#qp-gallery-name').val(),
 							gallery_url: $('#qp-gallery-url').val(),
 							print_product_id: $('#qp-print-product-id').val(),
 							framed_print_product_id: $('#qp-framed-print-product-id').val(),
 							postcard_product_id: $('#qp-postcard-product-id').val(),
-							card_message: {}
+							// What was not touched here stays as the product has it now (it may have sold since the page opened)
+							keep: hasProduct() ? $.grep(['availability', 'price', 'sku'], function(k) {
+								return fieldBase[k] === value({ availability: '#qp-availability', price: '#qp-product-price', sku: '#qp-sku' }[k]);
+							}) : []
 						};
-						// Price card style (only when the field is there - Core's presets)
-						if ($('#qp-card-style').length) data.card_style = $('#qp-card-style').val();
-
-						// Price card message: qp_card_message[tab][field] -> card_message[tab][field]
-						$('.qp-cm [name^="qp_card_message["]').each(function() {
-							var m = this.name.match(/^qp_card_message\[(\w+)\]\[(\w+)\]$/);
-							if (m) (data.card_message[m[1]] = data.card_message[m[1]] || {})[m[2]] = $(this).val();
-						});
-
-						// Disable button and show processing
-						$button.prop('disabled', true).text(qp.text.working);
-						$status.removeClass('success error').hide();
-
-						$.post(ajaxurl, data)
-							.done(function(response) {
-								if (response.success) {
-									showStatus('success', response.data.message);
-									setDirty(false);
-
-									// A new product: show its number and link
-									if (response.data.product_id) {
-										$('#qp-product-id').val(response.data.product_id);
-										$('#qp-head-id').text(qp.text.productNo.replace('%d', response.data.product_id));
-									}
-									if (response.data.edit_url) {
-										$('#qp-edit-link').attr('href', response.data.edit_url).prop('hidden', false);
-									}
-									if (response.data.sku) {
-										$('#qp-sku').val(response.data.sku);
-										showSku();
-									}
-									// The details set some categories: keep the editor's category panel in step,
-									// or saving the post would put the old ones back
-									var ed = window.wp && wp.data && wp.data.select('core/editor');
-									if (response.data.categories && ed && ed.getEditedPostAttribute) {
-										wp.data.dispatch('core/editor').editPost({ categories: response.data.categories });
-									}
-									updatePill();
-									// The product has the categories now: start counting again
-									postCatBase = postCats('edited');
-									catsPending = false;
-									$dirtyCats.prop('hidden', true);
-								} else {
-									showStatus('error', '<strong>' + qp.text.error + '</strong> ' + response.data);
-								}
-							})
-							.fail(function() {
-								showStatus('error', qp.text.failed);
-							})
-							.always(function() {
-								$button.prop('disabled', false).text(hasProduct() ? qp.text.update : qp.text.create);
+						var sentPost = postState('saved');
+						return post(cardData(data)).then(function(res) {
+							showStatus('success', res.message);
+							snack(res.action === 'created' ? 'Product created.' : 'Product updated.');
+							if (res.product_id) {
+								$('#qp-product-id').val(res.product_id);
+								$('#qp-head-id').text(qp.text.productNo.replace('%d', res.product_id));
+							}
+							if (res.edit_url) $('#qp-edit-link').attr('href', res.edit_url).prop('hidden', false);
+							if (res.sku) {
+								$('#qp-sku').val(res.sku);
+								showSku();
+							}
+							if (res.availability && res.availability !== $('#qp-availability').val()) $('#qp-availability').val(res.availability).attr('data-status', res.availability);
+							if (res.price !== undefined && data.keep.indexOf('price') > -1) $('#qp-product-price').val(res.price);
+							priceRule();
+							updatePill();
+							remember();
+							return refreshPost(res.categories).then(function() {
+								postBase = postState('saved') || sentPost;
+								checkPost();
 							});
+						});
+					}
+
+					(window.msSaveParts = window.msSaveParts || []).unshift({
+						dirty: function() { return formChanged() || cardChanged() || (hasProduct() && postChanged()); },
+						save: function(ctx) {
+							if (!hasProduct()) {
+								// Never made by a save alone: a new product takes a SKU number
+								if (ctx.create) return sendProduct();
+								if (formChanged()) showStatus('error', 'No product yet - click ' + qp.text.create + ' to make one.');
+								return null;
+							}
+							if (formChanged() || postChanged()) return sendProduct();
+							return cardChanged() ? sendCard() : null;
+						}
+					});
+					$button.on('click', function() {
+						if (window.msSave) window.msSave.save({ create: !hasProduct() });
 					});
 
 					// -------------------------
@@ -2146,8 +2171,24 @@ class AjaxHandler
 			wp_send_json_error(__('Invalid post ID.', 'quick-product'));
 		}
 
+		// Only the price card changed: the product is not saved at all
+		if (! empty($_POST['card_only'])) {
+			$this->save_card($post_id);
+			wp_send_json_success(['message' => __('Price card saved.', 'quick-product')]);
+		}
+
 		// Sanitize input
 		$data = $this->sanitize_input();
+
+		// Fields the owner did not touch keep what the product has now - the screen may be older than a sale
+		$keep    = array_map('sanitize_key', (array) wp_unslash($_POST['keep'] ?? []));
+		$current = $keep && $data['product_id'] ? wc_get_product($data['product_id']) : null;
+		if ($current) {
+			$status = (string) get_post_meta($data['product_id'], 'painting_availability_status', true);
+			if (in_array('availability', $keep, true) && $status !== '') $data['availability'] = $status;
+			if (in_array('price', $keep, true)) $data['product_price'] = (string) $current->get_regular_price('edit');
+			if (in_array('sku', $keep, true)) $data['sku'] = (string) $current->get_sku('edit');
+		}
 
 		// Validate required fields
 		$errors = $this->validate_required_fields($data);
@@ -2169,21 +2210,7 @@ class AjaxHandler
 			wp_send_json_error($result->get_error_message());
 		}
 
-		// Price card style - saved here only, like the message below
-		if (isset($_POST['card_style']) && function_exists('monospace_price_card_set_post_style')) {
-			monospace_price_card_set_post_style($post_id, sanitize_key(wp_unslash($_POST['card_style'])));
-			if (function_exists('sg_cachepress_purge_cache')) sg_cachepress_purge_cache(get_permalink($post_id));
-		}
-
-		// Price card message override - saved here only, not with the post. Not sent (an editor
-		// page loaded before this existed) = left as it is, not cleared.
-		if (isset($_POST['card_message']) && is_array($_POST['card_message'])) {
-			self::save_card_message($post_id, wp_unslash($_POST['card_message']));
-			// No post save happens, so the page cache doesn't clear by itself
-			if (function_exists('sg_cachepress_purge_cache')) {
-				sg_cachepress_purge_cache(get_permalink($post_id));
-			}
-		}
+		$this->save_card($post_id);
 
 		// Get the updated product to fetch fresh SKU
 		$product = wc_get_product($result['product_id']);
@@ -2202,6 +2229,8 @@ class AjaxHandler
 			'message'    => $message,
 			'product_id' => $result['product_id'],
 			'sku'        => $sku,
+			'availability' => $data['availability'],
+			'price'      => $product ? (string) $product->get_regular_price('edit') : '',
 			'action'     => $result['action'],
 			'product_url' => get_permalink($result['product_id']),
 			'edit_url'   => get_edit_post_link($result['product_id'], 'raw'),
@@ -2211,6 +2240,25 @@ class AjaxHandler
 	}
 
 
+
+	/** The price card's style and message - saved here only, never with the post */
+	private function save_card($post_id)
+	{
+		if (isset($_POST['card_style']) && function_exists('monospace_price_card_set_post_style')) {
+			monospace_price_card_set_post_style($post_id, sanitize_key(wp_unslash($_POST['card_style'])));
+			if (function_exists('sg_cachepress_purge_cache')) sg_cachepress_purge_cache(get_permalink($post_id));
+		}
+
+		// Price card message override - saved here only, not with the post. Not sent (an editor
+		// page loaded before this existed) = left as it is, not cleared.
+		if (isset($_POST['card_message']) && is_array($_POST['card_message'])) {
+			self::save_card_message($post_id, wp_unslash($_POST['card_message']));
+			// No post save happens, so the page cache doesn't clear by itself
+			if (function_exists('sg_cachepress_purge_cache')) {
+				sg_cachepress_purge_cache(get_permalink($post_id));
+			}
+		}
+	}
 
 	/**
 	 * Save the price card message override as _qp_card_message: only tabs set to something other
