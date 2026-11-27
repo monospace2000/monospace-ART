@@ -86,6 +86,7 @@ function ms_term_get_sale() {
     return [
         'ids'  => array_values( array_unique( array_filter( array_map( 'absint', (array) ( $sale['ids'] ?? [] ) ) ) ) ),
         'disc' => $kind ? [ 'kind' => $kind, 'value' => max( 0, (float) ( $disc['value'] ?? 0 ) ) ] : [],
+        'tip'  => round( max( 0, (float) ( $sale['tip'] ?? 0 ) ), 2 ), // on top of the price, after every discount
         'email' => is_email( $sale['email'] ?? '' ) ? (string) $sale['email'] : '',
         'note'  => mb_substr( sanitize_textarea_field( (string) ( $sale['note'] ?? '' ) ), 0, 500 ),
     ];
@@ -127,7 +128,8 @@ function ms_term_calc( $sale ) {
         if ( $disc['kind'] === 'total' )   $given = max( 0, $subtotal - $disc['value'] );
     }
     $given = round( min( $subtotal, $given ), $decimals );
-    return [ 'lines' => $lines, 'subtotal' => $subtotal, 'discount' => $given, 'total' => round( $subtotal - $given, $decimals ) ];
+    $tip   = $lines ? round( (float) ( $sale['tip'] ?? 0 ), $decimals ) : 0.0;
+    return [ 'lines' => $lines, 'subtotal' => $subtotal, 'discount' => $given, 'tip' => $tip, 'total' => round( $subtotal - $given + $tip, $decimals ) ];
 }
 
 /** What the discount on the spot says in words */
@@ -225,7 +227,12 @@ add_action( 'template_redirect', function () {
 
         case 'remove':
             $sale['ids'] = array_values( array_diff( $sale['ids'], [ $id ] ) );
-            if ( ! $sale['ids'] ) $sale['disc'] = [];
+            if ( ! $sale['ids'] ) { $sale['disc'] = []; $sale['tip'] = 0; }
+            ms_term_save_sale( $sale );
+            break;
+
+        case 'tip':
+            $sale['tip'] = (float) str_replace( ',', '.', preg_replace( '/[^0-9.,]/', '', wp_unslash( $_POST['value'] ?? '' ) ) ); // empty = no tip
             ms_term_save_sale( $sale );
             break;
 
@@ -255,14 +262,9 @@ add_action( 'template_redirect', function () {
             $sale['email'] = $email;
             $sale['note']  = mb_substr( sanitize_textarea_field( wp_unslash( $_POST['note'] ?? '' ) ), 0, 500 );
             ms_term_save_sale( $sale );
-            if ( ms_term_practice() ) { // nothing is created: the payment screen is shown from a note
-                $method = sanitize_text_field( wp_unslash( $_POST['method'] ?? '' ) );
-                $calc   = ms_term_calc( $sale );
-                if ( ! in_array( $method, ms_term_settings()['methods'], true ) || ! $calc['lines'] ) { ms_term_flash( 'Add a piece to the sale first.', 'error' ); break; }
-                $paid = ms_term_paid_prices( $calc );
-                $rows = [];
-                foreach ( $calc['lines'] as $i => $line ) $rows[] = [ $line['id'], $paid[ $i ] ];
-                update_user_meta( get_current_user_id(), 'ms_terminal_practice_pending', [ 'method' => $method, 'total' => $calc['total'], 'lines' => $rows, 'note' => $sale['note'] ] );
+            if ( ms_term_practice() ) {
+                $result = ms_term_practice_start( sanitize_text_field( wp_unslash( $_POST['method'] ?? '' ) ), $sale );
+                if ( is_wp_error( $result ) ) ms_term_flash( $result->get_error_message(), 'error' );
                 break;
             }
             $result = ms_term_start_order( sanitize_text_field( wp_unslash( $_POST['method'] ?? '' ) ), $sale, $email );
@@ -314,6 +316,17 @@ add_action( 'template_redirect', function () {
     exit;
 } );
 
+/** A practice payment: nothing is created, the payment screen is shown from a note. True, or a WP_Error. */
+function ms_term_practice_start( $method, $sale ) {
+    $calc = ms_term_calc( $sale );
+    if ( ! in_array( $method, ms_term_settings()['methods'], true ) || ! $calc['lines'] ) return new WP_Error( 'empty', 'Add a piece to the sale first.' );
+    $paid = ms_term_paid_prices( $calc );
+    $rows = [];
+    foreach ( $calc['lines'] as $i => $line ) $rows[] = [ $line['id'], $paid[ $i ] ];
+    update_user_meta( get_current_user_id(), 'ms_terminal_practice_pending', [ 'method' => $method, 'total' => $calc['total'], 'lines' => $rows, 'tip' => $calc['tip'], 'note' => $sale['note'] ] );
+    return true;
+}
+
 /* ------------------------------
    The page
 -------------------------------*/
@@ -348,7 +361,7 @@ function ms_term_render() {
     if ( $gone ) {
         $names = array_map( function ( $id ) { $p = wc_get_product( $id ); return $p ? $p->get_name() : "#$id"; }, $gone );
         $sale['ids'] = array_values( array_diff( $sale['ids'], $gone ) );
-        if ( ! $sale['ids'] ) $sale['disc'] = [];
+        if ( ! $sale['ids'] ) { $sale['disc'] = []; $sale['tip'] = 0; }
         ms_term_save_sale( $sale );
         $msg = [ 'warn', 'No longer available, taken out of the sale: ' . implode( ', ', $names ) . '.' ];
     }
@@ -373,7 +386,9 @@ function ms_term_render() {
         </div>
     <?php endif; ?>
 
-    <?php if ( $msg ) : ?><p class="ms-term-msg is-<?php echo esc_attr( $msg[0] ); ?>"><?php echo esc_html( $msg[1] ); ?></p><?php endif; ?>
+    <?php if ( $msg ) : ?><p class="ms-term-msg is-<?php echo esc_attr( $msg[0] ); ?>"><?php echo ms_term_msg_html( $msg[1] ); // phpcs:ignore WordPress.Security.EscapeOutput -- escaped inside ?></p><?php endif; ?>
+
+    <?php do_action( 'ms_term_voice_ui', 'sale' ); // terminal-voice.php ?>
 
     <form method="post" action="<?php echo $url; ?>" class="ms-term-search">
         <?php echo $nonce; ?>
@@ -423,7 +438,7 @@ function ms_term_render() {
     <?php if ( ! $calc['lines'] ) : ?>
         <p class="ms-term-empty">No pieces yet. Search a number and add it.</p>
     <?php else : ?>
-        <ul class="ms-term-list<?php echo $calc['discount'] > 0 ? '' : ' is-last-open'; ?>">
+        <ul class="ms-term-list<?php echo $calc['discount'] > 0 || $calc['tip'] > 0 ? '' : ' is-last-open'; ?>">
         <?php foreach ( $calc['lines'] as $line ) : $p = $line['product']; ?>
             <li class="ms-term-line">
                 <?php echo ms_term_image_link( $p, 'thumbnail' ); // phpcs:ignore WordPress.Security.EscapeOutput -- built and escaped in the helper ?>
@@ -440,17 +455,20 @@ function ms_term_render() {
                     <?php echo $nonce; ?>
                     <input type="hidden" name="ms_term_action" value="remove">
                     <input type="hidden" name="product_id" value="<?php echo (int) $line['id']; ?>">
-                    <a href="#" class="ms-term-x" role="button" aria-label="Remove <?php echo esc_attr( $p->get_name() ); ?>" title="Remove" onclick="this.closest('form').submit();return false;">&times;</a>
+                    <a href="#" class="ms-term-x" role="button" aria-label="Remove <?php echo esc_attr( $p->get_name() ); ?>" title="Remove" onclick="this.closest('form').requestSubmit();return false;">&times;</a>
                 </form>
             </li>
         <?php endforeach; ?>
         </ul>
 
         <div class="ms-term-sums">
-            <?php if ( $calc['discount'] > 0 ) : ?>
+            <?php if ( $calc['discount'] > 0 || $calc['tip'] > 0 ) : ?>
                 <div><span>Subtotal</span><span><?php echo wp_kses_post( wc_price( $calc['subtotal'] ) ); ?></span></div>
+            <?php endif; ?>
+            <?php if ( $calc['discount'] > 0 ) : ?>
                 <div><span>Discount (<?php echo esc_html( ms_term_discount_text( $sale['disc'] ) ); ?>)</span><span>&minus;<?php echo wp_kses_post( wc_price( $calc['discount'] ) ); ?></span></div>
             <?php endif; ?>
+            <?php if ( $calc['tip'] > 0 ) : ?><div><span>Tip</span><span><?php echo wp_kses_post( wc_price( $calc['tip'] ) ); ?></span></div><?php endif; ?>
             <div class="ms-term-total"><span>Total</span><span><?php echo wp_kses_post( wc_price( $calc['total'] ) ); ?></span></div>
         </div>
 
@@ -467,6 +485,14 @@ function ms_term_render() {
                    value="<?php echo $sale['disc'] ? esc_attr( rtrim( rtrim( number_format( $sale['disc']['value'], 2, '.', '' ), '0' ), '.' ) ) : ''; ?>">
             <button class="ms-term-btn is-primary">Apply</button>
             <?php if ( $sale['disc'] ) : ?><button class="ms-term-btn" name="remove_discount" value="1">Remove discount</button><?php endif; ?>
+        </form>
+
+        <h3>Tip</h3>
+        <form method="post" action="<?php echo $url; ?>" class="ms-term-disc">
+            <?php echo $nonce; ?>
+            <input type="hidden" name="ms_term_action" value="tip">
+            <input name="value" inputmode="decimal" placeholder="$" autocomplete="off" aria-label="Tip in dollars" value="<?php echo $sale['tip'] > 0 ? esc_attr( (string) $sale['tip'] ) : ''; ?>">
+            <button class="ms-term-btn is-primary">Apply</button>
         </form>
 
         <h3>Take payment</h3>
@@ -488,7 +514,7 @@ function ms_term_render() {
             <?php echo $nonce; ?>
             <input type="hidden" name="ms_term_action" value="clear_sale">
             <?php // a link, not a <button>: the theme's glass style claims every button, with !important, and would make this blue ?>
-            <a href="#" class="ms-term-btn is-glass is-red-glass" role="button" onclick="if(confirm('Clear this sale?')){this.closest('form').submit();}return false;">Clear sale</a>
+            <a href="#" class="ms-term-btn is-glass is-red-glass" role="button" onclick="if(confirm('Clear this sale?')){this.closest('form').requestSubmit();}return false;">Clear sale</a>
         </form>
     <?php endif; ?>
 
@@ -504,10 +530,12 @@ function ms_term_render_today( $nonce, $url ) {
     $orders = ms_term_today_orders();
     $by     = [];
     $sum    = 0.0;
+    $tips   = 0.0;
     foreach ( $orders as $o ) {
         $m = $o->get_payment_method() ?: 'Other';
         $by[ $m ] = [ ( $by[ $m ][0] ?? 0 ) + (float) $o->get_total(), ( $by[ $m ][1] ?? 0 ) + 1 ];
         $sum += (float) $o->get_total();
+        foreach ( $o->get_fees() as $fee ) if ( $fee->get_name() === 'Tip' ) $tips += (float) $fee->get_total();
     }
     ob_start();
     ?>
@@ -520,6 +548,7 @@ function ms_term_render_today( $nonce, $url ) {
                 <?php foreach ( $by as $method => $x ) : ?>
                     <div><span><?php echo esc_html( $method ); ?> (<?php echo (int) $x[1]; ?>)</span><span><?php echo wp_kses_post( wc_price( $x[0] ) ); ?></span></div>
                 <?php endforeach; ?>
+                <?php if ( $tips > 0 ) : ?><div><span>Of which tips</span><span><?php echo wp_kses_post( wc_price( $tips ) ); ?></span></div><?php endif; ?>
                 <div class="ms-term-total"><span>All</span><span><?php echo wp_kses_post( wc_price( $sum ) ); ?></span></div>
             </div>
             <ul class="ms-term-list">
@@ -562,12 +591,13 @@ function ms_term_render_paying( $order, $msg, $practice = false ) {
     ?>
 <div class="ms-term">
     <?php if ( $practice ) : ?><div class="ms-term-practice"><strong>Practice mode.</strong> Nothing is recorded. The code below asks $0.01 &ndash; do not pay it.</div><?php endif; ?>
-    <?php if ( $msg ) : ?><p class="ms-term-msg is-<?php echo esc_attr( $msg[0] ); ?>"><?php echo esc_html( $msg[1] ); ?></p><?php endif; ?>
+    <?php if ( $msg ) : ?><p class="ms-term-msg is-<?php echo esc_attr( $msg[0] ); ?>"><?php echo ms_term_msg_html( $msg[1] ); // phpcs:ignore WordPress.Security.EscapeOutput -- escaped inside ?></p><?php endif; ?>
+    <?php do_action( 'ms_term_voice_ui', 'paying' ); // terminal-voice.php ?>
     <form method="post" action="<?php echo $url; ?>" style="margin:0 0 12px;">
         <?php echo $nonce; ?>
         <input type="hidden" name="ms_term_action" value="notpaid">
         <input type="hidden" name="order_id" value="<?php echo (int) $order->get_id(); ?>">
-        <button class="ms-term-btn">&larr; Change payment method</button>
+        <button class="ms-term-btn">&larr; Back to the sale</button>
     </form>
     <div class="ms-term-card ms-term-pay">
         <h3 class="ms-term-waiting"><?php echo ms_term_method_icon( $method ); ?>Waiting for payment &middot; <?php echo esc_html( $method ); ?></h3>
@@ -576,10 +606,14 @@ function ms_term_render_paying( $order, $msg, $practice = false ) {
         <ul class="ms-term-pieces">
             <?php foreach ( $order->get_items() as $item ) : $p = $item->get_product(); ?>
                 <li>
+                    <?php if ( $p ) echo $p->get_image( 'thumbnail' ); // phpcs:ignore WordPress.Security.EscapeOutput -- WooCommerce's own markup ?>
                     <div class="ms-term-title"><?php echo esc_html( $item->get_name() ); ?></div>
                     <?php if ( $p ) : ?><div class="ms-term-sku"><?php echo esc_html( $p->get_sku() ); ?></div><?php endif; ?>
                     <div class="ms-term-linetotal"><?php echo wp_kses_post( wc_price( $item->get_total() ) ); ?></div>
                 </li>
+            <?php endforeach; ?>
+            <?php foreach ( $order->get_fees() as $fee ) : ?>
+                <li><div class="ms-term-title"><?php echo esc_html( $fee->get_name() ); ?></div><div class="ms-term-linetotal"><?php echo wp_kses_post( wc_price( $fee->get_total() ) ); ?></div></li>
             <?php endforeach; ?>
         </ul>
         <?php if ( $qr ) : ?>
@@ -607,6 +641,12 @@ function ms_term_render_paying( $order, $msg, $practice = false ) {
 </div>
 <?php
     return ob_get_clean();
+}
+
+/** A message, with what was said by voice set apart and quieter */
+function ms_term_msg_html( $text ) {
+    $parts = explode( "\nYou said: ", (string) $text, 2 );
+    return esc_html( $parts[0] ) . ( isset( $parts[1] ) ? '<span class="ms-term-heard">You said: ' . esc_html( $parts[1] ) . '</span>' : '' );
 }
 
 /** The page's styles (one block, shared by the sale builder and the payment screen) */
@@ -698,7 +738,8 @@ html.ms-dark-ui .ms-term .is-warn { color: #f5b04f; }
 .ms-term .ms-term-qr svg { width: min(78vw, 320px); height: auto; background: #fff; padding: 8px; border-radius: 6px; }
 .ms-term .ms-term-pay-actions { display: grid; gap: 10px; margin: 16px 0 0; }
 .ms-term .ms-term-pieces { margin: 0 0 8px; padding: 0; list-style: none; opacity: .85; }
-.ms-term .ms-term-pieces li { margin: 0 0 10px; }
+.ms-term .ms-term-pieces li { margin: 0 0 10px; display: flow-root; }
+.ms-term .ms-term-pieces img { float: left; width: 64px; height: 64px; object-fit: cover; border-radius: 6px; margin: 0 12px 0 0; }
 html.ms-dark-ui .ms-term .ms-term-email { color: var(--ms-text, #e4dfd6); background: #262422; border-color: rgba(255,255,255,.35); }
 </style>
 CSS;

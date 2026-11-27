@@ -217,6 +217,8 @@ function monospace_story_assets() {
             box.dispatchEvent(new CustomEvent('ms-story-done', { bubbles: true, detail: { stopped: stopped } }));
         }
 
+        function trace(box, what) { box.dispatchEvent(new CustomEvent('ms-story-trace', { bubbles: true, detail: what })); }
+
         // One recognition session. Browsers end a session after a pause, so a new one follows until Stop is tapped.
         function listen(state) {
             var box = state.box, ta = box.querySelector('.ms-story-text'), rec = new Recognition(), failed = '';
@@ -232,8 +234,13 @@ function monospace_story_assets() {
                 var parts = [];
                 for (var i = 0; i < e.results.length; i++) {
                     var t = e.results[i][0].transcript.trim();
-                    if (t) parts.push(t);
+                    if (!t) continue;
+                    // iOS Safari can hand the same sentence over again, or again but longer: keep one (three words or more)
+                    var last = parts.length ? parts[parts.length - 1].toLowerCase() : '';
+                    if (last.split(' ').length > 2 && (t.toLowerCase() + ' ').indexOf(last + ' ') === 0) parts[parts.length - 1] = t;
+                    else parts.push(t);
                 }
+                trace(box, 'result ' + e.results.length);
                 if (!parts.length) return;
                 state.heard = true;
                 var said = (head && !/\s$/.test(head) ? ' ' : '') + parts.join(' '), gap = tail && !/^[\s.,;:!?)]/.test(tail) ? ' ' : '';
@@ -242,8 +249,11 @@ function monospace_story_assets() {
                 if (!tail) ta.scrollTop = ta.scrollHeight;
                 changed(ta);
             };
-            rec.onerror = function (e) { if (e.error !== 'aborted') failed = e.error; };
+            // What the browser's recognizer does, for a screen that wants to show it (the terminal in practice mode)
+            ['start', 'audiostart', 'speechstart', 'speechend', 'nomatch'].forEach(function (n) { rec['on' + n] = function () { trace(box, n); }; });
+            rec.onerror = function (e) { trace(box, 'error ' + e.error); if (e.error !== 'aborted') failed = e.error; };
             rec.onend = function () {
+                trace(box, 'end');
                 if (!live || live !== state || state.rec !== rec) return;
                 if (state.wanted && !failed && state.heard) {
                     try { listen(state); return; } catch (err) {}
@@ -260,7 +270,11 @@ function monospace_story_assets() {
             state.wanted = false;
             try { state.rec.stop(); } catch (e) {}
             // Some browsers never send "end" after stop
-            setTimeout(function () { if (live === state) finish(state.box, 'Done. Check the words, then edit or clean up.'); }, 1500);
+            setTimeout(function () {
+                if (live !== state) return;
+                trace(state.box, 'no end after stop, aborting');
+                finish(state.box, 'Done. Check the words, then edit or clean up.');
+            }, 1500);
         }
 
         function start(box) {

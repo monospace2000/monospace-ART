@@ -2,8 +2,8 @@
 /**
  * Plugin Name: monospace ART - Market terminal
  * Update URI: false
- * Description: The sale terminal for markets and fairs: /terminal/ (build a sale with discounts, take payment by Square, cash, Venmo or PayPal, today's sales with undo; settings in WooCommerce > Market terminal) and the older Market Inventory Manager.
- * Version: 1.0.0
+ * Description: The sale terminal for markets and fairs: /terminal/ (build a sale by hand or by voice, with discounts, take payment by Square, cash, Venmo or PayPal, today's sales with undo; settings in WooCommerce > Market terminal) and the older Market Inventory Manager.
+ * Version: 1.1.0
  * Author: Hens Breet
  * Requires Plugins: woocommerce
  *

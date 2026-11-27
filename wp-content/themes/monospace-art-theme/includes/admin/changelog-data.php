@@ -16,6 +16,22 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 return [
+    [ '2026-11-26', 'Market terminal', 'Every tap now answers at once: buttons press in, show a spinner and a bar moves across the top until the screen changes. While recording, the button counts the seconds.' ],
+    [ '2026-11-26', 'Artwork tools', 'Listing by voice shows the same recording timer and progress spinners.' ],
+    [ '2026-11-26', 'Market terminal', 'Selling by voice now records your voice and has it written down by a speech service: tap Record, talk, Stop and send. It replaces the iPhone’s unreliable web dictation.' ],
+    [ '2026-11-26', 'Artwork tools', 'Listing by voice uses the same Record button.' ],
+    [ '2026-11-26', 'Market terminal', 'On iPhone and iPad, selling by voice now uses the keyboard’s own microphone: tap the box, ramble, then Send. Computers keep the Dictate button.' ],
+    [ '2026-11-26', 'Emails', 'The logo in the welcome email and in the saved newsletter templates now links to art.monospace.com instead of the old monospace.com/art address.' ],
+    [ '2026-11-26', 'Emails', 'The welcome email now says the newsletter is an occasional update, a couple of times a year, instead of monthly.' ],
+    [ '2026-11-26', 'Emails', 'Fixed: the welcome email to new newsletter subscribers now has the subject Welcome to monospace ART instead of the word Subject.' ],
+    [ '2026-11-26', 'Market terminal', 'The terminal now updates without loading a new page, to keep the iPhone microphone working from one voice command to the next.' ],
+    [ '2026-11-26', 'Market terminal', 'Tips: type one under the discount or say it (for example ten dollar tip). It is added after discounts, shows as its own line on the order and receipt, and Today’s sales shows how much was tips.' ],
+    [ '2026-11-26', 'Market terminal', 'The button on the payment screen is now called Back to the sale.' ],
+    [ '2026-11-26', 'Market terminal', 'Selling by voice: plainer messages that say what was not added and whether payment opened. The button reads Stop and send while listening, and Send shows only when there are words waiting.' ],
+    [ '2026-11-26', 'Market terminal', 'Selling by voice: the words are readable in dark mode, Send is always there, and the microphone is released after each use so the next one can start.' ],
+    [ '2026-11-26', 'Market terminal', 'Sell by voice: tap Dictate, say the artwork numbers, any discount or note and how they pay, then tap Stop. The pieces are added and the payment screen opens. Add another piece the same way; removing and Paid stay by hand.' ],
+    [ '2026-11-26', 'Market terminal', 'The payment screen now shows a small picture of each piece.' ],
+    [ '2026-11-26', 'Artwork tools', 'Listing by voice: after Publish, a large button to view the published piece stays on screen.' ],
     [ '2026-11-26', 'Artwork tools', 'New: Listing by voice (the microphone in the toolbar, or Artworks > Listing by voice). Add the photo, say the title, price, size, categories, keywords and story, check what was filled in, then Publish or Save draft. Made for the iPhone.' ],
     [ '2026-11-26', 'Commissions', 'A shipped commission can be watched for delivery: after you set up USPS email updates, Start delivery watch in the shipping box checks your Gmail every hour and emails you when the package is delivered.' ],
     [ '2026-11-26', 'Prints', 'Sightings print files are kept in their own Media Library folder, "sightings prints", apart from the art prints, and new ones are filed there as they are made.' ],

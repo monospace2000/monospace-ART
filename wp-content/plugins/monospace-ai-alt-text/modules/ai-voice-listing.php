@@ -3,7 +3,7 @@
  * Artworks > Listing by voice (2026-11-26, owner): photograph a finished piece, say the details, check them, Publish.
  * iPhone first. Admins only.
  *
- * Nearly everything is reused: dictation is the story box's engine (Core, artwork-story.php), the photo goes up through
+ * Nearly everything is reused: speech goes through ai-record.php (the browser records, a service transcribes), the photo goes up through
  * New artwork's JPEG upload (monospace_heic_jpeg), alt text through ms_ai_alt, and Publish / Save draft is New artwork's
  * own create call (monospace_new_artwork), so the post and product are the same as from that screen.
  * New here: this page, and one call that sorts the transcript into the fields (ms_voice_parse). That call writes nothing.
@@ -197,7 +197,7 @@ function ms_voice_page() {
     $status_options = [];
     foreach ( $statuses as $value => $text ) $status_options[] = [ '', $value, $text ];
     ?>
-    <div class="ms-vl" id="ms-vl">
+    <div class="ms-vl ms-press-all" id="ms-vl">
         <h1>Listing by voice</h1>
 
         <label class="ms-vl-photo">
@@ -206,14 +206,11 @@ function ms_voice_page() {
             <img alt="" hidden>
         </label>
 
-        <div class="ms-story-box ms-vl-card ms-vl-say" id="ms-vl-say">
+        <div class="ms-vl-card ms-vl-say" id="ms-vl-say">
             <p class="ms-vl-hint">Say the title, price, size, categories, keywords and, if you like, the story.</p>
-            <div class="ms-story-tools">
-                <button type="button" class="ms-story-dictate" aria-pressed="false" hidden><span class="dashicons dashicons-microphone" aria-hidden="true"></span><span class="ms-story-dictate-label">Dictate</span></button>
-            </div>
-            <p class="ms-story-nodictate" hidden>Dictation isn't available in this browser. Tap in the box and use the microphone key on your keyboard, then tap Fill in.</p>
-            <p class="ms-story-msg" aria-live="polite"></p>
-            <textarea class="ms-story-text" id="ms-vl-transcript" rows="4" aria-label="What you said" placeholder="What you said appears here"></textarea>
+            <button type="button" class="ms-vl-mic" id="ms-vl-mic" aria-pressed="false"><span class="dashicons dashicons-microphone" aria-hidden="true"></span><span id="ms-vl-mic-label">Record</span></button>
+            <p class="ms-vl-msg" id="ms-vl-msg" aria-live="polite"></p>
+            <textarea id="ms-vl-transcript" rows="4" aria-label="What you said" placeholder="What you said appears here"></textarea>
             <button type="button" class="ms-vl-secondary" id="ms-vl-sort">Fill in</button>
         </div>
 
@@ -249,14 +246,17 @@ function ms_voice_page() {
             <label class="ms-vl-block"><span>Alt text</span><textarea data-field="alt" rows="4" placeholder="Written from the photo once there is a title"></textarea></label>
         </div>
 
-        <p class="ms-vl-result" id="ms-vl-result" aria-live="polite" hidden></p>
         <div class="ms-vl-bar">
-            <button type="button" class="ms-vl-secondary" id="ms-vl-draft">Save draft</button>
-            <button type="button" class="ms-vl-primary" id="ms-vl-publish">Publish</button>
+            <?php // The answer sits in the pinned bar, so it is on screen wherever the page is scrolled to ?>
+            <div class="ms-vl-result" id="ms-vl-result" aria-live="polite" hidden></div>
+            <div class="ms-vl-buttons">
+                <button type="button" class="ms-vl-secondary" id="ms-vl-draft">Save draft</button>
+                <button type="button" class="ms-vl-primary" id="ms-vl-publish">Publish</button>
+            </div>
         </div>
     </div>
     <?php
-    monospace_story_assets();
+    if ( ms_ai_record_ready() ) ms_ai_record_script();
     ms_voice_assets( [
         'upload' => wp_create_nonce( 'monospace_new_artwork' ),
         'ai'     => wp_create_nonce( 'ms_ai' ),
@@ -286,12 +286,12 @@ function ms_voice_assets( array $cfg ) {
         .ms-vl-photo:focus-within { outline: 3px solid #007aff; }
         .ms-vl-say { padding: 14px 16px 16px; text-align: center; }
         .ms-vl-hint { margin: 0 0 12px; color: #6c6c70; font-size: 15px; }
-        .ms-vl .ms-story-tools { justify-content: center; margin: 0; }
-        .ms-vl .ms-story-dictate { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 60px; border: 0; border-radius: 30px; background: #1c1c1e; color: #fff; font: 600 19px/1 -apple-system, sans-serif; cursor: pointer; }
-        .ms-vl .ms-story-dictate[hidden] { display: none; }
-        .ms-vl .ms-story-dictate.is-listening { background: #ff3b30; }
-        .ms-vl .ms-story-dictate .dashicons { width: 24px; height: 24px; font-size: 24px; }
-        .ms-vl .ms-story-msg, .ms-vl .ms-story-nodictate { font-size: 14px; margin: 10px 0 0; }
+        .ms-vl .ms-vl-mic { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 64px; border: 0; border-radius: 32px; background: #1c1c1e; color: #fff; font: 600 20px/1 -apple-system, sans-serif; cursor: pointer; }
+        .ms-vl .ms-vl-mic.is-recording { background: #ff3b30; }
+        .ms-vl .ms-vl-mic .dashicons { width: 24px; height: 24px; font-size: 24px; }
+        .ms-vl .ms-vl-msg { font-size: 14px; margin: 10px 0 0; color: #6c6c70; }
+        .ms-vl .ms-vl-msg:empty { display: none; }
+        .ms-vl .ms-vl-msg.is-error { color: #c1121f; }
         .ms-vl .ms-vl-say textarea { margin: 12px 0 10px; text-align: left; }
         .ms-vl input[type="text"], .ms-vl input[type="url"], .ms-vl select, .ms-vl textarea { font: 17px/1.4 -apple-system, sans-serif; color: #1c1c1e; width: 100%; max-width: none; min-height: 44px; margin: 0; border: 0; border-radius: 10px; background-color: #f2f2f7; padding: 10px 12px; box-shadow: none; }
         .ms-vl textarea { min-height: 96px; }
@@ -309,11 +309,15 @@ function ms_voice_assets( array $cfg ) {
         .ms-vl .ms-vl-chip { min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: #e5e5ea; color: #1c1c1e; font-size: 15px; cursor: pointer; }
         .ms-vl-chip::after { content: " \00d7"; color: #6c6c70; }
         .ms-vl-flags { margin: 0 0 18px; padding: 12px 16px; border-radius: 14px; background: #fff4d6; font-size: 15px; white-space: pre-line; }
-        .ms-vl-result { margin: 0 0 12px; padding: 12px 16px; border-radius: 14px; background: #fff; font-size: 15px; white-space: pre-line; }
+        .ms-vl-result { margin: 0 0 10px; padding: 12px 16px; border-radius: 14px; background: #fff; font-size: 15px; white-space: pre-line; }
         .ms-vl-result.is-error { background: #ffe5e3; }
         .ms-vl-result.is-ok { background: #dff6e3; }
-        .ms-vl-result a { display: inline-block; margin: 8px 16px 0 0; font-weight: 600; }
-        .ms-vl-bar { position: sticky; bottom: 0; display: flex; gap: 10px; margin: 0 -16px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: rgba(242,242,247,.82); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+        .ms-vl-result a { display: inline-block; margin: 8px 20px 0 0; padding: 8px 0; font-weight: 600; }
+        .ms-vl-result a.is-main { display: block; margin: 10px 0 0; padding: 15px; border-radius: 14px; background: #007aff; color: #fff; text-align: center; text-decoration: none; }
+        .ms-vl-buttons[hidden] { display: none !important; }
+        .ms-vl-bar { position: sticky; bottom: 0; margin: 0 -16px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: rgba(242,242,247,.82); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+        .ms-vl-buttons { display: flex; gap: 10px; }
+        .ms-vl-mic[hidden] { display: none !important; }
         .ms-vl .ms-vl-primary, .ms-vl .ms-vl-secondary { min-height: 50px; border: 0; border-radius: 14px; font: 600 17px/1 -apple-system, sans-serif; cursor: pointer; padding: 0 18px; }
         .ms-vl .ms-vl-primary { flex: 2; background: #007aff; color: #fff; }
         .ms-vl .ms-vl-secondary { flex: 1; background: #e5e5ea; color: #1c1c1e; }
@@ -452,13 +456,16 @@ function ms_voice_assets( array $cfg ) {
         }
 
         // ---- Sort what was said into the fields
-        var say = $('ms-vl-say'), transcript = $('ms-vl-transcript'), sortBtn = $('ms-vl-sort');
+        var transcript = $('ms-vl-transcript'), sortBtn = $('ms-vl-sort'), mic = $('ms-vl-mic');
+        function tell(text, error) { var el = $('ms-vl-msg'); el.textContent = text; el.classList.toggle('is-error', !!error); }
         function sort() {
             var words = transcript.value.trim();
-            if (!words) { window.msStory.say(say, 'Say or type the details first.', 'warn'); return; }
+            if (!words) { tell('Say or type the details first.', true); return; }
             if (busy || done) return;
             lock(true);
-            window.msStory.say(say, 'Filling in…');
+            tapped = sortBtn;
+            waiting(tapped, true);
+            tell('Filling in…');
             post({ action: 'ms_voice_parse', _ajax_nonce: cfg.ai, transcript: words, orientation: photo.orientation })
                 .then(function (d) {
                     ['title', 'caption', 'price', 'status', 'size', 'format', 'medium', 'surface', 'year', 'gallery_name', 'story'].forEach(function (n) { set(n, d[n]); });
@@ -469,20 +476,59 @@ function ms_voice_assets( array $cfg ) {
                     var flags = $('ms-vl-flags');
                     flags.textContent = (d.flags || []).join('\n');
                     flags.hidden = !(d.flags || []).length;
-                    window.msStory.say(say, 'Filled in. Check it below; dictate again to change something.');
+                    tell('Filled in. Check it below; record again to change something.');
                     if (photo.file && field('title').value.trim()) upload().catch(function (e) { result(e.message, 'error'); });
                 })
-                .catch(function (e) { window.msStory.say(say, e.message, 'error'); })
+                .catch(function (e) { tell(e.message, true); })
                 .then(function () { lock(false); });
         }
+        // Spinner in the button that was tapped, and the bar across the top
+        function waiting(el, on) {
+            if (el) window.msWait.mark(el, on ? 'ms-spin' : '');
+            window.msWait.bar(on);
+        }
+        var tapped = null;
         function lock(on) {
+            if (!on) { waiting(tapped, false); tapped = null; }
             busy = on;
             sortBtn.disabled = on;
             $('ms-vl-draft').disabled = $('ms-vl-publish').disabled = on || done;
         }
         sortBtn.addEventListener('click', sort);
-        // Tapping Stop fills in by itself (a pause the browser ended does not)
-        say.addEventListener('ms-story-done', function (e) { if (e.detail && e.detail.stopped && transcript.value.trim()) setTimeout(sort, 0); });
+        // ---- Record: Stop turns the audio into words (added to what was said before) and fills in
+        var micClock = null;
+        function micState(name) {
+            if (micClock) { micClock(); micClock = null; }
+            var busy = name === 'starting' || name === 'writing';
+            mic.classList.toggle('is-recording', name === 'recording');
+            mic.classList.toggle('ms-live', name === 'recording');
+            mic.setAttribute('aria-pressed', name === 'recording' ? 'true' : 'false');
+            mic.disabled = busy;
+            var label = $('ms-vl-mic-label');
+            label.textContent = { starting: 'Starting\u2026', writing: 'Writing it down\u2026' }[name] || 'Record';
+            mic.querySelector('.dashicons').style.display = name ? 'none' : '';
+            window.msWait.mark(mic, busy ? 'ms-spin' : (name === 'recording' ? 'ms-dot' : ''));
+            window.msWait.bar(name === 'writing');
+            if (name === 'recording') micClock = window.msWait.clock(function (t) { label.textContent = 'Stop \u00b7 ' + t; });
+        }
+        function stopRecording() {
+            micState('writing');
+            tell('Writing down what you said…');
+            window.msRecorder.stop().then(function (text) {
+                micState('');
+                if (!text) { tell('Nothing was heard. Tap Record and try again.', true); return; }
+                transcript.value = (transcript.value.trim() ? transcript.value.trim() + '\n' : '') + text;
+                sort();
+            }).catch(function (e) { micState(''); tell(e.message, true); });
+        }
+        mic.hidden = !(window.msRecorder && window.msRecorder.supported);
+        mic.addEventListener('click', function () {
+            if (window.msRecorder.recording()) { stopRecording(); return; }
+            micState('starting');
+            tell('Wait for the red button, then talk.');
+            window.msRecorder.start(stopRecording).then(function () { micState('recording'); tell('Recording. Talk as you like, then Stop.'); })
+                .catch(function (e) { micState(''); tell(e.message, true); });
+        });
 
         // ---- Save draft / Publish: New artwork's own create call
         function missing() {
@@ -501,6 +547,8 @@ function ms_voice_assets( array $cfg ) {
             var title = field('title').value.trim(), price = field('price').value.trim();
             if (publish && !window.confirm('Publish “' + title + '”' + (price ? ' at $' + price.replace(/^\$/, '') : '') + '?')) return;
             lock(true);
+            tapped = $(publish ? 'ms-vl-publish' : 'ms-vl-draft');
+            waiting(tapped, true);
             upload().then(function (id) {
                 result(publish ? 'Publishing…' : 'Saving the draft…');
                 return post({
@@ -516,11 +564,13 @@ function ms_voice_assets( array $cfg ) {
             }).then(function (d) {
                 done = true;
                 result((d.published ? 'Published.' : 'Draft saved.') + ' SKU ' + d.sku + (d.notes && d.notes.length ? '\n' + d.notes.join('\n') : '') + '\n', 'ok');
-                [[d.view_url, d.published ? 'View it' : 'Preview'], [d.edit_url, 'Edit'], [location.href, 'Next piece']].forEach(function (l) {
+                root.querySelector('.ms-vl-buttons').hidden = true;
+                [[d.view_url, d.published ? 'View the published piece' : 'Preview the draft', 'is-main'], [d.edit_url, 'Edit'], [location.href, 'Next piece']].forEach(function (l) {
                     if (!l[0]) return;
                     var a = document.createElement('a');
                     a.href = l[0];
                     a.textContent = l[1];
+                    if (l[2]) a.className = l[2];
                     $('ms-vl-result').appendChild(a);
                 });
                 lock(false);

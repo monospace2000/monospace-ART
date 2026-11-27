@@ -127,10 +127,21 @@ function ms_term_practice_order( $pending ) {
         $item->set_total( (float) $line[1] );
         $order->add_item( $item );
     }
+    if ( ! empty( $pending['tip'] ) ) $order->add_item( ms_term_tip_item( (float) $pending['tip'] ) );
     $order->set_payment_method( (string) $pending['method'] );
     $order->set_total( (float) $pending['total'] );
     if ( ! empty( $pending['note'] ) ) $order->update_meta_data( '_ms_term_note', (string) $pending['note'] ); // in memory only, for the screen
     return $order;
+}
+
+/** A tip as its own untaxed line on the order, never part of a piece's price */
+function ms_term_tip_item( $amount ) {
+    $fee = new WC_Order_Item_Fee();
+    $fee->set_name( 'Tip' );
+    $fee->set_tax_status( 'none' );
+    $fee->set_amount( (string) $amount );
+    $fee->set_total( (string) $amount );
+    return $fee;
 }
 
 /**
@@ -160,13 +171,14 @@ function ms_term_start_order( $method, $sale, $email = '' ) {
         if ( $line['label'] ) $item->add_meta_data( '_ms_deal', $line['label'] );
         $order->add_item( $item );
     }
+    if ( $calc['tip'] > 0 ) $order->add_item( ms_term_tip_item( $calc['tip'] ) );
     $order->set_payment_method( $method );
     $order->set_payment_method_title( $method );
     if ( is_email( $email ) ) $order->set_billing_email( $email );
     $order->update_meta_data( 'order_label', 'in-person-sale' ); // Orders list > Label (Core, order-labels.php)
     $order->update_meta_data( '_ms_term_user', get_current_user_id() );
     $order->update_meta_data( '_ms_term_state', wp_generate_password( 24, false ) ); // comes back from Square unchanged: a return completes only this sale, once
-    $order->update_meta_data( '_ms_term_sale', [ 'ids' => $sale['ids'], 'disc' => $sale['disc'], 'email' => is_email( $email ) ? $email : '', 'note' => $sale['note'] ] );
+    $order->update_meta_data( '_ms_term_sale', [ 'ids' => $sale['ids'], 'disc' => $sale['disc'], 'tip' => $calc['tip'], 'email' => is_email( $email ) ? $email : '', 'note' => $sale['note'] ] );
     if ( $sale['note'] !== '' ) $order->update_meta_data( '_ms_term_note', $sale['note'] );
     $order->calculate_totals( false ); // no tax line on in-person sales (yet: parked bookkeeping question)
     if ( abs( (float) $order->get_total() - $calc['total'] ) > 0.005 ) { // never charge a different amount than the screen says
@@ -179,6 +191,7 @@ function ms_term_start_order( $method, $sale, $email = '' ) {
     $auto = array_sum( wp_list_pluck( $calc['lines'], 'listed' ) ) - $calc['subtotal'];
     if ( $auto > 0.004 ) $note .= sprintf( ', automatic discount %s', wp_strip_all_tags( wc_price( $auto ) ) );
     if ( $calc['discount'] > 0 ) $note .= sprintf( ', discount on the spot %s (%s)', wp_strip_all_tags( wc_price( $calc['discount'] ) ), ms_term_discount_text( $sale['disc'] ) );
+    if ( $calc['tip'] > 0 ) $note .= sprintf( ', tip %s', wp_strip_all_tags( wc_price( $calc['tip'] ) ) );
     $order->add_order_note( $note . sprintf( ', total %s, %s.', wp_strip_all_tags( wc_price( $calc['total'] ) ), $method ) );
     if ( $sale['note'] !== '' ) $order->add_order_note( 'Note from the sale: ' . $sale['note'] ); // a private note: the Order notes box on the order screen, never emailed
 
@@ -271,7 +284,7 @@ function ms_term_drop_order( $order ) {
     foreach ( ms_term_order_products( $order ) as $id ) {
         if ( get_post_meta( $id, 'painting_availability_status', true ) === 'reserved' ) update_post_meta( $id, 'painting_availability_status', 'available' );
     }
-    if ( is_array( $saved ) ) ms_term_save_sale( [ 'ids' => (array) $saved['ids'], 'disc' => (array) $saved['disc'], 'email' => (string) ( $saved['email'] ?? '' ), 'note' => (string) ( $saved['note'] ?? '' ) ] );
+    if ( is_array( $saved ) ) ms_term_save_sale( [ 'ids' => (array) $saved['ids'], 'disc' => (array) $saved['disc'], 'tip' => (float) ( $saved['tip'] ?? 0 ), 'email' => (string) ( $saved['email'] ?? '' ), 'note' => (string) ( $saved['note'] ?? '' ) ] );
     $order->delete( true );
 }
 
